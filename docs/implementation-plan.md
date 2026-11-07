@@ -28,8 +28,10 @@ Repo layout: model/ spec/ rtl/ tb/ vivado/ sw/ scripts/ data/ results/
 ## Steps (Where -> Produce -> Verify)
 Phase 0 Setup
 - 0.1 Toolchain + repo: same tool versions; counter sims.
-- 0.2 PS-only bring-up: Vitis hello-world over USB-UART via JTAG (XSDB load_run.tcl).
-- 0.3 JTAG DDR round trip: put_image.tcl / get_image.tcl; 1 MB and 5 MB cmp-identical; record s/MB. Proposed buffers: src 0x1000_0000, dst 0x1800_0000.
+Board not yet available (2026-11-06): step 0.2 is split. 0.2a builds on the laptop, 0.2b and 0.3 wait for the board. Work continues with Phases 1-3, 4.1 and the new 4.1b (full-system simulation). The board must arrive before Gate 2.
+- 0.2a PS-only build (laptop): Tcl Vivado project with only ZYNQ7 PS (ZedBoard preset: DDR, UART), XSA, bitstream, Vitis bare-metal hello ELF, scripts/load_run.tcl (XSDB). Needs ZedBoard Rev C board files. POSTPONED 2026-11-07 until lab access to the ZedBoard is confirmed.
+- 0.2b PS-only bring-up (board): run 0.2a output; "hello" on USB-UART at 115200, boot jumpers = JTAG.
+- 0.3 JTAG DDR round trip (board): put_image.tcl / get_image.tcl; 1 MB and 5 MB cmp-identical; record s/MB. Proposed buffers: src 0x1000_0000, dst 0x1800_0000.
 
 Phase 1 Python model (laptop)
 - 1.1 model/patrm.py: Q15.16, inverse coeffs, block start by multiply-add then add-only stepping (same 32-bit wrap as RTL), bilinear, truncate to 8 bits, out-of-range 0, stream dumps. Verify: worked example (3,2)->(3.2,4.4)->120; identity; integer shift; column mirror (b22=-1, b23=W-1); 5/15/37 deg vs independent float warp within small tolerance.
@@ -47,7 +49,7 @@ Phase 3 Grayscale RTL (sim + OOC synth each)
 - 3.6 prefetch_ctrl + ping-pong BRAM + pixel_fetch (burst list = memmodel). 3.7 ctrl_fsm + patrm_top full-frame bit-exact at 64x64/128x96/256x192, all transforms. 3.8 OOC impl, WNS>=0 at 100 MHz, utilization saved.
 
 Phase 4 Board grayscale (= Stage 1 done)
-- 4.1 vivado/build.tcl: IP + block design (with ILA on AXI; keep captures for the debugging slide), bitstream, XSA. 4.2 sw/patrm_drv.c: job descriptor in DDR, cache flush/invalidate, interrupt + polling fallback, counters on UART. 4.3 run_test.tcl + run_all.py: full set bit-exact, counters = predictions. 4.4 sw/patrm_sw.c ARM baseline: laptop gcc vs Python, then A9 -O2/-O3 with XTime; bit-exact.
+- 4.1 vivado/build.tcl: IP + block design (with ILA on AXI; keep captures for the debugging slide), bitstream, XSA; ILA only in debug builds (D9). Needs ZedBoard board files. 4.1b full-system sim (laptop, xsim): real block design with the Zynq-7000 VIP as ARM + DDR; TB programs registers over GP0 like the driver, loads image into VIP DDR, waits for done interrupt, dumps output; Verify: bit-exact with model for >=2 transforms, interrupt fires, byte counters = 1.4 predictions. 4.2 sw/patrm_drv.c: job descriptor in DDR, cache flush/invalidate, interrupt + polling fallback, counters on UART. 4.3 run_test.tcl + run_all.py: full set bit-exact, counters = predictions. 4.4 sw/patrm_sw.c ARM baseline: laptop gcc vs Python, then A9 -O2/-O3 with XTime; bit-exact.
 
 Phase 5 Bayer Option A
 - 5.1 spec delta (plane addressing 2i+o_row, 2j+o_col; full-row read, ~2x; WSTRB writes). 5.2 bayer_seq + stride-2 select + strobe writes; sim bit-exact, gray regression passes. 5.3 board bit-exact; build "A" reports.
@@ -66,4 +68,6 @@ Week 1: Phases 0-2 + 3.1-3.3 (Gate 1: model checks pass, spec reviewed). Week 2:
 Roles: Model and software (1, 4.2-4.4, 7); Datapath RTL (3.2, 3.3, 3.6, 5, 6); Memory and integration (3.1, 3.4, 3.5, 3.7, 3.8, 4.1).
 
 ## Progress
-- Prompts 0, 0b, 0c done (D1-D9 decided; plan synced; course notice read). Next: Prompt 0d (CLAUDE.md wording + D5-D9), then Step 0.1.
+- Prompts 0, 0b, 0c, 0d done (D1-D9 decided; plan synced; course notice read).
+- Step 0.1 done (tag step-0.1).
+- 2026-11-07: Step 0.2a postponed (board files not installed; waiting for lab access to the ZedBoard). 0.2b and 0.3 wait for the board.

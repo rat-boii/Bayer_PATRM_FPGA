@@ -43,6 +43,13 @@ Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-s
    `python.exe`/`python3.exe` App execution aliases (Settings > Apps > Advanced app settings),
    or use `py -3` instead of `python` in every command below.
 
+## Known setup items
+
+- ZedBoard Rev C board files are **not installed** (needed before step 4.1). Step 0.2a is
+  postponed until lab access to the ZedBoard is confirmed.
+- Zynq-7000 VIP is available in Vivado 2026.1: `processing_system7_vip` 1.0 and
+  `processing_system7` 5.5 (used by the full-system simulation in step 4.1b).
+
 ## Checks (step 0.1)
 
 Run them from the repo root:
