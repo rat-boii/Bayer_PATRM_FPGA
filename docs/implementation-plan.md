@@ -17,21 +17,20 @@ Repo layout: model/ spec/ rtl/ tb/ vivado/ sw/ scripts/ data/ results/
 - D3 sizes: gray W%8==0; Bayer W%16==0 and H even; others rejected, no padding. Tests: 480x272, 640x480, 800x480, 1920x1080, 2448x2048 (Bayer large), gray also 2448x2095 (paper size).
 - D4 overflow: plain 32-bit wrap in RTL; software rejects transforms whose 4 output corners map beyond +/-16384 px.
 - D5 coefficient quantisation: floor(v*65536 + 0.5). D6 Option B lane offset = register difference T_p - T_R (not (A-I)o/2 recomputed; D2 rounding can differ by 1 LSB). D7 all sizes written W x H. D8 PL clock 100 MHz for every build; 150 MHz only as an Fmax experiment in 7.3. D9 resource/timing/speed numbers from builds without the ILA (ILA = debug build option).
+- D10 interpolator = option A2 (2026-11-07): xf,yf = low 16 bits; w2=((65536-xf)*yf)>>16, w3=(xf*(65536-yf))>>16, w4=(xf*yf)>>16, w1=65536-(w2+w3+w4); D=(w1*r1+w2*r2+w3*r3+w4*r4)>>16. 7 multipliers (3 weight + 4 pixel), each fits one DSP48E1; weights sum exactly to 1 (flat stays flat). Measured on a 15-deg rotation: A2 differs from exact maths on 0.02% of pixels (max 1 level) vs 71% for the paper-style 4-weight truncation (which turns 255 into 254). Replaces the '8 multipliers' convention. Worked example: X=209715, Y=288360, xf=13107, yf=26216, w=(31458,20972,7863,5243), D=120.
+- Block length does not affect results (integer stepping == multiply exactly, mod 2^32); it is a memory/prefetch parameter decided in 1.4/2.2, not 1.1.
 - b is the inverse map; PC helper builds it from forward params in float, quantises round-to-nearest; ARM never does float transform maths. Integer part = >>16 (floor).
 
 ## Open decisions (proposed defaults, not yet decided)
-- 1.1: interpolator bit widths (proposed: full 16-bit fractions); block length for block-start computation.
-- 1.4: largest rotation/scale the prefetch buffers support.
+- 1.4/2.2: block length (prefetch/burst grouping) and largest rotation/scale the prefetch buffers support.
 - 2.1: max width 4096 (BRAM sizing); who writes t_p registers (proposed: ARM, using the D2 integer formula).
 - 5.1: Option A output via WSTRB-masked writes into interleaved buffer.
 
 ## Steps (Where -> Produce -> Verify)
 Phase 0 Setup
 - 0.1 Toolchain + repo: same tool versions; counter sims.
-Board not yet available (2026-11-06): step 0.2 is split. 0.2a builds on the laptop, 0.2b and 0.3 wait for the board. Work continues with Phases 1-3, 4.1 and the new 4.1b (full-system simulation). The board must arrive before Gate 2.
-- 0.2a PS-only build (laptop): Tcl Vivado project with only ZYNQ7 PS (ZedBoard preset: DDR, UART), XSA, bitstream, Vitis bare-metal hello ELF, scripts/load_run.tcl (XSDB). Needs ZedBoard Rev C board files. POSTPONED 2026-11-07 until lab access to the ZedBoard is confirmed.
-- 0.2b PS-only bring-up (board): run 0.2a output; "hello" on USB-UART at 115200, boot jumpers = JTAG.
-- 0.3 JTAG DDR round trip (board): put_image.tcl / get_image.tcl; 1 MB and 5 MB cmp-identical; record s/MB. Proposed buffers: src 0x1000_0000, dst 0x1800_0000.
+- 0.2a PS-only build on laptop (no board): ZedBoard preset (NOT ZC702), XSA + bitstream + hello ELF, load_run scripts with --dry-run. 0.2b (board arrives): run hello over USB-UART via JTAG (XSDB load_run.tcl), twice.
+- 0.3 (needs board) JTAG DDR round trip: put_image.tcl / get_image.tcl; 1 MB and 5 MB cmp-identical; record s/MB. Proposed buffers: src 0x1000_0000, dst 0x1800_0000.
 
 Phase 1 Python model (laptop)
 - 1.1 model/patrm.py: Q15.16, inverse coeffs, block start by multiply-add then add-only stepping (same 32-bit wrap as RTL), bilinear, truncate to 8 bits, out-of-range 0, stream dumps. Verify: worked example (3,2)->(3.2,4.4)->120; identity; integer shift; column mirror (b22=-1, b23=W-1); 5/15/37 deg vs independent float warp within small tolerance.
@@ -44,12 +43,12 @@ Phase 2 Spec (laptop)
 - 2.2 spec/interface.md: ports, valid/ready, widths, latencies, truncation points; LaTeX block diagram.
 
 Phase 3 Grayscale RTL (sim + OOC synth each)
-- 3.1 axil_regs + interrupt. 3.2 coord_gen (vs coordinate dump). 3.3 bilinear_interp (100k vectors, latency 4, II 1).
+- 3.1 axil_regs + interrupt. 3.2 coord_gen (vs coordinate dump). 3.3 bilinear_interp (D10/A2, 7 multipliers; 100k vectors, latency 4, II 1).
 - 3.4 tb/axi_mem.v + axi_rd_master (16-beat, 4 KB split, >=2 outstanding). 3.5 out_fifo + axi_wr_master (WSTRB).
 - 3.6 prefetch_ctrl + ping-pong BRAM + pixel_fetch (burst list = memmodel). 3.7 ctrl_fsm + patrm_top full-frame bit-exact at 64x64/128x96/256x192, all transforms. 3.8 OOC impl, WNS>=0 at 100 MHz, utilization saved.
 
 Phase 4 Board grayscale (= Stage 1 done)
-- 4.1 vivado/build.tcl: IP + block design (with ILA on AXI; keep captures for the debugging slide), bitstream, XSA; ILA only in debug builds (D9). Needs ZedBoard board files. 4.1b full-system sim (laptop, xsim): real block design with the Zynq-7000 VIP as ARM + DDR; TB programs registers over GP0 like the driver, loads image into VIP DDR, waits for done interrupt, dumps output; Verify: bit-exact with model for >=2 transforms, interrupt fires, byte counters = 1.4 predictions. 4.2 sw/patrm_drv.c: job descriptor in DDR, cache flush/invalidate, interrupt + polling fallback, counters on UART. 4.3 run_test.tcl + run_all.py: full set bit-exact, counters = predictions. 4.4 sw/patrm_sw.c ARM baseline: laptop gcc vs Python, then A9 -O2/-O3 with XTime; bit-exact.
+- 4.1 vivado/build.tcl: IP + block design (with ILA on AXI as debug option; keep captures for the debugging slide), bitstream, XSA. 4.1b full-system sim (no board): block design with Zynq-7000 VIP for ARM+DDR; TB programs regs over GP0, loads image into VIP DDR, waits for interrupt; bit-exact, counters = predictions. 4.2 sw/patrm_drv.c: job descriptor in DDR, cache flush/invalidate, interrupt + polling fallback, counters on UART. 4.3 run_test.tcl + run_all.py: full set bit-exact, counters = predictions. 4.4 sw/patrm_sw.c ARM baseline: laptop gcc vs Python, then A9 -O2/-O3 with XTime; bit-exact.
 
 Phase 5 Bayer Option A
 - 5.1 spec delta (plane addressing 2i+o_row, 2j+o_col; full-row read, ~2x; WSTRB writes). 5.2 bayer_seq + stride-2 select + strobe writes; sim bit-exact, gray regression passes. 5.3 board bit-exact; build "A" reports.
@@ -68,6 +67,10 @@ Week 1: Phases 0-2 + 3.1-3.3 (Gate 1: model checks pass, spec reviewed). Week 2:
 Roles: Model and software (1, 4.2-4.4, 7); Datapath RTL (3.2, 3.3, 3.6, 5, 6); Memory and integration (3.1, 3.4, 3.5, 3.7, 3.8, 4.1).
 
 ## Progress
-- Prompts 0, 0b, 0c, 0d done (D1-D9 decided; plan synced; course notice read).
-- Step 0.1 done (tag step-0.1).
-- 2026-11-07: Step 0.2a postponed (board files not installed; waiting for lab access to the ZedBoard). 0.2b and 0.3 wait for the board.
+- Prompts 0, 0b, 0c, 0d done (D1-D9 decided; plan and CLAUDE.md synced; course notice read).
+- Step 0.1 PASSED 2026-11-06 (commit 7454de2, tag step-0.1). Python 3.14.10 (user install), numpy 2.5.4, Pillow 13.0.0, git 2.56.0, Vivado/Vitis 2026.1 at D:\AMD\2026.1 (not on PATH; scripts find it), xsdb present. Part xc7z020clg484-1 OK. ZedBoard board files NOT installed (install via Vivado Store before 0.2). Note: `vivado -version` / `vitis --version` exit 1 in 2026.1, so check_env runs tiny scripts instead.
+- 2026-11-06: physical ZedBoard NOT yet available (date unknown; needed before Gate 2). Installed board file was ZC702 by mistake -> install ZedBoard from Vivado Store. Order now: 0.2a (build only) -> Phase 1 -> 2 -> 3 -> 4.1 -> 4.1b; 0.2b, 0.3, 4.2-4.4 when the board arrives.
+- 2026-11-07: lab board identified from photo: Avnet/Digilent ZedBoard Rev C (two DDR chips IC25/IC26 = 512 MB), PROG + UART cables and power connected. Board files: Vivado Store 'ZedBoard Zynq Evaluation and Development Kit' (em.avnet.com, zed), revision C. Boot jumpers JP7-JP11 must be on GND (JTAG) - not verifiable from photo.
+- 2026-11-07: Step 0.2a PAUSED at item 1: no ZedBoard board files in Vivado 2026.1 (only ZC702). Zynq-7000 VIP available (processing_system7_vip 1.0; processing_system7 5.5). Board-file install postponed until lab access is confirmed by the professor; must happen before step 4.1 (do 0.2a + 0.2b + 0.3 in one lab session). Plan for install: scripted xhub (vivado/install_board_files.tcl), fallback Avnet board-files GitHub via board.repoPaths; if only Rev D preset exists, use it with PS7 DDR part set to Rev C memory MT41J128M16 HA-15E. Rev C = engineering-sample (CES) silicon: check silicon version over JTAG in 0.2b.
+- 2026-11-07: paper checked: it gives no weight/fraction bit widths, no rounding mode, no block length (only 'truncates the data-bit width ... negligible error'). D10 chosen (A2).
+- Next: Step 1.1 (Python model).

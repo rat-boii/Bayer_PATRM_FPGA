@@ -44,7 +44,8 @@ working stage beats a half-working extra one. Software is only for control, test
   Step along an output row (v+1) adds (b12, b22); next row (u+1) adds (b11, b21).
 - Block start (X0, Y0) computed with a 3-stage multiply-add pipeline; inside a block, coordinates by addition only.
 - Fixed point Q15.16 (scale 65536), signed 32-bit. Output truncated to 8 bits.
-- Bilinear: D = xf*yf*r4 + (1-xf)*yf*r2 + xf*(1-yf)*r3 + (1-xf)*(1-yf)*r1; 8 multipliers per pixel, 4-stage pipeline.
+- Bilinear: D = xf*yf*r4 + (1-xf)*yf*r2 + xf*(1-yf)*r3 + (1-xf)*(1-yf)*r1, evaluated in integers as D10
+  (7 multipliers per pixel: 3 weight + 4 pixel), 4-stage pipeline.
 - Out-of-range source pixels output 0 (exact rule: D1 below).
 - Images: raw GRAY8, row-major, no header. Image size is a register (not fixed in hardware); size rules: D3 below.
 - Bayer RGGB offsets o = (row, column): R (0,0), Gr (0,1), Gb (1,0), B (1,1).
@@ -87,6 +88,13 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
 - D7 Sizes are always written W x H. The paper size is 2448x2095 (W x H).
 - D8 PL clock is 100 MHz for every build. 150 MHz only as an Fmax experiment in step 7.3.
 - D9 The ILA is a debug-build option only. All resource, timing and speed numbers come from builds without it.
+- D10 Interpolator (option A2, decided 2026-11-07). xf = X & 0xFFFF, yf = Y & 0xFFFF;
+  w2 = ((65536-xf)*yf)>>16; w3 = (xf*(65536-yf))>>16; w4 = (xf*yf)>>16; w1 = 65536-(w2+w3+w4);
+  D = (w1*r1 + w2*r2 + w3*r3 + w4*r4)>>16, with r1=(x0,y0), r2=(x0,y0+1), r3=(x0+1,y0), r4=(x0+1,y0+1).
+  7 multipliers (3 weight + 4 pixel). The weights always sum to exactly 65536 (a flat image stays flat).
+  Replaces the earlier "8 multipliers" convention.
+- Block length. Integer stepping equals direct multiplication exactly (mod 2^32), so block length never changes
+  results. It is a memory/prefetch parameter, decided in steps 1.4/2.2.
 - Coefficients. b is the inverse mapping (output -> source). A PC-side model helper builds b from forward
   parameters (rotation, scale, shift, mirror) in float and quantises it with D5. From then on model, C and RTL
   all use the same integer b. The ARM never does floating-point transform maths.
@@ -98,8 +106,7 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
 - "Interrupt" (not "IRQ") is for diagrams only; the port keeps its AMD name IRQ_F2P.
 
 ## Open decisions (proposed defaults; ask before relying on them)
-- Bit widths inside the interpolator (step 1.1). Proposal: full 16-bit fractions.
-- Block length for the block-start computation (step 1.1).
+- Block length for the block-start computation (steps 1.4/2.2; does not affect results, see above).
 - Largest rotation/scale the prefetch buffers support (step 1.4).
 - Maximum supported width, sets BRAM line buffer size (step 2.1). Proposal: 4096.
 - t_p computed by the ARM and written to registers (step 2.1). Proposal: yes.
