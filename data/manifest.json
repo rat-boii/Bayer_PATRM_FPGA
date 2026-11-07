@@ -1,0 +1,2779 @@
+{
+ "note": "Generated files (git-ignored) and their SHA-256. Regenerate with: python -m model.gen_images, python -m model.gen_vectors. Paths are relative to data/.",
+ "images": [
+  {
+   "file": "gen/gray_checker_128x96.raw",
+   "W": 128,
+   "H": 96,
+   "kind": "gray:checker",
+   "sha256": "793824f99c05e5a00665cbbdd283b6983ee70de55fe07b74ad73c8c39ba7fcf9"
+  },
+  {
+   "file": "gen/gray_checker_1920x1080.raw",
+   "W": 1920,
+   "H": 1080,
+   "kind": "gray:checker",
+   "sha256": "d583341f195bacc6f91f07d65a2fff698822ea66835c0c81eeec0e25e49c484c"
+  },
+  {
+   "file": "gen/gray_checker_2448x2048.raw",
+   "W": 2448,
+   "H": 2048,
+   "kind": "gray:checker",
+   "sha256": "1a0dfa9a9bed126f855c5cee4ff1e4b24e67f2133a0a247ffb5b67a5b260409c"
+  },
+  {
+   "file": "gen/gray_checker_2448x2095.raw",
+   "W": 2448,
+   "H": 2095,
+   "kind": "gray:checker",
+   "sha256": "c42abc673414751e9a3eef7d1ef2399e4eb2b7a0325d7c5756b901e931dd3032"
+  },
+  {
+   "file": "gen/gray_checker_256x192.raw",
+   "W": 256,
+   "H": 192,
+   "kind": "gray:checker",
+   "sha256": "9c6b05adbf0ef6c7aebbb9ee656911bc763e2e89c028641f65505a986d93b02d"
+  },
+  {
+   "file": "gen/gray_checker_480x272.raw",
+   "W": 480,
+   "H": 272,
+   "kind": "gray:checker",
+   "sha256": "e0101bfb8ae37eaadc19914de90b36bd6f8515640c57172c7f205be93ca89272"
+  },
+  {
+   "file": "gen/gray_checker_640x480.raw",
+   "W": 640,
+   "H": 480,
+   "kind": "gray:checker",
+   "sha256": "b10bff17c50ef73f0a61938b0317ee90547e53932f0d647d3e01d95bce65c130"
+  },
+  {
+   "file": "gen/gray_checker_64x64.raw",
+   "W": 64,
+   "H": 64,
+   "kind": "gray:checker",
+   "sha256": "6f7e0e9feff726b4a335f7b79047a17a304f796169b74aa826f0e7e687b6775d"
+  },
+  {
+   "file": "gen/gray_checker_800x480.raw",
+   "W": 800,
+   "H": 480,
+   "kind": "gray:checker",
+   "sha256": "96227967189be3d4b620df1a40e44a7e7612fa04283e18fb84e20c8c62e5354b"
+  },
+  {
+   "file": "gen/gray_gradient_128x96.raw",
+   "W": 128,
+   "H": 96,
+   "kind": "gray:gradient",
+   "sha256": "1365bb277bee235f39b0dbb1595c4922408670d6102ac4de6da5eb6af8ab2564"
+  },
+  {
+   "file": "gen/gray_gradient_1920x1080.raw",
+   "W": 1920,
+   "H": 1080,
+   "kind": "gray:gradient",
+   "sha256": "4443de4a07dcfb53634b4ac24dfa8395a41349b8263cb8cf302ef63a9488101e"
+  },
+  {
+   "file": "gen/gray_gradient_2448x2048.raw",
+   "W": 2448,
+   "H": 2048,
+   "kind": "gray:gradient",
+   "sha256": "f4f81307d938d8498f162cf8a3de1aefca2112c796ac80e0e27a64e6104730b0"
+  },
+  {
+   "file": "gen/gray_gradient_2448x2095.raw",
+   "W": 2448,
+   "H": 2095,
+   "kind": "gray:gradient",
+   "sha256": "c7de6ea1dbee61974f42b9800ddb3fdadd16a15d1b29574fce17eb5915dce1a4"
+  },
+  {
+   "file": "gen/gray_gradient_256x192.raw",
+   "W": 256,
+   "H": 192,
+   "kind": "gray:gradient",
+   "sha256": "1811b0312c0208ac6ad6762d9227fe492ec19c31600c6afe41ea8aa7e7e21dc4"
+  },
+  {
+   "file": "gen/gray_gradient_480x272.raw",
+   "W": 480,
+   "H": 272,
+   "kind": "gray:gradient",
+   "sha256": "dbaeb575cb0c0549a6f2c378477dde8944f8279c58107d6813d05a918b554791"
+  },
+  {
+   "file": "gen/gray_gradient_640x480.raw",
+   "W": 640,
+   "H": 480,
+   "kind": "gray:gradient",
+   "sha256": "561f248db0b793a921475b89bf3868f305be1f534bf8bbe760be099b44e3b63f"
+  },
+  {
+   "file": "gen/gray_gradient_64x64.raw",
+   "W": 64,
+   "H": 64,
+   "kind": "gray:gradient",
+   "sha256": "a3d6551dab7522a9483984f7dc3cb84de1863d16efb81c7796ff41ba35b7c6d3"
+  },
+  {
+   "file": "gen/gray_gradient_800x480.raw",
+   "W": 800,
+   "H": 480,
+   "kind": "gray:gradient",
+   "sha256": "377b2d14fa61da72950d3cb51bb10cad656c27cc4a33c331ea17218750589429"
+  },
+  {
+   "file": "gen/gray_grid_128x96.raw",
+   "W": 128,
+   "H": 96,
+   "kind": "gray:grid",
+   "sha256": "17f61d135e0d516019798559b36373c01371b3f458eb3b8b9f20eb2b1aaa003e"
+  },
+  {
+   "file": "gen/gray_grid_1920x1080.raw",
+   "W": 1920,
+   "H": 1080,
+   "kind": "gray:grid",
+   "sha256": "33d9944f2f097ff5cf124be6a64a5adaf18b39c8b42d38f9b81d8f588ec718bc"
+  },
+  {
+   "file": "gen/gray_grid_2448x2048.raw",
+   "W": 2448,
+   "H": 2048,
+   "kind": "gray:grid",
+   "sha256": "7264959c856788e055a316bd4c1a2aaa059e2e298ac4dbbd906bbb34df5c2cd5"
+  },
+  {
+   "file": "gen/gray_grid_2448x2095.raw",
+   "W": 2448,
+   "H": 2095,
+   "kind": "gray:grid",
+   "sha256": "4cf21a2e4b2b81af63848e0b5afdda8429e34824702829f18e2c8d5fb7bdd0d7"
+  },
+  {
+   "file": "gen/gray_grid_256x192.raw",
+   "W": 256,
+   "H": 192,
+   "kind": "gray:grid",
+   "sha256": "1abfd40f9912c24fb4095af6c0daccb6de9789c670f94622ccff93b4594511be"
+  },
+  {
+   "file": "gen/gray_grid_480x272.raw",
+   "W": 480,
+   "H": 272,
+   "kind": "gray:grid",
+   "sha256": "ba1f72a5e44487fe766dd5ff86cf35a030926dd25bcac99beb98b55640021e8e"
+  },
+  {
+   "file": "gen/gray_grid_640x480.raw",
+   "W": 640,
+   "H": 480,
+   "kind": "gray:grid",
+   "sha256": "21540d9b91f1f1e56f923ad5d4deb27111811f9aaabc77b7c5d770fec034ecea"
+  },
+  {
+   "file": "gen/gray_grid_64x64.raw",
+   "W": 64,
+   "H": 64,
+   "kind": "gray:grid",
+   "sha256": "d0d88db65a14ea7b381afb10ef2e20eb29f64000122f97f2f3dcef74869acb38"
+  },
+  {
+   "file": "gen/gray_grid_800x480.raw",
+   "W": 800,
+   "H": 480,
+   "kind": "gray:grid",
+   "sha256": "b4d6f176f5923ad7507d791a089c5ec1455156030a892422a5bd91ddc3ffaf28"
+  },
+  {
+   "file": "gen/gray_mixed_128x96.raw",
+   "W": 128,
+   "H": 96,
+   "kind": "gray:mixed",
+   "sha256": "a4c58ffac5d9e3a897343a645f11018972180eb5a002bf4307bfc2fa7133e076"
+  },
+  {
+   "file": "gen/gray_mixed_1920x1080.raw",
+   "W": 1920,
+   "H": 1080,
+   "kind": "gray:mixed",
+   "sha256": "3a424f879e97b083ec1b7eea39c6bd45fef9c786fbe510fa2ac751621bfab2d3"
+  },
+  {
+   "file": "gen/gray_mixed_2448x2048.raw",
+   "W": 2448,
+   "H": 2048,
+   "kind": "gray:mixed",
+   "sha256": "bcb0b47f727189176a01240966c3dfa78f0e2275e9049ed3e966b4db5d6abe9f"
+  },
+  {
+   "file": "gen/gray_mixed_2448x2095.raw",
+   "W": 2448,
+   "H": 2095,
+   "kind": "gray:mixed",
+   "sha256": "e64f36f1e0c2f671a6365b1e9ccc6f04c2a323607dc887a684d9a1a1efb318fb"
+  },
+  {
+   "file": "gen/gray_mixed_256x192.raw",
+   "W": 256,
+   "H": 192,
+   "kind": "gray:mixed",
+   "sha256": "90f02be7cf54ee42eff415304c653c1622ecad5b1508c0aa5eaa19640f27c0a4"
+  },
+  {
+   "file": "gen/gray_mixed_480x272.raw",
+   "W": 480,
+   "H": 272,
+   "kind": "gray:mixed",
+   "sha256": "c7fef7f18576d903a7feac1b6de182db90fceab48c882e61c12ce329f088a730"
+  },
+  {
+   "file": "gen/gray_mixed_640x480.raw",
+   "W": 640,
+   "H": 480,
+   "kind": "gray:mixed",
+   "sha256": "35d3035f72f46e3f030b3f33adc8ccd4444bc574b7709cdd5fd81b3f1e4c273e"
+  },
+  {
+   "file": "gen/gray_mixed_64x64.raw",
+   "W": 64,
+   "H": 64,
+   "kind": "gray:mixed",
+   "sha256": "1b0ce8e3c9ba122143a5ed306ca23b1c2902dac186ac8db2bbe18e28473a9a1a"
+  },
+  {
+   "file": "gen/gray_mixed_800x480.raw",
+   "W": 800,
+   "H": 480,
+   "kind": "gray:mixed",
+   "sha256": "f254d8b785559c78c28045f8b29c666d30e2972e1a9cb8f0a1b24d48d3fa584b"
+  },
+  {
+   "file": "gen/rggb_chart_128x96.raw",
+   "W": 128,
+   "H": 96,
+   "kind": "rggb:chart",
+   "sha256": "47841c30c067f7225effc9303c28e7f913027e3a51ec356ff08596800a89968e"
+  },
+  {
+   "file": "gen/rggb_chart_1920x1080.raw",
+   "W": 1920,
+   "H": 1080,
+   "kind": "rggb:chart",
+   "sha256": "cfa78b27dbef7e333c2bf93ff97793cb5530cca7b3daa9e3b692b78b48ede272"
+  },
+  {
+   "file": "gen/rggb_chart_2448x2048.raw",
+   "W": 2448,
+   "H": 2048,
+   "kind": "rggb:chart",
+   "sha256": "baf075a877b7591eb9ef9441469c774e5c9bb7678949e0f92f549ae693d4865f"
+  },
+  {
+   "file": "gen/rggb_chart_256x192.raw",
+   "W": 256,
+   "H": 192,
+   "kind": "rggb:chart",
+   "sha256": "28386260be14c1cf2608af157f5e866b2676ab91dbb86152d69d7a6d5e2f327d"
+  },
+  {
+   "file": "gen/rggb_chart_480x272.raw",
+   "W": 480,
+   "H": 272,
+   "kind": "rggb:chart",
+   "sha256": "e4dd5425f4426d71066c1a526ca67b69fa67fad219ecf655badc7e5e87791fb2"
+  },
+  {
+   "file": "gen/rggb_chart_640x480.raw",
+   "W": 640,
+   "H": 480,
+   "kind": "rggb:chart",
+   "sha256": "dc303a7c52645893000947386499bb22f3bc5c7894d97aa8dd6e2ddc72c874c2"
+  },
+  {
+   "file": "gen/rggb_chart_64x64.raw",
+   "W": 64,
+   "H": 64,
+   "kind": "rggb:chart",
+   "sha256": "234ae7848f8071bf45aecd9de7f5fadfed1a46071a361dd00a6ce733f519a23d"
+  },
+  {
+   "file": "gen/rggb_chart_800x480.raw",
+   "W": 800,
+   "H": 480,
+   "kind": "rggb:chart",
+   "sha256": "bd432a336891ad9ce9e7bd0555c9fb9d5341e4302bba124d3f5df4e8558798dd"
+  }
+ ],
+ "vectors": [
+  {
+   "file": "vectors/cfg_checker_combined_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:combined",
+   "sha256": "32334b4e8b13b90100d3af0885a1ea3cf5c8b6309faf35157117c0b6fdd17d8d"
+  },
+  {
+   "file": "vectors/cfg_checker_combined_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:combined",
+   "sha256": "2924d31ae66df3e05d2f43599367ea1141e2c49af2d724530f3a33cd4cadbd1c"
+  },
+  {
+   "file": "vectors/cfg_checker_combined_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:combined",
+   "sha256": "895cc259afd20caf845a911a5e1c7d46424b3d047c892b8abf80e7c23a126f19"
+  },
+  {
+   "file": "vectors/cfg_checker_identity_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:identity",
+   "sha256": "91a5b0e67c5924b56b73cb9e3747dd80a51356d38dc5e823c5a5fe89b48dace4"
+  },
+  {
+   "file": "vectors/cfg_checker_identity_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:identity",
+   "sha256": "e189f278172b1c795637e2fec19280595ca62e3cb3016a6c8f3e2c748a205901"
+  },
+  {
+   "file": "vectors/cfg_checker_identity_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:identity",
+   "sha256": "e7f290481abba9efa83e501a96234f45c53780be0ce3ba6a2ba8be397bbb2781"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_cols_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "c6432420a7aeffb44bce9494e763a009f05e047dca86b66a11c9a98e7b88ae81"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_cols_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "93a78a8aca5d14ff82ac7755483dab4c342eb04acb3c6286f65573fde955d449"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_cols_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "784ed73c584da6032f5f9a151bf3589d4b63dd96821938aeb90790e268027440"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_rows_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "d869fb3e5c3b4350f35938105f2488a4a285c06cc9292660b0ccaf2d2715f229"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_rows_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "f9ea3b0f261cc17446d852ee2eb6d8948c2e9313310401048c001bc4e1b503df"
+  },
+  {
+   "file": "vectors/cfg_checker_mirror_rows_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "78a9819fca6f78fe32d80f9facdf1672690764a18a0b1aa729c914eb8dccae41"
+  },
+  {
+   "file": "vectors/cfg_checker_rot15_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot15",
+   "sha256": "71851fb8d1e6fe56405f6ab043d9a47cf29347e3c6c42c9f78a28a4d449943cf"
+  },
+  {
+   "file": "vectors/cfg_checker_rot15_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot15",
+   "sha256": "f3b218425c69278a6e61a74486cffda12ef5518e2508d4410850bea9d287b6b2"
+  },
+  {
+   "file": "vectors/cfg_checker_rot15_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot15",
+   "sha256": "d87c05aa43e6b880c6adbcf5a440621737dd2a24b5f731bcc653df1bbf429801"
+  },
+  {
+   "file": "vectors/cfg_checker_rot37_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot37",
+   "sha256": "145fb34d954dc5e8d7969c069ab05e838fd4a8e24337667aa17b42b896330d6e"
+  },
+  {
+   "file": "vectors/cfg_checker_rot37_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot37",
+   "sha256": "5bdd6382d112896ba34024e8a304095a74a045ad1e59793178029c77cd8edbed"
+  },
+  {
+   "file": "vectors/cfg_checker_rot37_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot37",
+   "sha256": "b5abfbd45432ee22839282940d5d1662683f2a969547767c3a6acb05ad0892d5"
+  },
+  {
+   "file": "vectors/cfg_checker_rot5_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot5",
+   "sha256": "dd9f373d6ecc9adecf4eea53f2ec399af437c44c50413ec37c72798e8d5db8a7"
+  },
+  {
+   "file": "vectors/cfg_checker_rot5_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot5",
+   "sha256": "ad7ea81a1aaf8edea424a137badc718df29289ed4350d2bde780a60050e99eb6"
+  },
+  {
+   "file": "vectors/cfg_checker_rot5_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot5",
+   "sha256": "f04c17aefd49906dd16bec68167efb0449ff689d75b524fbe6461126ea2d5d25"
+  },
+  {
+   "file": "vectors/cfg_checker_scale0p8_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "badfdadd81b20c3b17e2e86a1a285625bfc62e0b7387db2389ead0a62d02acbe"
+  },
+  {
+   "file": "vectors/cfg_checker_scale0p8_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "bde070edf534dd1a9349d0ecf4dcf65487b5c0c0b2bd558b9276e6a095f9f086"
+  },
+  {
+   "file": "vectors/cfg_checker_scale0p8_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "c6aee49c747e696207636856ff23384d2a4b2e40dd42ee4b94ea28fea022a61e"
+  },
+  {
+   "file": "vectors/cfg_checker_scale1p25_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "7092cf9dda504dd555ffbc569a7f7e0b89a33cfeea8c938cb9e6a7493f519f1d"
+  },
+  {
+   "file": "vectors/cfg_checker_scale1p25_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "53fe1723f3bc6dcb870b91c9e86aca2d3aeba9c489fd2396473027a61f3665e7"
+  },
+  {
+   "file": "vectors/cfg_checker_scale1p25_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "5c9c4b5c88eef25bc85032e691d323abd7f8b401b3bf308ff529ec29c5638f46"
+  },
+  {
+   "file": "vectors/cfg_gradient_combined_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:combined",
+   "sha256": "32334b4e8b13b90100d3af0885a1ea3cf5c8b6309faf35157117c0b6fdd17d8d"
+  },
+  {
+   "file": "vectors/cfg_gradient_combined_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:combined",
+   "sha256": "2924d31ae66df3e05d2f43599367ea1141e2c49af2d724530f3a33cd4cadbd1c"
+  },
+  {
+   "file": "vectors/cfg_gradient_combined_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:combined",
+   "sha256": "895cc259afd20caf845a911a5e1c7d46424b3d047c892b8abf80e7c23a126f19"
+  },
+  {
+   "file": "vectors/cfg_gradient_identity_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:identity",
+   "sha256": "91a5b0e67c5924b56b73cb9e3747dd80a51356d38dc5e823c5a5fe89b48dace4"
+  },
+  {
+   "file": "vectors/cfg_gradient_identity_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:identity",
+   "sha256": "e189f278172b1c795637e2fec19280595ca62e3cb3016a6c8f3e2c748a205901"
+  },
+  {
+   "file": "vectors/cfg_gradient_identity_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:identity",
+   "sha256": "e7f290481abba9efa83e501a96234f45c53780be0ce3ba6a2ba8be397bbb2781"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_cols_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "c6432420a7aeffb44bce9494e763a009f05e047dca86b66a11c9a98e7b88ae81"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_cols_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "93a78a8aca5d14ff82ac7755483dab4c342eb04acb3c6286f65573fde955d449"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_cols_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "784ed73c584da6032f5f9a151bf3589d4b63dd96821938aeb90790e268027440"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_rows_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "d869fb3e5c3b4350f35938105f2488a4a285c06cc9292660b0ccaf2d2715f229"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_rows_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "f9ea3b0f261cc17446d852ee2eb6d8948c2e9313310401048c001bc4e1b503df"
+  },
+  {
+   "file": "vectors/cfg_gradient_mirror_rows_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "78a9819fca6f78fe32d80f9facdf1672690764a18a0b1aa729c914eb8dccae41"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot15_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot15",
+   "sha256": "71851fb8d1e6fe56405f6ab043d9a47cf29347e3c6c42c9f78a28a4d449943cf"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot15_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot15",
+   "sha256": "f3b218425c69278a6e61a74486cffda12ef5518e2508d4410850bea9d287b6b2"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot15_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot15",
+   "sha256": "d87c05aa43e6b880c6adbcf5a440621737dd2a24b5f731bcc653df1bbf429801"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot37_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot37",
+   "sha256": "145fb34d954dc5e8d7969c069ab05e838fd4a8e24337667aa17b42b896330d6e"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot37_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot37",
+   "sha256": "5bdd6382d112896ba34024e8a304095a74a045ad1e59793178029c77cd8edbed"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot37_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot37",
+   "sha256": "b5abfbd45432ee22839282940d5d1662683f2a969547767c3a6acb05ad0892d5"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot5_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot5",
+   "sha256": "dd9f373d6ecc9adecf4eea53f2ec399af437c44c50413ec37c72798e8d5db8a7"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot5_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot5",
+   "sha256": "ad7ea81a1aaf8edea424a137badc718df29289ed4350d2bde780a60050e99eb6"
+  },
+  {
+   "file": "vectors/cfg_gradient_rot5_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot5",
+   "sha256": "f04c17aefd49906dd16bec68167efb0449ff689d75b524fbe6461126ea2d5d25"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale0p8_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "badfdadd81b20c3b17e2e86a1a285625bfc62e0b7387db2389ead0a62d02acbe"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale0p8_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "bde070edf534dd1a9349d0ecf4dcf65487b5c0c0b2bd558b9276e6a095f9f086"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale0p8_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "c6aee49c747e696207636856ff23384d2a4b2e40dd42ee4b94ea28fea022a61e"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale1p25_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "7092cf9dda504dd555ffbc569a7f7e0b89a33cfeea8c938cb9e6a7493f519f1d"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale1p25_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "53fe1723f3bc6dcb870b91c9e86aca2d3aeba9c489fd2396473027a61f3665e7"
+  },
+  {
+   "file": "vectors/cfg_gradient_scale1p25_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "5c9c4b5c88eef25bc85032e691d323abd7f8b401b3bf308ff529ec29c5638f46"
+  },
+  {
+   "file": "vectors/cfg_grid_combined_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:combined",
+   "sha256": "32334b4e8b13b90100d3af0885a1ea3cf5c8b6309faf35157117c0b6fdd17d8d"
+  },
+  {
+   "file": "vectors/cfg_grid_combined_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:combined",
+   "sha256": "2924d31ae66df3e05d2f43599367ea1141e2c49af2d724530f3a33cd4cadbd1c"
+  },
+  {
+   "file": "vectors/cfg_grid_combined_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:combined",
+   "sha256": "895cc259afd20caf845a911a5e1c7d46424b3d047c892b8abf80e7c23a126f19"
+  },
+  {
+   "file": "vectors/cfg_grid_identity_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:identity",
+   "sha256": "91a5b0e67c5924b56b73cb9e3747dd80a51356d38dc5e823c5a5fe89b48dace4"
+  },
+  {
+   "file": "vectors/cfg_grid_identity_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:identity",
+   "sha256": "e189f278172b1c795637e2fec19280595ca62e3cb3016a6c8f3e2c748a205901"
+  },
+  {
+   "file": "vectors/cfg_grid_identity_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:identity",
+   "sha256": "e7f290481abba9efa83e501a96234f45c53780be0ce3ba6a2ba8be397bbb2781"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_cols_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "c6432420a7aeffb44bce9494e763a009f05e047dca86b66a11c9a98e7b88ae81"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_cols_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "93a78a8aca5d14ff82ac7755483dab4c342eb04acb3c6286f65573fde955d449"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_cols_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "784ed73c584da6032f5f9a151bf3589d4b63dd96821938aeb90790e268027440"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_rows_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "d869fb3e5c3b4350f35938105f2488a4a285c06cc9292660b0ccaf2d2715f229"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_rows_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "f9ea3b0f261cc17446d852ee2eb6d8948c2e9313310401048c001bc4e1b503df"
+  },
+  {
+   "file": "vectors/cfg_grid_mirror_rows_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "78a9819fca6f78fe32d80f9facdf1672690764a18a0b1aa729c914eb8dccae41"
+  },
+  {
+   "file": "vectors/cfg_grid_rot15_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot15",
+   "sha256": "71851fb8d1e6fe56405f6ab043d9a47cf29347e3c6c42c9f78a28a4d449943cf"
+  },
+  {
+   "file": "vectors/cfg_grid_rot15_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot15",
+   "sha256": "f3b218425c69278a6e61a74486cffda12ef5518e2508d4410850bea9d287b6b2"
+  },
+  {
+   "file": "vectors/cfg_grid_rot15_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot15",
+   "sha256": "d87c05aa43e6b880c6adbcf5a440621737dd2a24b5f731bcc653df1bbf429801"
+  },
+  {
+   "file": "vectors/cfg_grid_rot37_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot37",
+   "sha256": "145fb34d954dc5e8d7969c069ab05e838fd4a8e24337667aa17b42b896330d6e"
+  },
+  {
+   "file": "vectors/cfg_grid_rot37_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot37",
+   "sha256": "5bdd6382d112896ba34024e8a304095a74a045ad1e59793178029c77cd8edbed"
+  },
+  {
+   "file": "vectors/cfg_grid_rot37_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot37",
+   "sha256": "b5abfbd45432ee22839282940d5d1662683f2a969547767c3a6acb05ad0892d5"
+  },
+  {
+   "file": "vectors/cfg_grid_rot5_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot5",
+   "sha256": "dd9f373d6ecc9adecf4eea53f2ec399af437c44c50413ec37c72798e8d5db8a7"
+  },
+  {
+   "file": "vectors/cfg_grid_rot5_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot5",
+   "sha256": "ad7ea81a1aaf8edea424a137badc718df29289ed4350d2bde780a60050e99eb6"
+  },
+  {
+   "file": "vectors/cfg_grid_rot5_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot5",
+   "sha256": "f04c17aefd49906dd16bec68167efb0449ff689d75b524fbe6461126ea2d5d25"
+  },
+  {
+   "file": "vectors/cfg_grid_scale0p8_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "badfdadd81b20c3b17e2e86a1a285625bfc62e0b7387db2389ead0a62d02acbe"
+  },
+  {
+   "file": "vectors/cfg_grid_scale0p8_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "bde070edf534dd1a9349d0ecf4dcf65487b5c0c0b2bd558b9276e6a095f9f086"
+  },
+  {
+   "file": "vectors/cfg_grid_scale0p8_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "c6aee49c747e696207636856ff23384d2a4b2e40dd42ee4b94ea28fea022a61e"
+  },
+  {
+   "file": "vectors/cfg_grid_scale1p25_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "7092cf9dda504dd555ffbc569a7f7e0b89a33cfeea8c938cb9e6a7493f519f1d"
+  },
+  {
+   "file": "vectors/cfg_grid_scale1p25_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "53fe1723f3bc6dcb870b91c9e86aca2d3aeba9c489fd2396473027a61f3665e7"
+  },
+  {
+   "file": "vectors/cfg_grid_scale1p25_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "5c9c4b5c88eef25bc85032e691d323abd7f8b401b3bf308ff529ec29c5638f46"
+  },
+  {
+   "file": "vectors/cfg_mixed_combined_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:combined",
+   "sha256": "32334b4e8b13b90100d3af0885a1ea3cf5c8b6309faf35157117c0b6fdd17d8d"
+  },
+  {
+   "file": "vectors/cfg_mixed_combined_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:combined",
+   "sha256": "2924d31ae66df3e05d2f43599367ea1141e2c49af2d724530f3a33cd4cadbd1c"
+  },
+  {
+   "file": "vectors/cfg_mixed_combined_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:combined",
+   "sha256": "895cc259afd20caf845a911a5e1c7d46424b3d047c892b8abf80e7c23a126f19"
+  },
+  {
+   "file": "vectors/cfg_mixed_identity_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:identity",
+   "sha256": "91a5b0e67c5924b56b73cb9e3747dd80a51356d38dc5e823c5a5fe89b48dace4"
+  },
+  {
+   "file": "vectors/cfg_mixed_identity_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:identity",
+   "sha256": "e189f278172b1c795637e2fec19280595ca62e3cb3016a6c8f3e2c748a205901"
+  },
+  {
+   "file": "vectors/cfg_mixed_identity_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:identity",
+   "sha256": "e7f290481abba9efa83e501a96234f45c53780be0ce3ba6a2ba8be397bbb2781"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_cols_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "c6432420a7aeffb44bce9494e763a009f05e047dca86b66a11c9a98e7b88ae81"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_cols_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "93a78a8aca5d14ff82ac7755483dab4c342eb04acb3c6286f65573fde955d449"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_cols_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_cols",
+   "sha256": "784ed73c584da6032f5f9a151bf3589d4b63dd96821938aeb90790e268027440"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_rows_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "d869fb3e5c3b4350f35938105f2488a4a285c06cc9292660b0ccaf2d2715f229"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_rows_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "f9ea3b0f261cc17446d852ee2eb6d8948c2e9313310401048c001bc4e1b503df"
+  },
+  {
+   "file": "vectors/cfg_mixed_mirror_rows_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:mirror_rows",
+   "sha256": "78a9819fca6f78fe32d80f9facdf1672690764a18a0b1aa729c914eb8dccae41"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot15_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot15",
+   "sha256": "71851fb8d1e6fe56405f6ab043d9a47cf29347e3c6c42c9f78a28a4d449943cf"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot15_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot15",
+   "sha256": "f3b218425c69278a6e61a74486cffda12ef5518e2508d4410850bea9d287b6b2"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot15_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot15",
+   "sha256": "d87c05aa43e6b880c6adbcf5a440621737dd2a24b5f731bcc653df1bbf429801"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot37_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot37",
+   "sha256": "145fb34d954dc5e8d7969c069ab05e838fd4a8e24337667aa17b42b896330d6e"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot37_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot37",
+   "sha256": "5bdd6382d112896ba34024e8a304095a74a045ad1e59793178029c77cd8edbed"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot37_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot37",
+   "sha256": "b5abfbd45432ee22839282940d5d1662683f2a969547767c3a6acb05ad0892d5"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot5_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:rot5",
+   "sha256": "dd9f373d6ecc9adecf4eea53f2ec399af437c44c50413ec37c72798e8d5db8a7"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot5_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:rot5",
+   "sha256": "ad7ea81a1aaf8edea424a137badc718df29289ed4350d2bde780a60050e99eb6"
+  },
+  {
+   "file": "vectors/cfg_mixed_rot5_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:rot5",
+   "sha256": "f04c17aefd49906dd16bec68167efb0449ff689d75b524fbe6461126ea2d5d25"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale0p8_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "badfdadd81b20c3b17e2e86a1a285625bfc62e0b7387db2389ead0a62d02acbe"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale0p8_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "bde070edf534dd1a9349d0ecf4dcf65487b5c0c0b2bd558b9276e6a095f9f086"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale0p8_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale0p8",
+   "sha256": "c6aee49c747e696207636856ff23384d2a4b2e40dd42ee4b94ea28fea022a61e"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale1p25_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "7092cf9dda504dd555ffbc569a7f7e0b89a33cfeea8c938cb9e6a7493f519f1d"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale1p25_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "53fe1723f3bc6dcb870b91c9e86aca2d3aeba9c489fd2396473027a61f3665e7"
+  },
+  {
+   "file": "vectors/cfg_mixed_scale1p25_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_cfg:scale1p25",
+   "sha256": "5c9c4b5c88eef25bc85032e691d323abd7f8b401b3bf308ff529ec29c5638f46"
+  },
+  {
+   "file": "vectors/coord_vectors_combined_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:combined",
+   "sha256": "b3eb823bb6f8c29a2a9c236113d5a9ddcccb3c817b0b83c1804c86795cff1153"
+  },
+  {
+   "file": "vectors/coord_vectors_combined_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:combined",
+   "sha256": "f743f4d03096ec0ea86b760be2639dd937f7e2f178ddf7fc23df6e4ccda855fc"
+  },
+  {
+   "file": "vectors/coord_vectors_combined_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:combined",
+   "sha256": "921863b8d6c7c54b82358c24b3c034e98c861a7b9b9ff3abecd3b457966a4eba"
+  },
+  {
+   "file": "vectors/coord_vectors_identity_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:identity",
+   "sha256": "38fc7324241d43921d770160cbf046caf59db7a50187519e3ab6c2788201933f"
+  },
+  {
+   "file": "vectors/coord_vectors_identity_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:identity",
+   "sha256": "6bdd090a313e6e2e25e226f5abd16ef1915bd8206cf75b6f37491fc04cf62767"
+  },
+  {
+   "file": "vectors/coord_vectors_identity_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:identity",
+   "sha256": "825e0ac527bbf699f4dab11c1b82a42a43c0c2124be56ed85b35cd5e94477720"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_cols_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:mirror_cols",
+   "sha256": "e521fe52430fb53c2b5c980dbbab79fef9c0ba8ed46695ac4b39f9d5fdea0c3a"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_cols_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:mirror_cols",
+   "sha256": "ee412475019f1306b8c55424d1f3afc9c590222a28ebdfcef2fd69de9105f227"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_cols_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:mirror_cols",
+   "sha256": "656f4bc3ded6f8fe7f42c9c82f437cea832b7014c777a5a78c2013918ad2d825"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_rows_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:mirror_rows",
+   "sha256": "f725fa4b286792122d5ec75af7770061a4c227594cd4bcbb622f6d9406558486"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_rows_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:mirror_rows",
+   "sha256": "c802b6a23bc68b52e94821b65f8f46fb6e492642ccdfdeda901010c84942fafa"
+  },
+  {
+   "file": "vectors/coord_vectors_mirror_rows_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:mirror_rows",
+   "sha256": "1043f8eaa278686f3ff4a86cc5dc4fd86131c0f535623333fa357e5004c04a73"
+  },
+  {
+   "file": "vectors/coord_vectors_rot15_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:rot15",
+   "sha256": "d83fc048a3a66ff56101c59a6da0060f41379def717020df6cbccbf6fe7d68ce"
+  },
+  {
+   "file": "vectors/coord_vectors_rot15_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:rot15",
+   "sha256": "fd79754a4e55d95acb6f6aaace244ecbebaa81b972d1c4d98c8a0aecf27f344f"
+  },
+  {
+   "file": "vectors/coord_vectors_rot15_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:rot15",
+   "sha256": "5a943f92a11b3a91ee9ee6aa7991ccecad7d06c02ea8b6fca9ff9a13d03c0340"
+  },
+  {
+   "file": "vectors/coord_vectors_rot37_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:rot37",
+   "sha256": "873f415b643713b3db662a1323828ec240d7931838bf8c7f32d2835103f8cae8"
+  },
+  {
+   "file": "vectors/coord_vectors_rot37_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:rot37",
+   "sha256": "977e9d6a9fc91ca35a96d3c893a167a791a12ed35c4ff8b6d6eee55f0cf3b4bd"
+  },
+  {
+   "file": "vectors/coord_vectors_rot37_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:rot37",
+   "sha256": "8258bea0c463a038f4cc521b3a7cf0a1ce208454e1b5fb2229cc78bf93e489be"
+  },
+  {
+   "file": "vectors/coord_vectors_rot5_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:rot5",
+   "sha256": "bac0bc44c164b4a1511a7f0b460dabf98fb28dce77dfae774863306085b055d1"
+  },
+  {
+   "file": "vectors/coord_vectors_rot5_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:rot5",
+   "sha256": "50ff5a5f44acaf3d00c6c747f94666d93f2d32e3b12317e1364d13be4ceb3733"
+  },
+  {
+   "file": "vectors/coord_vectors_rot5_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:rot5",
+   "sha256": "69d7c2941fb1999da3cd9fa5fb28e887be2db8130d65863f9d7c31df095ff292"
+  },
+  {
+   "file": "vectors/coord_vectors_scale0p8_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:scale0p8",
+   "sha256": "2d2e2bd3654307443d3a12ce313adeec67b4a8ad6b3f74892de1331c4156633d"
+  },
+  {
+   "file": "vectors/coord_vectors_scale0p8_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:scale0p8",
+   "sha256": "f0f9b5ec772b5d9613f2f7260a9242f45ac01223680e5ea0a0f1b8afd41b6837"
+  },
+  {
+   "file": "vectors/coord_vectors_scale0p8_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:scale0p8",
+   "sha256": "a21deedb31b70cb98c3a7da5732e0b551ff11bf184aefa834d607c8452f7a8bf"
+  },
+  {
+   "file": "vectors/coord_vectors_scale1p25_128x96.txt",
+   "W": 128,
+   "H": 96,
+   "kind": "coord:scale1p25",
+   "sha256": "3f4700c5c91dbb958665fb6e12a59c8fd67263762aac829f23c1caf975cd4dc1"
+  },
+  {
+   "file": "vectors/coord_vectors_scale1p25_256x192.txt",
+   "W": 256,
+   "H": 192,
+   "kind": "coord:scale1p25",
+   "sha256": "00d3c1d347c2b28d6f89b002c83a77781bc561854591934341ec04fa441532d7"
+  },
+  {
+   "file": "vectors/coord_vectors_scale1p25_64x64.txt",
+   "W": 64,
+   "H": 64,
+   "kind": "coord:scale1p25",
+   "sha256": "5ec39d9ae4424ce6ed228461055f0f7602aa17d51ec4f4bb8db10c0133e55fe5"
+  },
+  {
+   "file": "vectors/exp_checker_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:combined",
+   "sha256": "7740c05e398c6ab3933381527cf3d26c5042de9174b6ce3b7d627d43403de7e7"
+  },
+  {
+   "file": "vectors/exp_checker_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:combined",
+   "sha256": "756258d0f878f9ffb56e1ba073318eb57389685a0a437e1e43d0c769af951d08"
+  },
+  {
+   "file": "vectors/exp_checker_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:combined",
+   "sha256": "e7c1274bf531312720470493fcc047a8d7e1091a0c7cfac6024f70a4f26e491e"
+  },
+  {
+   "file": "vectors/exp_checker_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:identity",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/exp_checker_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:identity",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/exp_checker_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:identity",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "f98846c16d21d778dbe9b18b097bb383b9d8df132e179dd74cd069a5ccbcd00c"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "37d755a19026e9b1f84406b0d470809eb1360e75453b2ae690e163c7829510af"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "ca33f403926057486c5d8a7627329dd2f31565cd5276c28ae192c9069a47b058"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "f98846c16d21d778dbe9b18b097bb383b9d8df132e179dd74cd069a5ccbcd00c"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "37d755a19026e9b1f84406b0d470809eb1360e75453b2ae690e163c7829510af"
+  },
+  {
+   "file": "vectors/exp_checker_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "17a1a0048a6f5e1b43f28a3700acab6e5fc9f09bb5cee62c98c53b8939a80eaf"
+  },
+  {
+   "file": "vectors/exp_checker_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot15",
+   "sha256": "004e03f90b51a39d768875536882ddbfa84bdc98fc85693f3ef72257ba3512a0"
+  },
+  {
+   "file": "vectors/exp_checker_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot15",
+   "sha256": "440efd98d74f0ec35cecc9c7f7f16f6d4f61ae798e649ed243c2885bd3109c85"
+  },
+  {
+   "file": "vectors/exp_checker_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot15",
+   "sha256": "d791f5d4761fdea136815be2dd9c89555a94b82aeef544ad3218f8af99f93c56"
+  },
+  {
+   "file": "vectors/exp_checker_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot37",
+   "sha256": "a1a0b8740e9a225e1faed2795b3e744cb25ab088700a551ad5c24cf630ce8cc0"
+  },
+  {
+   "file": "vectors/exp_checker_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot37",
+   "sha256": "427b9c7f91baa436371d8cf0c148e15ea45cc5e3f7acb30a6582c7b95e36f28c"
+  },
+  {
+   "file": "vectors/exp_checker_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot37",
+   "sha256": "0865b7c6423b18a8978b362f12b96085d0667b50a12d69d4291e9b37507ae70d"
+  },
+  {
+   "file": "vectors/exp_checker_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot5",
+   "sha256": "a5f7f02c2105273e93c1718857f9c3d219b6ded64e3f7686e36a5cc5797108fa"
+  },
+  {
+   "file": "vectors/exp_checker_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot5",
+   "sha256": "96d839242ca7b1d5fbd10500fb03641dd93e53e5e061ded08b8d3a31580ed2ba"
+  },
+  {
+   "file": "vectors/exp_checker_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot5",
+   "sha256": "f61dbec6977ef1d239cb464ce9e18fa425a2fdf7550663c3e5221b8902c9aba1"
+  },
+  {
+   "file": "vectors/exp_checker_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "945f5a066dd812c752e6cca2532cb7e7c76809e31c5cce60536c268dcda4a498"
+  },
+  {
+   "file": "vectors/exp_checker_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "1630beb04d07bc0a85a85150e85137d9a2cdbbb2b5df523bcd97a2c554621c6b"
+  },
+  {
+   "file": "vectors/exp_checker_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "10f89abca5231db766684c4eea24020fde4d0abd8cf4e4a1c5d7dbd967aba74c"
+  },
+  {
+   "file": "vectors/exp_checker_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "bb1dc3778a66cc5a0db9a46e5ea345e4133d71882c5efe51ba78062a3aaa815e"
+  },
+  {
+   "file": "vectors/exp_checker_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "401d1c8b9d9a721b9634b76867d19d6a628cb085985bb0bbd4fd768bac1bda24"
+  },
+  {
+   "file": "vectors/exp_checker_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "d9a21bd89248641bfd72c5851f6f42ab6bfd80edb85473e815a926607ca4958e"
+  },
+  {
+   "file": "vectors/exp_gradient_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:combined",
+   "sha256": "5da7fededac3a1bcfb528962bcdf55fc46ab84c30bfda27db74ac4bf6bec27a8"
+  },
+  {
+   "file": "vectors/exp_gradient_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:combined",
+   "sha256": "cc9662a5ed0205ec18025658096b60f03f93b9ff094033b806314b4d74c4a5cb"
+  },
+  {
+   "file": "vectors/exp_gradient_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:combined",
+   "sha256": "84ee340de35418ae825b4924d6d2c4300cfd00fe0e2f2702035d4e49039d67ff"
+  },
+  {
+   "file": "vectors/exp_gradient_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:identity",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/exp_gradient_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:identity",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/exp_gradient_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:identity",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "105f2e0719615592acc3757cb57874369aed4dbe6e310d5776f72bad64eacbcb"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "42573d1280bba997402ce63496a2bdee6f45e39a34ff3a142eff10480edaa542"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "82047f23732ef9ea818eca2914c96d149fcfbe09df490cc3ac4292f6e2600ea2"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "3772d491a38971021a908f0ee37ea8ce0485527a5d8119e9f542385c8352ecff"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "9803a18a2ea91a6b556699a6de72871c75071aed7f4773eb4c8b70bddd37f145"
+  },
+  {
+   "file": "vectors/exp_gradient_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "85d6053656f1389be524bf3426dd2840fa3b05656310d6dd276ccb18c59df58f"
+  },
+  {
+   "file": "vectors/exp_gradient_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot15",
+   "sha256": "7fe07a5b8a7c0ca1790459cac8c45a62ff0a757e95765150e3646821630d13af"
+  },
+  {
+   "file": "vectors/exp_gradient_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot15",
+   "sha256": "0be66eaedd162fa88bee4e163e9c56ba7e46fc4212dac6802d594618efa7f7e8"
+  },
+  {
+   "file": "vectors/exp_gradient_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot15",
+   "sha256": "9f0a4a4b91c5c39d84dac0d1061e5bc83c92ef41ebef3e10ccdc8d9eb2f91b73"
+  },
+  {
+   "file": "vectors/exp_gradient_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot37",
+   "sha256": "5642a434293d6f81943eaf733c66c12b7c7189ccb462fc59f1286b559e388674"
+  },
+  {
+   "file": "vectors/exp_gradient_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot37",
+   "sha256": "9874ffad1da1ad804d940226866341acfd7d37faf3800b937f73d03e929750e9"
+  },
+  {
+   "file": "vectors/exp_gradient_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot37",
+   "sha256": "cb7d8466281a9ba4d61df5c4aa2c97ee2ee816269b197e9282434e6d173d9f80"
+  },
+  {
+   "file": "vectors/exp_gradient_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot5",
+   "sha256": "a184f6521c6c590d4c108e304289e6102041c52573cf80fe42b5250934cfc0f4"
+  },
+  {
+   "file": "vectors/exp_gradient_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot5",
+   "sha256": "ac46fd724311a5f4d029c1a9f930a9e8ca632580ebc658f013007c1d41140f03"
+  },
+  {
+   "file": "vectors/exp_gradient_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot5",
+   "sha256": "d3a6d51d989ece60e34367e8cd72b64621e6b82d6088ff7e0cb37a2b7e8b026c"
+  },
+  {
+   "file": "vectors/exp_gradient_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "57d2b8adb449adc3ed5987f69230cc09e93927e3ef7ecde2bae4c4f131075561"
+  },
+  {
+   "file": "vectors/exp_gradient_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "361df206a2a2b8e4f79a1171fc3eef45ff84d904e233a5291ec05730fa488272"
+  },
+  {
+   "file": "vectors/exp_gradient_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "adcfd98be5776cbd51c939f39a60d9c1e26c5782c5482613975c3182d4dd2719"
+  },
+  {
+   "file": "vectors/exp_gradient_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "ad2f41114d06379cf288fd6cc42e0b6a396193225e0a400b952b3ff82b8b5334"
+  },
+  {
+   "file": "vectors/exp_gradient_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "e3c9cc9b48889dc8322a04952e77947c12e5288f57b10d4eac445e7f990b4267"
+  },
+  {
+   "file": "vectors/exp_gradient_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "0c30301f094a84308262188608de8c65af55e17471a777652f32aae1dbb2e1ea"
+  },
+  {
+   "file": "vectors/exp_grid_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:combined",
+   "sha256": "7759a90fdd37299215de27ad4ee60ade0818bbf4988e0c2b8902a952f14e3906"
+  },
+  {
+   "file": "vectors/exp_grid_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:combined",
+   "sha256": "528011ae9e79252ddd13e5fdf3543b27a270565c597c2aea36e51fb5deaf019e"
+  },
+  {
+   "file": "vectors/exp_grid_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:combined",
+   "sha256": "c0762e71f7409a48f3fc76fbdd6b1c066b0d4de7fac3cb9e5787a6d45d13d12d"
+  },
+  {
+   "file": "vectors/exp_grid_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:identity",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/exp_grid_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:identity",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/exp_grid_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:identity",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "4d012cf5732a805ceb825f8bedef4fd65c994b89c75a07e22538a7fd881771e8"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "e70a581af51e0cd0a5a4a20628142485fcdb692384b66eae40e97d2a12c5c5ea"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "37a6ab42bae876c3c86409e5aee5a4f078a48dff417aef1465e4079ec76d5cf5"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "345621261a2495e858828f0a669b515197ab824214bffcb102e34ab7d0b42a45"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "cf9e51620b59ada5e39f6c18dee24a7fa43f7506c9fe71061a4e672838978118"
+  },
+  {
+   "file": "vectors/exp_grid_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "a626ae6fbe3349eb463073cd2a2db878602c9fd7d3d74164f1b409d8be74b2a2"
+  },
+  {
+   "file": "vectors/exp_grid_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot15",
+   "sha256": "69f769cd290890799f7b55a8bbce455737dafbf16fa08e142dc8de16fd20b816"
+  },
+  {
+   "file": "vectors/exp_grid_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot15",
+   "sha256": "4273a1022f7a281f564fcb292c9fbf2f6c1855d70d5597be8f7e86a21d112b80"
+  },
+  {
+   "file": "vectors/exp_grid_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot15",
+   "sha256": "4792db5dec04afc5c6a616e673f2053b9251362c5fe5deaab6890f269bb8889d"
+  },
+  {
+   "file": "vectors/exp_grid_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot37",
+   "sha256": "cca004dc810c808c32200b156bc277280e500ceaf5adbcb75e3b5b5ccc4da1da"
+  },
+  {
+   "file": "vectors/exp_grid_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot37",
+   "sha256": "6a93830dacf82352f4fbb8b06cd231eb6d6d638a26bee96fdb562d94c6f92ffa"
+  },
+  {
+   "file": "vectors/exp_grid_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot37",
+   "sha256": "f8c361dec8e22c03f78d032c6c1203defa4a39ceeba586b90d9276f53c2ca9d7"
+  },
+  {
+   "file": "vectors/exp_grid_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot5",
+   "sha256": "55fdf647172bd894107c4329bb286e875e6f7da946fa97ce929b41501b9c8483"
+  },
+  {
+   "file": "vectors/exp_grid_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot5",
+   "sha256": "6fb0acd5e21067b800d4ad5314f9201dbbc37b7ed23c81170c94cbf01eace3ad"
+  },
+  {
+   "file": "vectors/exp_grid_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot5",
+   "sha256": "3c0a41adaddce5f8ac235b20972581efee0e4bb0581279f957940de5f50bbbd8"
+  },
+  {
+   "file": "vectors/exp_grid_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "10e8b80abfb3164b3ffad733633c44e8b1eae22f8b1a40cf88a030c46a0c86ff"
+  },
+  {
+   "file": "vectors/exp_grid_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "71c2fb578d3bf2c48d20ae64e574a06983f41b1dfaf0a7ab1b32710c6eae354a"
+  },
+  {
+   "file": "vectors/exp_grid_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "e1b7c717f3121713975cf3b8730cebd5323005905813dcd965fdad31c114bca7"
+  },
+  {
+   "file": "vectors/exp_grid_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "c62527cab56a4d1e1daa04d4362d75a8488188ee751ed902b97f0e8c8a497097"
+  },
+  {
+   "file": "vectors/exp_grid_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "5c1fa9ae5a1944cc2da643000a49ba8e3a47c145c2f0bb95dd53c01f24525c65"
+  },
+  {
+   "file": "vectors/exp_grid_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "ecc13dfb5c8e77219dafa7ab353bc841f10934775564fbf8ff272d48cfab1fe9"
+  },
+  {
+   "file": "vectors/exp_mixed_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:combined",
+   "sha256": "62ba4c8206576128e49dd88200c9a854869ef8a6290790c79b5ee6ce4bd13c39"
+  },
+  {
+   "file": "vectors/exp_mixed_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:combined",
+   "sha256": "58981118907dd7926a363f33ea872dbef52ac6be27a03eecb0f1c99aa1b13fbe"
+  },
+  {
+   "file": "vectors/exp_mixed_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:combined",
+   "sha256": "04ac1bb81be99b8276f8f6cffb31cab11590170c9a00a9d2eb0a9a6a953b8f6e"
+  },
+  {
+   "file": "vectors/exp_mixed_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:identity",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/exp_mixed_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:identity",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/exp_mixed_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:identity",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "437d3cf833432c6ad1833fa826b5804f5c54bd2c78c538c11737e09958a61a5c"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "4d04b2d2d2d154f92c42d30de7d3582a5d594725c5877d1c6633deb942ea956c"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_cols",
+   "sha256": "5976403e8ce11744e23c73aae230d0c2c216c48cc464f80f33467db9868f81f4"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "fa4e6a4ef0a5be7edea50c77fafd3f4fb6b12f2b0967bf38690240329061e31b"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "5922f5e5c4a0c06f3f1faf901ad5c50d5307bf45076815a0bf1c280cf0352766"
+  },
+  {
+   "file": "vectors/exp_mixed_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:mirror_rows",
+   "sha256": "54d31fa46f53a97c147e615fa0a15cb1fdf5f448a38847b2aa767bf9c79c9501"
+  },
+  {
+   "file": "vectors/exp_mixed_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot15",
+   "sha256": "750ac9fce14c63a760b6276059f22b5bb335e3ed0790fe71fb31d97250c878a3"
+  },
+  {
+   "file": "vectors/exp_mixed_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot15",
+   "sha256": "ce983949ae6ac2cc07f45d2130f3513fee160c5d32541248f33c1a794a2be868"
+  },
+  {
+   "file": "vectors/exp_mixed_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot15",
+   "sha256": "91a9252a7806dda212613b0f46d71b1e45b2a008091ed0f4aff49425b21d0d9f"
+  },
+  {
+   "file": "vectors/exp_mixed_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot37",
+   "sha256": "1143cb9e6b34d73aa33db4b5282ac4a21c14847d45e024d42976fbdb971c41ad"
+  },
+  {
+   "file": "vectors/exp_mixed_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot37",
+   "sha256": "1deeb08105d10868dece83e2565f26bb5b98457c2698cb1025f86d43a32b3c11"
+  },
+  {
+   "file": "vectors/exp_mixed_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot37",
+   "sha256": "363e345fafe0deed97fbb49fec9b27c1f3feee7a57dd489351c794ac8a447373"
+  },
+  {
+   "file": "vectors/exp_mixed_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:rot5",
+   "sha256": "351cda11ddec4ea53eaee274b6a7e0ab9d52ea8a6a74a5ee1d571bca366ed89e"
+  },
+  {
+   "file": "vectors/exp_mixed_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:rot5",
+   "sha256": "3f2814306af75be6630f86c45b1539100e5e9818349d8ae29119f2fd7167b15f"
+  },
+  {
+   "file": "vectors/exp_mixed_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:rot5",
+   "sha256": "84a59491bdbd9a8df7a7e9218ace675542b44853dd23abfbfb23065ebd9f8c3d"
+  },
+  {
+   "file": "vectors/exp_mixed_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "dfa4657943e4f1600147ebf262f952169669bc13da9c69174bbab39de800feb3"
+  },
+  {
+   "file": "vectors/exp_mixed_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "e3c6a7ef50ccd9200444069016554ea8ce1a7a60542cc2e2b17ca25aace67403"
+  },
+  {
+   "file": "vectors/exp_mixed_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale0p8",
+   "sha256": "e05566b84b43a78e6f2cb914a42436164ae800c3ceb90490de8c0502463e9d7b"
+  },
+  {
+   "file": "vectors/exp_mixed_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "f1b86c5569b2d7bffad7f80304b4cc340022a0e5e06e1445797b3489bdb98735"
+  },
+  {
+   "file": "vectors/exp_mixed_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "a4b131de5f8c92052d0443f40556dc88a6db378679ed48d6e1043651d19cc1e0"
+  },
+  {
+   "file": "vectors/exp_mixed_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_exp:scale1p25",
+   "sha256": "2b799c0c7bd453a8865c11f04713f83e8ea5a0fc0ccb58d8ecf43fd547582908"
+  },
+  {
+   "file": "vectors/interp_vectors.txt",
+   "W": null,
+   "H": null,
+   "kind": "interp",
+   "sha256": "c46889c886f51a6f70cabfefde23b3dc59f58c928cfd6d8e0bc93695f16704b3"
+  },
+  {
+   "file": "vectors/src_checker_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:combined",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:combined",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:combined",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:identity",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:identity",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:identity",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot15",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot15",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot15",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot37",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot37",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot37",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot5",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot5",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot5",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale0p8",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale0p8",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale0p8",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_checker_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale1p25",
+   "sha256": "b4756aedeb17cb181f8a619a329d6bf16fd611a3af43412186a6b311583ed456"
+  },
+  {
+   "file": "vectors/src_checker_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale1p25",
+   "sha256": "64a25b11168aeb8fe6dd2ad7bc16c0a9b515445300a1a6b86e6cb1dc802b77c0"
+  },
+  {
+   "file": "vectors/src_checker_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale1p25",
+   "sha256": "e4cc4d3b4e7751a1393335b8f01bfb5932c4d646be4e2acfcf34c659a0682341"
+  },
+  {
+   "file": "vectors/src_gradient_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:combined",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:combined",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:combined",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:identity",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:identity",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:identity",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot15",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot15",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot15",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot37",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot37",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot37",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot5",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot5",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot5",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale0p8",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale0p8",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale0p8",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_gradient_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale1p25",
+   "sha256": "74ca113192fa29be60d83ab2155a44cec67fa7941c9beb70db7a3d6c32051112"
+  },
+  {
+   "file": "vectors/src_gradient_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale1p25",
+   "sha256": "3aa88365b4ccd39afd2992a75f4cecb2667470e5a6b1d1563f8a54a430a27fc9"
+  },
+  {
+   "file": "vectors/src_gradient_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale1p25",
+   "sha256": "17674272559e1cde3b999f4f9c37fe335a7050879acb7b7c86cbb0d5221bbffb"
+  },
+  {
+   "file": "vectors/src_grid_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:combined",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:combined",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:combined",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:identity",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:identity",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:identity",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot15",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot15",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot15",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot37",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot37",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot37",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot5",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot5",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot5",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale0p8",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale0p8",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale0p8",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_grid_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale1p25",
+   "sha256": "08713962b9289a436afd746f46fb24baabcb56abca00fe931e8e03e25610533a"
+  },
+  {
+   "file": "vectors/src_grid_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale1p25",
+   "sha256": "f779201615de9492e20d3e55f8a71b549468bf6da6c5dbf5ffc488dea2ac796d"
+  },
+  {
+   "file": "vectors/src_grid_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale1p25",
+   "sha256": "26b8e95fb6e844fa1fed38f0ccd51bf71ff898863ba51f32ca04954f24425f58"
+  },
+  {
+   "file": "vectors/src_mixed_combined_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:combined",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_combined_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:combined",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_combined_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:combined",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_identity_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:identity",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_identity_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:identity",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_identity_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:identity",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_cols_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_cols_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_cols_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_cols",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_rows_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_rows_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_mirror_rows_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:mirror_rows",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_rot15_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot15",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_rot15_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot15",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_rot15_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot15",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_rot37_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot37",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_rot37_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot37",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_rot37_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot37",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_rot5_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:rot5",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_rot5_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:rot5",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_rot5_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:rot5",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_scale0p8_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale0p8",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_scale0p8_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale0p8",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_scale0p8_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale0p8",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  },
+  {
+   "file": "vectors/src_mixed_scale1p25_128x96.hex",
+   "W": 128,
+   "H": 96,
+   "kind": "frame_src:scale1p25",
+   "sha256": "e5fe60be33e92413443306a24f2603c4397c11949c30bb6b9ecbfd56ecfe67db"
+  },
+  {
+   "file": "vectors/src_mixed_scale1p25_256x192.hex",
+   "W": 256,
+   "H": 192,
+   "kind": "frame_src:scale1p25",
+   "sha256": "2149692061a5af219032967145a8485394cb3fe67632c183e15d473fc8b8bea1"
+  },
+  {
+   "file": "vectors/src_mixed_scale1p25_64x64.hex",
+   "W": 64,
+   "H": 64,
+   "kind": "frame_src:scale1p25",
+   "sha256": "2f7579c24585db00fb36afcffc002ef958c88b41401e99eeef79cf9945f45430"
+  }
+ ]
+}

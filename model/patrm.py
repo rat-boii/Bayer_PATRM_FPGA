@@ -188,6 +188,20 @@ def coords_blocked(b, W, H, block_len, block_rows=None):
 # Interpolation (D1 + D10), vectorised
 # ---------------------------------------------------------------------------
 
+def interp_d10(xf, yf, r1, r2, r3, r4):
+    """D10 interpolator on integers or int64 arrays: fractions xf, yf in 0..65535, pixels r1..r4 in 0..255.
+    Returns (w1, w2, w3, w4, D)."""
+    xf = np.asarray(xf, dtype=np.int64)
+    yf = np.asarray(yf, dtype=np.int64)
+    w2 = ((ONE - xf) * yf) >> FRAC_BITS
+    w3 = (xf * (ONE - yf)) >> FRAC_BITS
+    w4 = (xf * yf) >> FRAC_BITS
+    w1 = ONE - (w2 + w3 + w4)
+    D = (w1 * np.asarray(r1, dtype=np.int64) + w2 * np.asarray(r2, dtype=np.int64)
+         + w3 * np.asarray(r3, dtype=np.int64) + w4 * np.asarray(r4, dtype=np.int64)) >> FRAC_BITS
+    return w1, w2, w3, w4, D
+
+
 def _interp(src, W, H, X, Y):
     """All per-pixel intermediate values for coordinate arrays X, Y (int32). Returns a dict."""
     X = X.astype(np.int64)
@@ -207,13 +221,8 @@ def _interp(src, W, H, X, Y):
     r2 = np.where(valid, s[gx0, gy1], 0)
     r3 = np.where(valid, s[gx1, gy0], 0)
     r4 = np.where(valid, s[gx1, gy1], 0)
-    # D10 weights
-    w2 = ((ONE - xf) * yf) >> FRAC_BITS
-    w3 = (xf * (ONE - yf)) >> FRAC_BITS
-    w4 = (xf * yf) >> FRAC_BITS
-    w1 = ONE - (w2 + w3 + w4)
-    acc = w1 * r1 + w2 * r2 + w3 * r3 + w4 * r4
-    D = np.where(valid, acc >> FRAC_BITS, 0)
+    w1, w2, w3, w4, Dall = interp_d10(xf, yf, r1, r2, r3, r4)
+    D = np.where(valid, Dall, 0)
     return dict(X=X, Y=Y, x0=x0, y0=y0, xf=xf, yf=yf, r1=r1, r2=r2, r3=r3, r4=r4,
                 w1=w1, w2=w2, w3=w3, w4=w4, valid=valid, D=D)
 
