@@ -1,6 +1,6 @@
 """Deterministic test images (step 1.2). Raw GRAY8 / raw RGGB8, row-major, no header.
 
-    python -m model.gen_images [--photos data/photos] [--out data/gen] [--update-manifest]
+    python -m model.gen_images [--photos data/photos] [--out data/gen] [--update-manifest | --rewrite-manifest]
 
 Grayscale (every size in GRAY_SIZES):  gray_<kind>_<W>x<H>.raw
     kinds: checker, gradient, grid, mixed (synthetic), photo-<name> (each JPG/PNG in data/photos/)
@@ -183,12 +183,14 @@ def main(argv=None):
     p.add_argument("--photos", default=DEFAULT_PHOTOS)
     p.add_argument("--out", default=DEFAULT_OUT)
     p.add_argument("--update-manifest", action="store_true",
-                   help="rewrite the 'images' section of data/manifest.json instead of checking it")
+                   help="add NEW files to data/manifest.json; existing entries are kept and still checked")
+    p.add_argument("--rewrite-manifest", action="store_true",
+                   help="rewrite the whole 'images' section (only after an intended change)")
     a = p.parse_args(argv)
     entries, nphotos = generate(a.out, a.photos)
     print(f"gen_images: {len(entries)} files in {os.path.relpath(a.out)}; photos found in "
           f"{os.path.relpath(a.photos)}: {nphotos}" + ("" if nphotos else " (synthetic only)"))
-    bad = M.sync_section("images", entries, update=a.update_manifest)
+    bad = M.sync_section("images", entries, update=a.update_manifest, rewrite=a.rewrite_manifest)
     return 1 if bad else 0
 
 

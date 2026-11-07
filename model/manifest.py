@@ -62,16 +62,29 @@ def compare(stored, new):
     return out
 
 
-def sync_section(section, entries, update=False, path=MANIFEST):
-    """Write the section if empty or update=True, else compare. Returns the mismatch list."""
+def sync_section(section, entries, update=False, rewrite=False, path=MANIFEST):
+    """Check generated entries against the manifest. Returns the mismatch list (empty = OK).
+
+    - section empty or rewrite=True: write the whole section.
+    - update=True: add entries for NEW files only; existing entries are never changed, so a file that
+      differs from its stored hash is still reported as a mismatch.
+    - otherwise: compare only.
+    """
     m = load(path)
     entries = sorted(entries, key=lambda e: e["file"])
-    if update or not m.get(section):
+    if rewrite or not m.get(section):
         m["note"] = NOTE
         m[section] = entries
         save(m, path)
         print(f"manifest: wrote {len(entries)} '{section}' entries to {os.path.relpath(path)}")
         return []
+    if update:
+        known = {e["file"] for e in m[section]}
+        new = [e for e in entries if e["file"] not in known]
+        if new:
+            m[section] = sorted(m[section] + new, key=lambda e: e["file"])
+            save(m, path)
+        print(f"manifest: added {len(new)} new '{section}' entries (existing entries unchanged)")
     bad = compare(m[section], entries)
     if bad:
         print(f"manifest: {len(bad)} MISMATCHES in '{section}':")

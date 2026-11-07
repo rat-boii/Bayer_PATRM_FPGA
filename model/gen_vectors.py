@@ -1,13 +1,15 @@
-"""Test vectors for the RTL testbenches (step 1.2). Needs data/gen (python -m model.gen_images) and
+"""Test vectors for the RTL testbenches (steps 1.2, 1.3). Needs data/gen (python -m model.gen_images) and
 model/transforms.json. Output: data/vectors/ (git-ignored). Formats are described in README.md.
 
-    python -m model.gen_vectors [--out data/vectors] [--update-manifest]
+    python -m model.gen_vectors [--out data/vectors] [--update-manifest | --rewrite-manifest]
 
   interp_vectors.txt                       D10 interpolator cases: xf yf r1 r2 r3 r4 w1 w2 w3 w4 D
   coord_vectors_<transform>_<W>x<H>.txt    u v X Y valid x0 y0 xf yf (sim sizes)
   src_<stem>.hex / exp_<stem>.hex          frames for $readmemh, 64-bit little-endian words
   cfg_<stem>.txt                           W H b11 b12 b13 b21 b22 b23
   with <stem> = <image>_<transform>_<W>x<H>
+  src_rggb_<stem>.hex / exp_rggb_<stem>.hex  Bayer RGGB frames (warp_bayer), same hex format
+  cfg_rggb_<stem>.txt                      W H b11 b12 b13 b21 b22 b23 TRx TRy TGrx TGry TGbx TGby TBx TBy
 """
 
 import argparse
@@ -17,6 +19,7 @@ import sys
 import numpy as np
 
 from model import manifest as M
+from model import bayer as BY
 from model import patrm as P
 from model.gen_images import DEFAULT_OUT as GEN_DIR
 from model.gen_images import SIM_SIZES
@@ -64,15 +67,26 @@ def read_hex(path):
         return hex64_to_bytes(f.readlines())
 
 
-def write_cfg(path, W, H, b):
+def write_cfg(path, W, H, b, T=None):
+    """One line: W H b11 b12 b13 b21 b22 b23 [TRx TRy TGrx TGry TGbx TGby TBx TBy]."""
+    vals = [W, H, *b]
+    if T is not None:
+        for p in BY.PLANES:
+            vals += list(T[p])
     with open(path, "w", newline="\n") as f:
-        f.write(" ".join(str(int(x)) for x in (W, H, *b)) + "\n")
+        f.write(" ".join(str(int(x)) for x in vals) + "\n")
 
 
 def read_cfg(path):
+    """Returns (W, H, b) for a gray cfg, or (W, H, b, T) for a Bayer cfg (T = {plane: (x, y)})."""
     with open(path, "r") as f:
         vals = [int(x) for x in f.read().split()]
-    return vals[0], vals[1], tuple(vals[2:8])
+    if len(vals) == 8:
+        return vals[0], vals[1], tuple(vals[2:8])
+    if len(vals) == 16:
+        T = {p: (vals[8 + 2 * k], vals[9 + 2 * k]) for k, p in enumerate(BY.PLANES)}
+        return vals[0], vals[1], tuple(vals[2:8]), T
+    raise ValueError(f"{path}: expected 8 or 16 numbers, got {len(vals)}")
 
 
 def _write_table(path, header, cols):
@@ -119,14 +133,35 @@ def gen_coords(out_dir, tf, W, H):
     return path
 
 
-def gray_images_at(W, H, gen_dir=GEN_DIR):
-    """(image name, path) of every gray image at this size in data/gen."""
+def gray_images_at(W, H, gen_dir=GEN_DIR, prefix="gray_"):
+    """(image name, path) of every image <prefix><name>_<W>x<H>.raw in data/gen."""
     suffix = f"_{W}x{H}.raw"
     out = []
     for f in sorted(os.listdir(gen_dir)):
-        if f.startswith("gray_") and f.endswith(suffix):
-            out.append((f[len("gray_"):-len(suffix)], os.path.join(gen_dir, f)))
+        if f.startswith(prefix) and f.endswith(suffix):
+            out.append((f[len(prefix):-len(suffix)], os.path.join(gen_dir, f)))
     return out
+
+
+def gen_bayer_frames(out_dir, tf, W, H, gen_dir=GEN_DIR):
+    """Bayer frames: src_rggb_<stem>.hex, exp_rggb_<stem>.hex, cfg_rggb_<stem>.txt (b is the full-size b)."""
+    b = tuple(tf["b"][f"{W}x{H}"])
+    T = BY.plane_shifts(b)
+    paths = []
+    for name, raw in gray_images_at(W, H, gen_dir, prefix="rggb_"):
+        src = np.fromfile(raw, dtype=np.uint8)
+        if src.size != W * H:
+            raise ValueError(f"{raw}: {src.size} bytes, expected {W * H}")
+        exp = BY.warp_bayer(src.reshape(H, W), W, H, b)
+        stem = f"rggb_{name}_{tf['name']}_{W}x{H}"
+        ps = os.path.join(out_dir, f"src_{stem}.hex")
+        pe = os.path.join(out_dir, f"exp_{stem}.hex")
+        pc = os.path.join(out_dir, f"cfg_{stem}.txt")
+        write_hex(ps, src.tobytes())
+        write_hex(pe, exp.tobytes())
+        write_cfg(pc, W, H, b, T)
+        paths += [(ps, "bayer_src"), (pe, "bayer_exp"), (pc, "bayer_cfg")]
+    return paths
 
 
 def gen_frames(out_dir, tf, W, H, gen_dir=GEN_DIR):
@@ -158,7 +193,7 @@ def generate(out_dir=DEFAULT_OUT, gen_dir=GEN_DIR):
     for tf in load_transforms():
         for (W, H) in SIM_SIZES:
             entries.append(M.entry(gen_coords(out_dir, tf, W, H), W, H, f"coord:{tf['name']}"))
-            for p, kind in gen_frames(out_dir, tf, W, H, gen_dir):
+            for p, kind in gen_frames(out_dir, tf, W, H, gen_dir) + gen_bayer_frames(out_dir, tf, W, H, gen_dir):
                 entries.append(M.entry(p, W, H, f"{kind}:{tf['name']}"))
     return entries, n, nfixed
 
@@ -168,12 +203,14 @@ def main(argv=None):
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", default=DEFAULT_OUT)
     p.add_argument("--update-manifest", action="store_true",
-                   help="rewrite the 'vectors' section of data/manifest.json instead of checking it")
+                   help="add NEW files to data/manifest.json; existing entries are kept and still checked")
+    p.add_argument("--rewrite-manifest", action="store_true",
+                   help="rewrite the whole 'vectors' section (only after an intended change)")
     a = p.parse_args(argv)
     entries, n, nfixed = generate(a.out)
     print(f"gen_vectors: {len(entries)} files in {os.path.relpath(a.out)}; interp_vectors.txt has {n} cases "
           f"({nfixed} fixed + {n - nfixed} random)")
-    bad = M.sync_section("vectors", entries, update=a.update_manifest)
+    bad = M.sync_section("vectors", entries, update=a.update_manifest, rewrite=a.rewrite_manifest)
     return 1 if bad else 0
 
 

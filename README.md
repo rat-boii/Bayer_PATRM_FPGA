@@ -63,7 +63,11 @@ python -m model.test_step1_2      # checks; last line TEST PASS / TEST FAIL: <re
 ```
 
 `gen_images` and `gen_vectors` compare every file's SHA-256 with `data/manifest.json` and report
-mismatches. `--update-manifest` rewrites that section instead (only after an intended change).
+mismatches. `--update-manifest` adds entries for new files only (existing entries are kept and still
+checked); `--rewrite-manifest` rewrites the whole section (only after an intended change).
+
+Bayer model (step 1.3): `python -m model.test_bayer` (checks), `python -m model.bayer_figure`
+(-> `results/bayer_step1_3.png`, naive vs plane-wise warp with PSNR).
 All sizes are written W x H.
 
 | File | Format |
@@ -76,6 +80,8 @@ All sizes are written W x H.
 | `data/vectors/coord_vectors_<transform>_<W>x<H>.txt` | First line `# u v X Y valid x0 y0 xf yf`, then one output pixel per line in raster order (u outer, v inner), signed decimal. X, Y = Q15.16 int32 source coordinates; valid per D1 (1/0); x0 = X>>16, y0 = Y>>16 (arithmetic, may be negative when invalid); xf = X & 0xFFFF, yf = Y & 0xFFFF. Sim sizes only. |
 | `data/vectors/src_<stem>.hex`, `exp_<stem>.hex` | For `$readmemh` into a 64-bit memory: one word per line, 16 lower-case hex digits, no prefix, W*H/8 lines. Byte at address 8k+i is in bits [8i+7:8i] of word k (little-endian, same as the AXI 64-bit data bus): bytes 0..7 give `0706050403020100`. `src` = source image, `exp` = model output (`warp_gray`). `<stem>` = `<image>_<transform>_<W>x<H>`, sim sizes only. |
 | `data/vectors/cfg_<stem>.txt` | One line: `W H b11 b12 b13 b21 b22 b23`, signed decimal, space-separated. |
+| `data/vectors/src_rggb_<stem>.hex`, `exp_rggb_<stem>.hex` | Bayer RGGB frames, same hex format as above (W*H bytes of the full mosaic). `src` = `data/gen/rggb_<image>_<W>x<H>.raw`, `exp` = `bayer.warp_bayer` (four planes warped at W/2 x H/2, merged). `<stem>` = `<image>_<transform>_<W>x<H>`; sim sizes only; b is the full-size b from `transforms.json`. |
+| `data/vectors/cfg_rggb_<stem>.txt` | One line, 16 signed decimals: `W H b11 b12 b13 b21 b22 b23 TRx TRy TGrx TGry TGbx TGby TBx TBy` (T_p per D2, Q15.16). Plane p uses b_p = (b11, b12, T_px, b21, b22, T_py); Option B lane offset = T_p - T_R (D6). |
 
 ## Checks (step 0.1)
 
