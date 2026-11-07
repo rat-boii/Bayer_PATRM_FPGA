@@ -56,3 +56,6 @@ desktop.ini
 # Generated test images and vectors (regenerate with model/gen_images.py, gen_vectors.py)
 data/gen/
 data/vectors/
+
+# Team tracker document (kept out of git)
+docs/*Tracker*.docx
