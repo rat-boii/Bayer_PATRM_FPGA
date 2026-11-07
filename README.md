@@ -101,6 +101,10 @@ python -m model.try_warp data/photos/street.jpg --size 640x480 --rot 15 --scale 
 Options: `--rot DEG` (+ = counter-clockwise), `--scale S` or `--scale SX SY`, `--shift R C` (pixels),
 `--mirror cols|rows`, `--bayer`, `--out file.png`. The transform is about the image centre.
 
+Test window: `python -m model.warp_gui` opens a Tkinter window to load a photo or raw file, pick size,
+transform (or a preset from `transforms.json`) and gray/Bayer, run the reference model, see input and output
+side by side with b, T_p and run time, and save the output as PNG + raw.
+
 ## Checks (step 0.1)
 
 Run them from the repo root:

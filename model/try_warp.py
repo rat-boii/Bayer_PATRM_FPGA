@@ -18,6 +18,7 @@ import numpy as np
 from model import bayer as BY
 from model import patrm as P
 from model.gen_images import photo_gray, photo_name, photo_rgb, rgb_to_rggb
+from model.raw2png import array_to_image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,6 +29,31 @@ def parse_size(s):
     except ValueError:
         raise argparse.ArgumentTypeError(f"size must be WxH, e.g. 640x480, got {s!r}")
     return W, H
+
+
+def forward_params(rot=0.0, scale=(1.0,), shift=(0.0, 0.0), mirror=None):
+    """make_b keyword arguments from the CLI/GUI controls. scale = (S,) or (SX, SY); mirror = None|'cols'|'rows'."""
+    if len(scale) not in (1, 2):
+        raise ValueError("scale takes one or two values")
+    sx, sy = (scale[0], scale[0]) if len(scale) == 1 else scale
+    return dict(rot_deg=float(rot), sx=float(sx), sy=float(sy), shift=(float(shift[0]), float(shift[1])),
+                mirror_cols=mirror == "cols", mirror_rows=mirror == "rows")
+
+
+def load_photo(path, W, H, bayer=False):
+    """Photo -> uint8 (H, W): grayscale, or RGGB mosaic with bayer=True. Enforces D3."""
+    P.check_size(W, H, "bayer" if bayer else "gray")
+    return rgb_to_rggb(photo_rgb(path, W, H)) if bayer else photo_gray(path, W, H)
+
+
+def run_warp(src, W, H, fw, bayer=False):
+    """Quantise the forward transform and run the reference model. Returns (out, b, T or None).
+    Raises ValueError with the D3/D4 message on a bad size or transform."""
+    P.check_size(W, H, "bayer" if bayer else "gray")
+    b = P.make_b(W, H, **fw)
+    if bayer:
+        return BY.warp_bayer(src, W, H, b), b, BY.plane_shifts(b)
+    return P.warp_gray(src, W, H, b), b, None
 
 
 def describe(fw):
@@ -58,29 +84,16 @@ def main(argv=None):
     p.add_argument("--out", help="output PNG (default results/try_<name>[_bayer].png)")
     a = p.parse_args(argv)
     W, H = a.size
-    if len(a.scale) not in (1, 2):
-        p.error("--scale takes one or two values")
-    sx, sy = (a.scale[0], a.scale[0]) if len(a.scale) == 1 else a.scale
-    fw = dict(rot_deg=a.rot, sx=sx, sy=sy, shift=tuple(a.shift),
-              mirror_cols=a.mirror == "cols", mirror_rows=a.mirror == "rows")
     try:
-        P.check_size(W, H, "bayer" if a.bayer else "gray")
-        b = P.make_b(W, H, **fw)
-        if a.bayer:
-            src = rgb_to_rggb(photo_rgb(a.photo, W, H))
-            out = BY.warp_bayer(src, W, H, b)
-        else:
-            src = photo_gray(a.photo, W, H)
-            out = P.warp_gray(src, W, H, b)
+        fw = forward_params(a.rot, a.scale, a.shift, a.mirror)
+        src = load_photo(a.photo, W, H, a.bayer)
+        out, b, _ = run_warp(src, W, H, fw, a.bayer)
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
     def view(img):
-        if not a.bayer:
-            return Image.fromarray(img, mode="L").convert("RGB")
-        rgb = np.clip(np.floor(BY.demosaic_bilinear(img) + 0.5), 0, 255).astype(np.uint8)
-        return Image.fromarray(rgb, mode="RGB")
+        return array_to_image(img, a.bayer).convert("RGB")
 
     PAD, TOP = 10, 64
     sheet = Image.new("RGB", (2 * W + 3 * PAD, H + TOP + PAD), (255, 255, 255))

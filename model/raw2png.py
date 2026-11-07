@@ -16,18 +16,29 @@ from model import bayer as BY
 from model import patrm as P
 
 
-def raw_to_image(path, W, H, bayer=False, mosaic=False):
-    """Returns a PIL image."""
-    from PIL import Image
+def read_raw(path, W, H):
+    """Read a raw 8-bit image (row-major, no header) as uint8 (H, W)."""
     data = np.fromfile(path, dtype=np.uint8)
     if data.size != W * H:
         raise ValueError(f"{path} has {data.size} bytes, expected W*H = {W}*{H} = {W * H}")
-    img = data.reshape(H, W)
+    return data.reshape(H, W)
+
+
+def array_to_image(img, bayer=False, mosaic=False):
+    """uint8 (H, W) array -> PIL image: gray, or (bayer) demosaiced RGB, or (bayer + mosaic) the raw mosaic."""
+    from PIL import Image
+    img = np.ascontiguousarray(img, dtype=np.uint8)
     if not bayer or mosaic:
         return Image.fromarray(img, mode="L")
+    H, W = img.shape
     P.check_size(W, H, "bayer")
     rgb = np.clip(np.floor(BY.demosaic_bilinear(img) + 0.5), 0, 255).astype(np.uint8)
     return Image.fromarray(rgb, mode="RGB")
+
+
+def raw_to_image(path, W, H, bayer=False, mosaic=False):
+    """Returns a PIL image."""
+    return array_to_image(read_raw(path, W, H), bayer, mosaic)
 
 
 def main(argv=None):
