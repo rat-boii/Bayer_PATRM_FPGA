@@ -1,0 +1,217 @@
+{
+  "title": "PATRM engine register map (AXI-Lite slave on M_AXI_GP0)",
+  "version": 1,
+  "data_width": 32,
+  "addr_bits": 7,
+  "notes": [
+    "All registers are 32 bits wide at 32-bit aligned byte offsets from the engine base address (see spec/memory_map.md).",
+    "Bits not covered by a field are reserved: they read as 0 and writes to them are ignored.",
+    "Field access: RW = read/write; RO = read-only, writes ignored; W1C = reads the flag, writing 1 clears it, writing 0 has no effect; WP = write 1 to trigger a one-cycle pulse, always reads 0.",
+    "Configuration registers (CTRL.MODE, SRC_ADDR .. BLOCK_LEN) keep their value while STATUS.BUSY = 1: writes to them are ignored until the job ends. CTRL.IRQ_EN can be written at any time.",
+    "When CTRL.START is written with 1 the engine checks the configuration in the same cycle. If a check fails it sets STATUS.ERROR and STATUS.ERR_CODE and does not start (BUSY stays 0, DONE is unchanged). If all checks pass it clears DONE, ERROR, ERR_CODE and all counters, sets BUSY and starts.",
+    "Signed fields are two's complement Q15.16 (scale 65536)."
+  ],
+  "constants": [
+    {"name": "VERSION", "value": 1, "description": "register map version, reported in BUILD_ID.VERSION"},
+    {"name": "MAX_SIZE", "value": 4096, "description": "D11: largest WIDTH and largest HEIGHT (pixels)"},
+    {"name": "SIZE_BITS", "value": 13, "description": "D11: width of the WIDTH / HEIGHT / BLOCK_LEN fields"},
+    {"name": "GRAY_W_MULT", "value": 8, "description": "D3: grayscale WIDTH must be a multiple of this"},
+    {"name": "BAYER_W_MULT", "value": 16, "description": "D3: Bayer WIDTH must be a multiple of this"},
+    {"name": "BAYER_H_MULT", "value": 2, "description": "D3: Bayer HEIGHT must be a multiple of this"},
+    {"name": "ADDR_ALIGN", "value": 4096, "description": "SRC_ADDR and DST_ADDR must be multiples of this (4 KB)"},
+    {"name": "FRAC_BITS", "value": 16, "description": "Q15.16 fraction bits"}
+  ],
+  "enums": [
+    {
+      "name": "MODE",
+      "description": "CTRL.MODE values",
+      "values": [
+        {"name": "GRAY", "value": 0, "description": "grayscale, one plane of WIDTH x HEIGHT, uses B11..B23"},
+        {"name": "BAYER_A", "value": 1, "description": "Bayer RGGB, Option A: one core, four plane passes; uses B11, B12, B21, B22 and T_*"},
+        {"name": "BAYER_B", "value": 2, "description": "Bayer RGGB, Option B: four lanes, one pass; uses B11, B12, B21, B22 and T_* (lane offsets T_p - T_R, D6)"}
+      ]
+    },
+    {
+      "name": "BUILD_TYPE",
+      "description": "BUILD_ID.BUILD_TYPE values",
+      "values": [
+        {"name": "GRAY", "value": 0, "description": "grayscale build"},
+        {"name": "BAYER_A", "value": 1, "description": "Option A build"},
+        {"name": "BAYER_B", "value": 2, "description": "Option B build"}
+      ]
+    },
+    {
+      "name": "ERR",
+      "description": "STATUS.ERR_CODE values. If several checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN.",
+      "values": [
+        {"name": "NONE", "value": 0, "description": "no error"},
+        {"name": "BAD_SIZE", "value": 1, "description": "WIDTH or HEIGHT is 0 or above MAX_SIZE (D11), or breaks D3 for the selected mode (gray: WIDTH % 8 != 0; Bayer: WIDTH % 16 != 0 or HEIGHT odd)"},
+        {"name": "BAD_MODE", "value": 2, "description": "CTRL.MODE = 3, or a mode whose bit is 0 in BUILD_ID.MODES"},
+        {"name": "BAD_ADDR", "value": 3, "description": "SRC_ADDR or DST_ADDR is not 4 KB aligned (bits 11:0 not zero)"},
+        {"name": "BAD_BLOCK_LEN", "value": 4, "description": "BLOCK_LEN is 0 or above BUILD_ID.BLOCK_LEN_MAX (D13)"},
+        {"name": "START_BUSY", "value": 5, "description": "CTRL.START written while STATUS.BUSY = 1; the running job continues unaffected"}
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "name": "CTRL", "offset": "0x00", "access": "RW", "reset": "0x00000000",
+      "description": "Control. Write MODE and IRQ_EN together with START = 1 as the last write of a job.",
+      "fields": [
+        {"name": "START", "lsb": 0, "width": 1, "access": "WP", "reset": 0, "description": "write 1 to check the configuration and start a job; reads 0"},
+        {"name": "MODE", "lsb": 1, "width": 2, "access": "RW", "reset": 0, "enum": "MODE", "description": "0 = gray, 1 = Bayer Option A, 2 = Bayer Option B, 3 = invalid"},
+        {"name": "IRQ_EN", "lsb": 3, "width": 1, "access": "RW", "reset": 0, "description": "1 = drive the interrupt output (IRQ_F2P[0]) high while STATUS.DONE = 1"}
+      ]
+    },
+    {
+      "name": "STATUS", "offset": "0x04", "access": "RO/W1C", "reset": "0x00000000",
+      "description": "Status. The interrupt output is CTRL.IRQ_EN & DONE (level).",
+      "fields": [
+        {"name": "BUSY", "lsb": 0, "width": 1, "access": "RO", "reset": 0, "description": "1 from an accepted start until the last write response of the job has been received"},
+        {"name": "DONE", "lsb": 1, "width": 1, "access": "W1C", "reset": 0, "description": "set when a job ends (same cycle BUSY falls, all output data accepted by DDR); write 1 to clear (also clears the interrupt)"},
+        {"name": "ERROR", "lsb": 2, "width": 1, "access": "W1C", "reset": 0, "description": "set when a start is rejected; write 1 to clear (also clears ERR_CODE)"},
+        {"name": "ERR_CODE", "lsb": 4, "width": 4, "access": "RO", "reset": 0, "enum": "ERR", "description": "reason for the last rejected start, see ERR enum; 0 when ERROR = 0"}
+      ]
+    },
+    {
+      "name": "SRC_ADDR", "offset": "0x08", "access": "RW", "reset": "0x00000000",
+      "description": "DDR byte address of the source image (raw GRAY8 or raw RGGB mosaic, row-major, no header). Must be 4 KB aligned.",
+      "fields": [
+        {"name": "ADDR", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "description": "byte address; bits 11:0 must be 0"}
+      ]
+    },
+    {
+      "name": "DST_ADDR", "offset": "0x0C", "access": "RW", "reset": "0x00000000",
+      "description": "DDR byte address of the output image (same format and size as the source). Must be 4 KB aligned.",
+      "fields": [
+        {"name": "ADDR", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "description": "byte address; bits 11:0 must be 0"}
+      ]
+    },
+    {
+      "name": "WIDTH", "offset": "0x10", "access": "RW", "reset": "0x00000000",
+      "description": "Image width W in pixels (full mosaic width in Bayer modes). D3, D11.",
+      "fields": [
+        {"name": "W", "lsb": 0, "width": 13, "access": "RW", "reset": 0, "description": "1..4096; gray: multiple of 8; Bayer: multiple of 16"}
+      ]
+    },
+    {
+      "name": "HEIGHT", "offset": "0x14", "access": "RW", "reset": "0x00000000",
+      "description": "Image height H in pixels (full mosaic height in Bayer modes). D3, D11.",
+      "fields": [
+        {"name": "H", "lsb": 0, "width": 13, "access": "RW", "reset": 0, "description": "1..4096; Bayer: even"}
+      ]
+    },
+    {
+      "name": "B11", "offset": "0x18", "access": "RW", "reset": "0x00010000",
+      "description": "Inverse map coefficient b11 (x per output row u). Reset = 1.0 (identity).",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 65536, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "B12", "offset": "0x1C", "access": "RW", "reset": "0x00000000",
+      "description": "Inverse map coefficient b12 (x per output column v).",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "B13", "offset": "0x20", "access": "RW", "reset": "0x00000000",
+      "description": "Inverse map offset b13 (x at u = v = 0). Used in GRAY mode only; Bayer modes use T_*_X.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "B21", "offset": "0x24", "access": "RW", "reset": "0x00000000",
+      "description": "Inverse map coefficient b21 (y per output row u).",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "B22", "offset": "0x28", "access": "RW", "reset": "0x00010000",
+      "description": "Inverse map coefficient b22 (y per output column v). Reset = 1.0 (identity).",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 65536, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "B23", "offset": "0x2C", "access": "RW", "reset": "0x00000000",
+      "description": "Inverse map offset b23 (y at u = v = 0). Used in GRAY mode only; Bayer modes use T_*_Y.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16"}]
+    },
+    {
+      "name": "T_R_X", "offset": "0x30", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_R, x part (D2, D12: computed by the ARM, never by the hardware). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_R_Y", "offset": "0x34", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_R, y part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_GR_X", "offset": "0x38", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_Gr, x part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_GR_Y", "offset": "0x3C", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_Gr, y part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_GB_X", "offset": "0x40", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_Gb, x part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_GB_Y", "offset": "0x44", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_Gb, y part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_B_X", "offset": "0x48", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_B, x part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "T_B_Y", "offset": "0x4C", "access": "RW", "reset": "0x00000000",
+      "description": "Bayer plane shift T_B, y part (D2, D12). Ignored in GRAY mode.",
+      "fields": [{"name": "VALUE", "lsb": 0, "width": 32, "access": "RW", "reset": 0, "signed": true, "description": "signed Q15.16, plane coordinates"}]
+    },
+    {
+      "name": "BLOCK_LEN", "offset": "0x50", "access": "RW", "reset": "0x00000000",
+      "description": "Block length L (D13): output pixels per block, capped at the end of a row. Changes memory traffic only, never the output. Reset 0 is rejected, so the driver must write it.",
+      "fields": [
+        {"name": "L", "lsb": 0, "width": 13, "access": "RW", "reset": 0, "description": "1..BUILD_ID.BLOCK_LEN_MAX"}
+      ]
+    },
+    {
+      "name": "CYCLES", "offset": "0x54", "access": "RO", "reset": "0x00000000",
+      "description": "Clock cycles from the accepted start to DONE (100 MHz, D8). Cleared at an accepted start, holds its value after DONE.",
+      "fields": [{"name": "COUNT", "lsb": 0, "width": 32, "access": "RO", "reset": 0, "description": "cycles"}]
+    },
+    {
+      "name": "BYTES_RD", "offset": "0x58", "access": "RO", "reset": "0x00000000",
+      "description": "Bytes read on HP0 in this job = 8 x accepted read beats (comparable to the step 1.4 memory model). Cleared at an accepted start.",
+      "fields": [{"name": "COUNT", "lsb": 0, "width": 32, "access": "RO", "reset": 0, "description": "bytes"}]
+    },
+    {
+      "name": "BYTES_WR", "offset": "0x5C", "access": "RO", "reset": "0x00000000",
+      "description": "Bytes written on HP1 in this job = 8 x accepted write beats, including beats with partial WSTRB (memmodel write_bus_bytes). Cleared at an accepted start.",
+      "fields": [{"name": "COUNT", "lsb": 0, "width": 32, "access": "RO", "reset": 0, "description": "bytes"}]
+    },
+    {
+      "name": "RD_STALL", "offset": "0x60", "access": "RO", "reset": "0x00000000",
+      "description": "Cycles in this job in which the pixel pipeline waited for source data that was not yet in the prefetch buffer. Exact definition in spec/interface.md (step 2.2). Cleared at an accepted start.",
+      "fields": [{"name": "COUNT", "lsb": 0, "width": 32, "access": "RO", "reset": 0, "description": "cycles"}]
+    },
+    {
+      "name": "WR_STALL", "offset": "0x64", "access": "RO", "reset": "0x00000000",
+      "description": "Cycles in this job in which the pixel pipeline waited because the output FIFO was full. Exact definition in spec/interface.md (step 2.2). Cleared at an accepted start.",
+      "fields": [{"name": "COUNT", "lsb": 0, "width": 32, "access": "RO", "reset": 0, "description": "cycles"}]
+    },
+    {
+      "name": "BUILD_ID", "offset": "0x68", "access": "RO", "reset": "build",
+      "description": "Build identification, constant per bitstream (set from synthesis parameters). The driver reads it before the first job.",
+      "fields": [
+        {"name": "VERSION", "lsb": 0, "width": 8, "access": "RO", "reset": "build", "description": "register map version (constant VERSION)"},
+        {"name": "BUILD_TYPE", "lsb": 8, "width": 2, "access": "RO", "reset": "build", "enum": "BUILD_TYPE", "description": "0 = gray, 1 = Option A, 2 = Option B"},
+        {"name": "MODES", "lsb": 12, "width": 3, "access": "RO", "reset": "build", "description": "supported CTRL.MODE values, bit n = mode n supported"},
+        {"name": "BLOCK_LEN_MAX", "lsb": 16, "width": 13, "access": "RO", "reset": "build", "description": "largest accepted BLOCK_LEN (D13, synthesis parameter chosen in step 2.2)"}
+      ]
+    }
+  ]
+}

@@ -105,11 +105,17 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
 - Output truncation = drop the fraction bits; no saturation needed (bilinear output cannot exceed 255).
 - "Interrupt" (not "IRQ") is for diagrams only; the port keeps its AMD name IRQ_F2P.
 
+## Decided 2026-11-10 (fixed; do not change without asking)
+- D11 Maximum image size 4096 x 4096. WIDTH/HEIGHT registers are 13 bits; a value above 4096, or a size breaking
+  D3 for the selected mode, sets STATUS.error and the engine does not start.
+- D12 The ARM computes T_R, T_Gr, T_Gb, T_B with the D2 integer formula (the same as model/bayer.py plane_shifts)
+  and writes them to registers. The hardware never recomputes them. Option B lane offsets = T_p - T_R from these
+  registers (D6).
+- D13 Block length is a register BLOCK_LEN (1..BLOCK_LEN_MAX). BLOCK_LEN_MAX is a synthesis parameter chosen in
+  step 2.2 from the step 1.4 numbers. Out-of-range values set STATUS.error.
+
 ## Open decisions (proposed defaults; ask before relying on them)
-- Block length for the block-start computation (steps 1.4/2.2; does not affect results, see above).
 - Largest rotation/scale the prefetch buffers support (step 1.4).
-- Maximum supported width, sets BRAM line buffer size (step 2.1). Proposal: 4096.
-- t_p computed by the ARM and written to registers (step 2.1). Proposal: yes.
 - Option A output writes (step 5.1). Proposal: WSTRB-masked writes into the interleaved buffer.
 
 ## Repository layout
