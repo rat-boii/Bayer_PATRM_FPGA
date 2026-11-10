@@ -1,4 +1,4 @@
-"""Step 1.4 checks for model/memmodel.py.
+"""Step 1.4 and 2.2 checks for model/memmodel.py.
 
     python -m model.test_memmodel
 Prints the numbers for each check, then exactly one final line: TEST PASS or TEST FAIL: <reason>.
@@ -281,8 +281,195 @@ class Step14(unittest.TestCase):
         report(6, f"two runs of a reduced configuration give identical CSV text ({len(a.splitlines())} lines)")
 
 
+def ref_plan_row(anyv, key, mc0, mc1, L, span_max):
+    """Independent streaming planner for one output row (D16 as written in the spec), plain Python.
+    Returns [(v_start, n, reason)] with reason 0 row, 1 x0, 2 len, 3 span."""
+    def span(lo, hi):
+        return -(-(hi + 1) // 8) * 8 - (lo // 8) * 8
+    out, cur, last_key = [], None, None
+    for v in range(len(anyv)):
+        k = int(key[v]) if anyv[v] else None
+        if cur is not None:
+            reason = None
+            if k is not None and last_key is not None and k != last_key:
+                reason = 1
+            elif cur[1] == L:
+                reason = 2
+            elif k is not None and span_max is not None and cur[2] is not None and \
+                    span(min(cur[2], int(mc0[v])), max(cur[3], int(mc1[v]))) > span_max:
+                reason = 3
+            if reason is not None:
+                out.append((cur[0], cur[1], reason))
+                cur = None
+        if cur is None:
+            cur = [v, 0, None, None]
+        cur[1] += 1
+        if k is not None:
+            cur[2] = int(mc0[v]) if cur[2] is None else min(cur[2], int(mc0[v]))
+            cur[3] = int(mc1[v]) if cur[3] is None else max(cur[3], int(mc1[v]))
+            last_key = k
+    out.append((cur[0], cur[1], 0))
+    return out
+
+
+def model_rows(blk):
+    """make_blocks result as {u: [(v_start, n, reason)]}."""
+    Wo = blk["Wo"]
+    rows = {}
+    for st, n, r in zip(blk["start"], blk["n"], blk["reason"]):
+        rows.setdefault(int(st) // Wo, []).append((int(st) % Wo, int(n), int(r)))
+    return rows
+
+
+class Step22(unittest.TestCase):
+
+    def test_7_reference_planner(self):
+        """make_blocks (vectorised + rule (c) re-plan) == independent streaming planner, row by row."""
+        cases = rows = 0
+        fired = {k: 0 for k in MM.REASONS.values()}
+        W, H = 128, 96
+        tfs = [(n, tuple(t["b"][f"{W}x{H}"])) for n, t in TF.items()]
+        tfs.append(("scale0p1", P.make_b(W, H, sx=0.1, sy=0.1)))
+        for name, b in tfs:
+            for mode in ("gray", "A", "B"):
+                for L, S in ((64, 512), (32, 32), (16, 16), (64, None)):
+                    for ps in MM.build_passes(mode, W, H, b):
+                        blk = MM.make_blocks(ps, L, S)
+                        nd = MM.pixel_needs(ps)
+                        got = model_rows(blk)
+                        for u in range(nd["anyv"].shape[0]):
+                            ref = ref_plan_row(nd["anyv"][u], nd["key"][u], nd["mc0"][u], nd["mc1"][u], L, S)
+                            self.assertEqual(got[u], ref, f"{name} {mode} L{L} S{S} {ps.name} row {u}")
+                            rows += 1
+                            for _, _, r in ref:
+                                fired[MM.REASONS[r]] += 1
+                    cases += 1
+        # large image, rule (c) firing: zoom-out at the paper size, rows around the centre
+        W, H = 2448, 2095
+        for fw in (dict(sx=0.1, sy=0.1), dict(sy=0.1)):
+            b = P.make_b(W, H, **fw)
+            ps = MM.build_passes("gray", W, H, b)[0]
+            blk = MM.make_blocks(ps, 64)
+            nd = MM.pixel_needs(ps)
+            got = model_rows(blk)
+            for u in range(H // 2 - 40, H // 2 + 40):
+                ref = ref_plan_row(nd["anyv"][u], nd["key"][u], nd["mc0"][u], nd["mc1"][u], 64, MM.SPAN_MAX)
+                self.assertEqual(got[u], ref, f"2448x2095 {fw} row {u}")
+                rows += 1
+                for _, _, r in ref:
+                    fired[MM.REASONS[r]] += 1
+        self.assertTrue(all(v > 0 for v in fired.values()), f"every end reason must occur: {fired}")
+        report(7, f"block list == independent streaming planner (D16 a/b/c as written) on {rows} output rows "
+                  f"({cases} configs at 128x96: 10 transforms incl. scale 0.1 x gray/A/B x (L,S) = (64,512), "
+                  f"(32,32), (16,16), (64,none); plus 160 rows of 2448x2095 zoom-out with rule (c)); "
+                  f"end reasons seen: {fired}")
+
+    def test_8_span_max(self):
+        """No gray / Bayer A block needs more than 2 x SPAN_MAX bytes, for every transform incl. scale 0.1."""
+        lines = []
+        worst = 0
+        for (mode, W, H) in (("gray", 2448, 2095), ("A", 2448, 2048)):
+            tfs = [(n, MM._b_for(t, W, H)) for n, t in TF.items()]
+            tfs += [(n, P.make_b(W, H, **fw)) for n, fw in MM.EXTREMES]
+            for name, b in tfs:
+                for L in (64, 4096):
+                    cnt, mspan, mfp = MM.block_reasons(mode, W, H, b, L)
+                    self.assertLessEqual(mspan, MM.SPAN_MAX, f"{mode} {name} L{L}")
+                    self.assertLessEqual(mfp, 2 * MM.SPAN_MAX, f"{mode} {name} L{L}")
+                    worst = max(worst, mfp)
+                    if name in ("scale0p1", "cols0p1") and L == 64:
+                        lines.append(f"{mode} {name} L64: max span {mspan} B, max footprint {mfp} B, "
+                                     f"{cnt['span']} blocks ended by rule (c)")
+                    if name == "scale0p1" and L == 4096:
+                        lines.append(f"{mode} {name} L4096 (no length cap): max footprint {mfp} B, "
+                                     f"{cnt['span']} blocks ended by rule (c)")
+        # without rule (c) the same zoom-out would overflow the buffer
+        b = P.make_b(2448, 2095, sx=0.1, sy=0.1)
+        ps = MM.build_passes("gray", 2448, 2095, b)[0]
+        s_col, e_col, nr = MM._block_geometry(ps, MM.make_blocks(ps, 64, None))
+        nofc = int((nr * (e_col - s_col)).max())
+        self.assertGreater(nofc, 2 * MM.SPAN_MAX)
+        report(8, f"gray 2448x2095 and Bayer A 2448x2048, 9 test transforms + {len(MM.EXTREMES)} extremes "
+                  f"(scale 0.1, 0.25, columns x0.1, rot30 + scale 0.2), BLOCK_LEN 64 and 4096: largest footprint "
+                  f"{worst} B <= 2 x SPAN_MAX = {2 * MM.SPAN_MAX} B in every block")
+        for ln in lines:
+            report(8, "  " + ln)
+        report(8, f"  control: scale 0.1 without rule (c) would need {nofc} B for one block")
+        report(8, "  Bayer B is not covered by this bound: a B block holds up to 3 plane rows = 6 memory rows "
+                  "(step 1.4 table), so its buffer bound is 6 x SPAN_MAX; detailed in step 6.1")
+
+    def test_9_schedule(self):
+        """schedule(): totals match pass_reads, every neighbour byte is in the block's slots, ring rule holds."""
+        W, H = 128, 96
+        tfs = [(n, tuple(t["b"][f"{W}x{H}"])) for n, t in TF.items()]
+        tfs.append(("scale0p1", P.make_b(W, H, sx=0.1, sy=0.1)))
+        checked = nsched = 0
+        min_gap = None
+        for name, b in tfs:
+            for mode in ("gray", "A"):
+                for L, S in MM.SCHED_CONFIGS:
+                    for ps in MM.build_passes(mode, W, H, b):
+                        blk = MM.make_blocks(ps, L, S)
+                        bl, br = MM.schedule(ps, blk, W)
+                        st = MM.pass_reads(ps, blk, W, "P1")
+                        self.assertEqual((len(br), sum(x[5] for x in br)), (st["bursts"], st["beats"]))
+                        self.assertEqual((bl, br), MM.schedule(ps, blk, W))
+                        by_block = {}
+                        for x in br:
+                            by_block.setdefault((x[0], x[1]), []).append(x)
+                        slot, users, held = {}, {}, {}
+                        for rec in bl:
+                            if rec["nrows"] == 0:
+                                continue
+                            rws = [(rec["row_top"], rec["slot_top"], rec["fetch_top"])]
+                            if rec["nrows"] == 2:
+                                rws.append((rec["row_bot"], rec["slot_bot"], rec["fetch_bot"]))
+                            for r, sl, f in rws:
+                                s0 = MM.SRC_ADDR + r * W + rec["s_col"]
+                                if f:
+                                    got = by_block[(rec["id"], r)]
+                                    self.assertEqual(sum(x[5] for x in got) * 8, rec["span"])
+                                    self.assertTrue(all(x[2] == sl for x in got))
+                                    if sl in users:
+                                        gap = rec["id"] - users[sl]
+                                        min_gap = gap if min_gap is None else min(min_gap, gap)
+                                    slot[sl] = (r, s0, s0 + rec["span"])
+                                else:
+                                    self.assertIn(sl, slot)
+                                    hr, hs, he = slot[sl]
+                                    self.assertEqual(hr, r)
+                                    self.assertTrue(hs <= s0 and s0 + rec["span"] <= he)
+                                users[sl] = rec["id"]
+                            held[rec["id"]] = {sl: slot[sl] for _, sl, _ in rws}
+                        bid = blk["bid"]
+                        if mode == "gray":
+                            lanes = [((1, 0), (1, 0), neighbours(b, W, H))]
+                        else:
+                            pl = ps.name[2:]
+                            lanes = [((2, BY.OFFSETS[pl][0]), (2, BY.OFFSETS[pl][1]),
+                                      neighbours(BY.plane_b(b)[pl], W // 2, H // 2))]
+                        for (rm, ra), (cm, ca), (valid, nbs) in lanes:
+                            us, vs = np.nonzero(valid)
+                            for k, (xr, yc) in enumerate(nbs):
+                                rows_ = rm * xr[us, vs] + ra
+                                addr = MM.SRC_ADDR + rows_ * W + cm * yc[us, vs] + ca
+                                for t in range(len(us)):
+                                    j = int(bid[us[t], vs[t]])
+                                    rec = bl[j]
+                                    sl = rec["slot_top"] if k < 2 else rec["slot_bot"]
+                                    hr, hs, he = held[j][sl]
+                                    self.assertEqual(hr, int(rows_[t]))
+                                    self.assertTrue(hs <= addr[t] < he)
+                                    checked += 1
+                        nsched += 1
+        report(9, f"{nsched} schedules (128x96, 10 transforms, gray + 4 Bayer A passes, (L,S) = "
+                  f"{list(MM.SCHED_CONFIGS)}): burst/beat totals = pass_reads; deterministic; {checked} neighbour "
+                  f"bytes read from the block's slots: 0 misses; reused rows found in their slot with a covering "
+                  f"range; a slot is refilled at the earliest {min_gap} blocks after its previous user "
+                  f"(NSLOT {MM.NSLOT})")
+
 def main():
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(Step14)
+    suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(c) for c in (Step14, Step22)])
     res = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
     for n in sorted(REPORT):
         for line in REPORT[n]:

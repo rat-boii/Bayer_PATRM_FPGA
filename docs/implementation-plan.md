@@ -21,13 +21,15 @@ Repo layout: model/ spec/ rtl/ tb/ vivado/ sw/ scripts/ data/ results/
 - Block length does not affect results (integer stepping == multiply exactly, mod 2^32); it is a memory/prefetch parameter decided in 1.4/2.2, not 1.1.
 - b is the inverse map; PC helper builds it from forward params in float, quantises round-to-nearest; ARM never does float transform maths. Integer part = >>16 (floor).
 
-## Decided 2026-11-10 (step 2.1)
+## Decided 2026-11-10 (steps 2.1, 2.2)
 - D11 max image size 4096 x 4096; WIDTH/HEIGHT 13-bit registers; above 4096 or breaking D3 for the mode -> STATUS.error, no start.
 - D12 ARM computes T_R/T_Gr/T_Gb/T_B with the D2 integer formula (model/bayer.py plane_shifts) and writes the registers; hardware never recomputes; Option B lane offsets = T_p - T_R (D6).
 - D13 BLOCK_LEN register (1..BLOCK_LEN_MAX); BLOCK_LEN_MAX is a synthesis parameter chosen in 2.2 from the 1.4 numbers; out of range -> STATUS.error.
+- D14 fetch policy P1: skip a row fetch when the previous block already holds that row with a covering column range.
+- D15 BLOCK_LEN_MAX = 64 (synthesis parameter; BUILD_ID.BLOCK_LEN_MAX = 64; driver default BLOCK_LEN = 64).
+- D16 block ends at the first of: (a) source top row x0 changes, (b) BLOCK_LEN pixels, (c) a needed row's column span would exceed SPAN_MAX = 512 bytes; buffers never overflow, every D4-valid transform supported (speed varies). Closes "largest rotation/scale".
 
 ## Open decisions (proposed defaults, not yet decided)
-- 1.4/2.2: largest rotation/scale the prefetch buffers support.
 - 5.1: Option A output via WSTRB-masked writes into interleaved buffer.
 
 ## Steps (Where -> Produce -> Verify)

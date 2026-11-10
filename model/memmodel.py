@@ -1,20 +1,35 @@
-"""Memory-access model (step 1.4). OUR INTERPRETATION of the paper's block/burst/ping-pong scheme;
-all throughput figures are ESTIMATES, not measurements.
+"""Memory-access model: the exact block / fetch schedule the RTL follows (step 1.4, made exact in step 2.2).
+All throughput figures are ESTIMATES, not measurements.
 
-The paper only says: burst length follows the coordinate slope (b12 != 0: about 1/|b12| output pixels per
-source row change; b12 = 0: the whole row) and a ping-pong RAM pair prefetches the next block while the
-current one is interpolated. Our interpretation, modelled here:
+The paper only says: burst length follows the coordinate slope and a ping-pong RAM pair prefetches the next
+block while the current one is interpolated. Our rules (D14, D15, D16; the RTL must follow them exactly):
 
-Blocks   Each output row is cut into blocks = maximal runs of consecutive output pixels whose VALID pixels
-         share the same top source row x0 (so the block needs rows x0 and x0+1), capped at Lmax pixels.
-         Invalid pixels (D1) need no data and never split a block. Option B: the key is the pair
-         (min x0, max x0) over the four lanes.
-Reads    Per block and needed source row: column span [min y0, max y0+1] (clamped, D1) -> 8-byte aligned
-         byte range at SRC_ADDR + row*W + col -> AXI3 bursts of <= 16 beats x 8 bytes, never across 4 KB.
+Blocks   Output pixels are scanned row by row, v = 0 .. Wo-1. A pixel is valid by D1; its key is its source top
+         row x0 (Option B: the pair (min x0, max x0) over the four lanes). A block starts at v = 0 of every
+         output row, and before pixel v when the first of these holds (this is also the recorded end reason):
+           (a) x0   v is valid, the row already had a valid pixel, and key(v) != key of the most recent valid
+                    pixel of this output row. Invalid pixels never end a block on their own and never change
+                    the key; a block may start with invalid pixels.
+           (b) len  the block already has BLOCK_LEN pixels (valid or not).
+           (c) span v is valid and adding it would make the block's aligned byte span exceed SPAN_MAX.
+         span = ceil8(max column + 1) - floor8(min column) over the block's valid pixels, in source-row bytes
+         (Bayer A: full-resolution columns 2y + o_col; Bayer B: union of the lanes). One column range per block,
+         shared by all its rows. A single pixel always fits (span <= 16 <= SPAN_MAX).
+Rows     A block with valid pixels needs source rows x0 and x1 = min(x0 + 1, H - 1); at the bottom edge
+         (x0 = H - 1) that is ONE row, and r3/r4 are read from the same row (their weight is 0 by D1).
+         Columns: y1 = min(y0 + 1, W - 1), so the range never passes the row end (W is a multiple of 8).
+         A block whose pixels are all invalid needs no rows and fetches nothing.
+Reads    Per needed row: byte range [s, e) = SRC_ADDR + row*W + [floor8(cmin), ceil8(cmax + 1)), split into
+         AXI3 bursts of <= 16 beats x 8 bytes, never across 4 KB; rows in order top, bottom; blocks in order.
 Policies P0: fetch every needed row of every block.
-         P1: skip a row if the previous block (that fetched anything, same pass) needed that row with a
-             covering aligned column range (the data are still on chip).
-Buffer   footprint = needed source rows x aligned span bytes; ping-pong = 2 x the largest footprint.
+         P1 (D14, the hardware): skip a row if the PREVIOUS FETCHING BLOCK (the last earlier block with a valid
+             pixel) needed that same row AND that block's aligned range [s', e') covers [s, e). The compare
+             uses the range the previous block needed, not a possibly wider range still in its slot. Partial
+             overlap = no reuse: the whole range is fetched again.
+Slots    (schedule() only) the on-chip buffer is NSLOT row slots of SPAN_MAX bytes. A reused row keeps its
+         slot. A fetched row takes the next slot of a ring (pointer advances by one per fetched row), skipping
+         slots the current block already uses. The RTL waits until every earlier block using that slot has
+         been interpolated before overwriting it; the slot numbers therefore depend only on the block list.
 Writes   Output rows in 128-byte bursts (no 4 KB crossing) at DST_ADDR. Bayer A writes every full row
          once per plane pass with WSTRB on every other byte; Bayer B writes whole row pairs.
 Bayer A  Four plane passes; plane row x -> full row 2x+o_row, plane column y -> full column 2y+o_col; the
@@ -22,11 +37,12 @@ Bayer A  Four plane passes; plane row x -> full row 2x+o_row, plane column y -> 
 Bayer B  One pass in plane coordinates, four lanes (coords of b_p = coords of b_R + T_p - T_R, D6); per
          block the union of the lanes' needs is read as full-resolution row pairs (2x, 2x+1).
 Speed    ESTIMATE: cycles = max(output pixels / pixels per clock, read beats + OVERHEAD x read bursts)
-         (per pass for Bayer A, passes summed); pixels per clock = 1 (gray, A) or 4 (B); assumes >= 2
-         outstanding reads hide the latency. fps at 100 MHz (D8). Port ceiling 64 bit x 100 MHz = 800 MB/s
-         (theoretical).
+         (per pass for Bayer A, passes summed); pixels per clock = 1 (gray, A) or 4 (B); assumes enough
+         blocks in flight and >= 2 outstanding reads to hide the DDR latency. fps at 100 MHz (D8).
+         Port ceiling 64 bit x 100 MHz = 800 MB/s (theoretical).
 
-    python -m model.memmodel [--out results/memmodel_step1_4] [--overhead 2]
+    python -m model.memmodel [--out results/memmodel_step1_4] [--overhead 2]     step 1.4 report
+    python -m model.memmodel --step22                                           step 2.2 report
 """
 
 import argparse
@@ -53,6 +69,10 @@ CLK_HZ = 100e6                  # D8
 PORT_MBPS = BEAT * CLK_HZ / 1e6  # 800 MB/s theoretical
 OVERHEAD = 2                    # cycles per read burst (parameter)
 BIG = 1 << 40
+SPAN_MAX = 512                  # D16: largest aligned byte span of a block (= one buffer slot)
+BLOCK_LEN_MAX = 64              # D15: synthesis parameter; driver default BLOCK_LEN
+NSLOT = 32                      # buffer row slots (proposal, spec/interface.md); slot = SPAN_MAX bytes
+REASONS = {0: "row", 1: "x0", 2: "len", 3: "span"}     # why a block ended (D16 order a, b, c)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_OUT = os.path.join(ROOT, "results", "memmodel_step1_4")
@@ -133,10 +153,14 @@ def build_passes(mode, W, H, b):
 # Blocks
 # ---------------------------------------------------------------------------
 
-def make_blocks(ps, Lmax):
-    """Cut the pass into blocks. Returns dict with
-    bid: block id per output pixel (Ho, Wo); nblocks; and for blocks that need data (in order):
-    ids, rlo, rhi (plane rows needed, inclusive), clo, chi (plane columns needed, inclusive)."""
+def aligned_span(cmin, cmax):
+    """Bytes of the 8-byte aligned range covering memory columns cmin..cmax (inclusive)."""
+    return ((cmax + 1 + BEAT - 1) // BEAT) * BEAT - (cmin // BEAT) * BEAT
+
+
+def pixel_needs(ps):
+    """Per output pixel (union over lanes): anyv, rlo, rhi (plane rows), clo, chi (plane columns), key,
+    mc0, mc1 (memory columns, colmap applied). Arrays of the output grid shape."""
     valid = np.stack([l[0] for l in ps.lanes])
     x0 = np.stack([l[1] for l in ps.lanes])
     y0 = np.stack([l[2] for l in ps.lanes])
@@ -149,6 +173,54 @@ def make_blocks(ps, Lmax):
     chi = np.where(valid, y1, -BIG).max(axis=0)
     kmax = np.where(valid, x0, -BIG).max(axis=0)
     key = np.where(anyv, rlo * (1 << 20) + (kmax - rlo), -1)
+    cm, alo, ahi = ps.colmap
+    mc0 = np.where(anyv, cm * clo + alo, BIG)
+    mc1 = np.where(anyv, cm * chi + ahi, -BIG)
+    return dict(anyv=anyv, rlo=rlo, rhi=rhi, clo=clo, chi=chi, key=key, mc0=mc0, mc1=mc1)
+
+
+def _apply_span_rule(start, boundary, anyv, mc0, mc1, L, span_max):
+    """Rule (c). start/boundary are flat bool arrays (rule (a)+(b) starts, rule (a) / row starts).
+    Blocks that would exceed span_max are re-planned pixel by pixel over their whole key run (rule (c)
+    restarts the BLOCK_LEN count, so the rest of the run shifts)."""
+    st = np.flatnonzero(start)
+    lo = np.minimum.reduceat(mc0, st)
+    hi = np.maximum.reduceat(mc1, st)
+    has = lo < BIG
+    span = np.where(has, aligned_span(np.where(has, lo, 0), np.where(has, hi, 0)), 0)
+    bad = np.flatnonzero(span > span_max)
+    if bad.size == 0:
+        return start
+    start = start.copy()
+    run_id = np.cumsum(boundary) - 1
+    run_st = np.flatnonzero(boundary)
+    run_end = np.r_[run_st[1:], boundary.size]
+    for r in np.unique(run_id[st[bad]]):
+        a, e = int(run_st[r]), int(run_end[r])
+        n, lo_, hi_ = 0, BIG, -BIG
+        for q in range(a, e):
+            new = q == a or n == L
+            if not new and anyv[q]:
+                if aligned_span(min(lo_, int(mc0[q])), max(hi_, int(mc1[q]))) > span_max:
+                    new = True
+            if new:
+                n, lo_, hi_ = 0, BIG, -BIG
+            start[q] = new
+            n += 1
+            if anyv[q]:
+                lo_, hi_ = min(lo_, int(mc0[q])), max(hi_, int(mc1[q]))
+    return start
+
+
+def make_blocks(ps, Lmax, span_max=SPAN_MAX):
+    """Cut the pass into blocks by D16 rules (a) x0, (b) BLOCK_LEN = Lmax, (c) span_max (None = no rule c).
+    Returns dict with bid (block id per output pixel), nblocks, per block (all blocks, in order): start
+    (flat pixel index), n (pixels), nvalid, reason (REASONS); and for blocks that need data (in order):
+    ids, rlo, rhi (plane rows needed, inclusive), clo, chi (plane columns needed, inclusive)."""
+    if span_max is not None and (span_max < 2 * BEAT or span_max % BEAT):
+        raise ValueError("span_max must be a multiple of 8 and >= 16")
+    nd = pixel_needs(ps)
+    anyv, key = nd["anyv"], nd["key"]
     Ho, Wo = anyv.shape
     cols = np.arange(Wo)
     # invalid pixels take the key of the last valid pixel in the row (or the next one at the row start)
@@ -160,18 +232,37 @@ def make_blocks(ps, Lmax):
     boundary[:, 1:] = keyf[:, 1:] != keyf[:, :-1]
     vstart = np.maximum.accumulate(np.where(boundary, cols, 0), axis=1)
     L = Wo if Lmax is None else int(Lmax)
-    start = boundary | (((cols - vstart) % L) == 0)
-    bid = np.cumsum(start.ravel()) - 1
-    nblocks = int(bid[-1]) + 1
+    if L < 1:
+        raise ValueError("BLOCK_LEN must be >= 1")
+    start = (boundary | (((cols - vstart) % L) == 0)).ravel()
     fv = anyv.ravel()
+    if span_max is not None:
+        start = _apply_span_rule(start, boundary.ravel(), fv, nd["mc0"].ravel(), nd["mc1"].ravel(), L, span_max)
+    bid = np.cumsum(start) - 1
+    nblocks = int(bid[-1]) + 1
+    bst = np.flatnonzero(start)
+    bn = np.diff(np.r_[bst, start.size])
+    nvalid = np.add.reduceat(fv.astype(np.int64), bst)
+    # end reason: the start rule that fired at the next pixel of the same output row
+    nxt_px = bst + bn
+    reason = np.zeros(nblocks, dtype=np.int64)
+    inrow = (nxt_px % Wo) != 0
+    q = nxt_px[inrow]
+    bflat = boundary.ravel()
+    r = np.where(bflat[q], 1, np.where(bn[inrow] == L, 2, 3))
+    reason[inrow] = r
+    out = dict(bid=bid.reshape(Ho, Wo), nblocks=nblocks, start=bst, n=bn, nvalid=nvalid, reason=reason,
+               Wo=Wo, L=L, span_max=span_max)
     vb = bid[fv]
     if vb.size == 0:
         e = np.zeros(0, dtype=np.int64)
-        return dict(bid=bid.reshape(Ho, Wo), nblocks=nblocks, ids=e, rlo=e, rhi=e, clo=e, chi=e)
+        out.update(ids=e, rlo=e, rhi=e, clo=e, chi=e)
+        return out
     st = np.flatnonzero(np.r_[True, vb[1:] != vb[:-1]])
-    return dict(bid=bid.reshape(Ho, Wo), nblocks=nblocks, ids=vb[st],
-                rlo=np.minimum.reduceat(rlo.ravel()[fv], st), rhi=np.maximum.reduceat(rhi.ravel()[fv], st),
-                clo=np.minimum.reduceat(clo.ravel()[fv], st), chi=np.maximum.reduceat(chi.ravel()[fv], st))
+    out.update(ids=vb[st],
+               rlo=np.minimum.reduceat(nd["rlo"].ravel()[fv], st), rhi=np.maximum.reduceat(nd["rhi"].ravel()[fv], st),
+               clo=np.minimum.reduceat(nd["clo"].ravel()[fv], st), chi=np.maximum.reduceat(nd["chi"].ravel()[fv], st))
+    return out
 
 
 def _block_geometry(ps, blk):
@@ -238,6 +329,81 @@ def pass_detail(ps, blk, W, policy, src_addr=SRC_ADDR):
                 rows.append((r, s, e, fetched, split_bursts(s, e) if fetched else []))
         out.append(dict(id=int(blk["ids"][i]), rows=rows))
     return out
+
+
+SCHED_BLOCK_COLS = ("id", "u", "v0", "n", "nvalid", "reason", "nrows", "row_top", "row_bot", "s_col", "span",
+                    "fetch_top", "fetch_bot", "slot_top", "slot_bot")
+SCHED_BURST_COLS = ("block", "row", "slot", "word", "addr", "beats")
+
+
+def schedule(ps, blk, W, policy="P1", nslot=NSLOT, src_addr=SRC_ADDR):
+    """The exact schedule the RTL follows for one pass (gray or one Bayer A plane pass: one memory row per
+    plane row). Returns (blocks, bursts):
+      blocks: one dict per block (all blocks, in order) with SCHED_BLOCK_COLS; blocks without valid pixels
+              have nrows = 0 and -1 in the row/slot/range fields. nrows = 1 at the bottom edge (row_bot =
+              row_top, slot_bot = slot_top, fetch_bot = 0).
+      bursts: AR order, one tuple per burst (block id, memory row, slot, first word in the slot, byte address,
+              beats).
+    Slots: see the module docstring (ring of nslot slots, reused rows keep their slot)."""
+    if len(ps.rowmap) != 1:
+        raise ValueError("schedule() covers gray and Bayer A passes (one memory row per plane row)")
+    if nslot < 4:
+        raise ValueError("nslot must be >= 4")
+    mul, add = ps.rowmap[0]
+    s_col, e_col, nr = _block_geometry(ps, blk)
+    nfb = len(blk["ids"])
+    reuse = np.zeros((2, nfb), dtype=bool)
+    for k in range(2):
+        reuse[k] = _reuse_mask(blk, s_col, e_col, blk["rlo"] + k, policy) & (k < nr)
+    if nfb and nr.max() > 2:
+        raise ValueError("a gray / Bayer A block needs at most 2 rows")
+    fidx = {int(b): i for i, b in enumerate(blk["ids"])}
+    Wo = blk["Wo"]
+    blocks, bursts = [], []
+    prev, ptr = {}, 0
+    for j in range(blk["nblocks"]):
+        st = int(blk["start"][j])
+        rec = dict(id=j, u=st // Wo, v0=st % Wo, n=int(blk["n"][j]), nvalid=int(blk["nvalid"][j]),
+                   reason=int(blk["reason"][j]), nrows=0, row_top=-1, row_bot=-1, s_col=-1, span=0,
+                   fetch_top=0, fetch_bot=0, slot_top=-1, slot_bot=-1)
+        i = fidx.get(j)
+        if i is not None:
+            rows = [mul * (int(blk["rlo"][i]) + k) + add for k in range(int(nr[i]))]
+            slots, used = [None] * len(rows), set()
+            for k, r in enumerate(rows):
+                if reuse[k][i]:
+                    slots[k] = prev[r]
+                    used.add(prev[r])
+            for k, r in enumerate(rows):
+                if slots[k] is None:
+                    while ptr in used:
+                        ptr = (ptr + 1) % nslot
+                    slots[k] = ptr
+                    used.add(ptr)
+                    ptr = (ptr + 1) % nslot
+            sc, ec = int(s_col[i]), int(e_col[i])
+            for k, r in enumerate(rows):
+                if not reuse[k][i]:
+                    s0 = src_addr + r * W + sc
+                    for addr, beats in split_bursts(s0, src_addr + r * W + ec):
+                        bursts.append((j, r, slots[k], (addr - s0) // BEAT, addr, beats))
+            rec.update(nrows=len(rows), row_top=rows[0], row_bot=rows[-1], s_col=sc, span=ec - sc,
+                       fetch_top=int(not reuse[0][i]),
+                       fetch_bot=int(len(rows) == 2 and not reuse[1][i]),
+                       slot_top=slots[0], slot_bot=slots[-1])
+            prev = dict(zip(rows, slots))
+        blocks.append(rec)
+    return blocks, bursts
+
+
+def schedule_text(blocks, bursts, header):
+    """Text of the two dump files (blocks, bursts): '#' header lines, then one line of integers per record."""
+    hb = "\n".join("# " + h for h in header)
+    tb = [hb, "# " + " ".join(SCHED_BLOCK_COLS)]
+    tb += [" ".join(str(b[c]) for c in SCHED_BLOCK_COLS) for b in blocks]
+    tr = [hb, "# " + " ".join(SCHED_BURST_COLS)]
+    tr += [" ".join(str(x) for x in r) for r in bursts]
+    return "\n".join(tb) + "\n", "\n".join(tr) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -484,13 +650,129 @@ def generate_report(out_base=DEFAULT_OUT, overhead=OVERHEAD, log=print):
     return rows, tiles
 
 
+# ---------------------------------------------------------------------------
+# Step 2.2 report: exact schedule (D14 P1, D15 BLOCK_LEN 64, D16 SPAN_MAX 512)
+# ---------------------------------------------------------------------------
+
+OUT_22 = os.path.join(ROOT, "results", "memmodel_step2_2")
+SCHED_CONFIGS = ((64, 512), (32, 32))   # (BLOCK_LEN, SPAN_MAX): D15/D16, and a stress setting for rule (c)
+EXTREMES = [("scale0p1", dict(sx=0.1, sy=0.1)), ("scale0p25", dict(sx=0.25, sy=0.25)),
+            ("cols0p1", dict(sy=0.1)), ("rot30_scale0p2", dict(rot_deg=30.0, sx=0.2, sy=0.2))]
+COMPARE_KEYS = ("blocks", "bursts", "beats", "bytes_read", "est_cycles", "est_fps", "max_footprint")
+
+
+def block_reasons(mode, W, H, b, L, span_max=SPAN_MAX):
+    """Count of block end reasons and the largest block span / footprint over all passes."""
+    cnt = {v: 0 for v in REASONS.values()}
+    max_span = max_fp = 0
+    for ps in build_passes(mode, W, H, b):
+        blk = make_blocks(ps, L, span_max)
+        for k, v in REASONS.items():
+            cnt[v] += int((blk["reason"] == k).sum())
+        s_col, e_col, nr = _block_geometry(ps, blk)
+        if len(nr):
+            span = e_col - s_col
+            max_span = max(max_span, int(span.max()))
+            max_fp = max(max_fp, int((nr * len(ps.rowmap) * span).max()))
+    return cnt, max_span, max_fp
+
+
+def generate_report_22(out_base=OUT_22, overhead=OVERHEAD, log=print):
+    cfg = [("gray", W, H) for W, H in GRAY_SIZES]
+    rows = run_configs(cfg, overhead=overhead, log=log)
+    # compare with the step 1.4 CSV (same rules except D16 (c), which cannot fire for these transforms)
+    old = {}
+    path14 = DEFAULT_OUT + ".csv"
+    if os.path.exists(path14):
+        with open(path14) as f:
+            for r in csv.DictReader(f):
+                if r["mode"] == "gray":
+                    old[(r["size"], r["transform"], int(r["lmax"]), r["policy"])] = r
+    same = diff = 0
+    diffs = []
+    for r in rows:
+        o = old.get((r["size"], r["transform"], r["lmax"], r["policy"]))
+        if o is None:
+            continue
+        d = [k for k in COMPARE_KEYS if _fmt(r[k]) != o[k]]
+        if d:
+            diff += 1
+            diffs.append(f"{r['size']} {r['transform']} L{r['lmax']} {r['policy']}: {', '.join(d)}")
+        else:
+            same += 1
+    ext = []
+    for name, fw in EXTREMES:
+        for mode, (W, H) in (("gray", GRAY_SIZES[-1]), ("A", BAYER_SIZES[0])):
+            b = P.make_b(W, H, **fw)
+            st = frame_stats(mode, W, H, b, BLOCK_LEN_MAX, "P1", overhead=overhead)
+            cnt, mspan, mfp = block_reasons(mode, W, H, b, BLOCK_LEN_MAX)
+            ext.append([name, mode, f"{W}x{H}", st["blocks"], cnt["row"], cnt["x0"], cnt["len"], cnt["span"],
+                        mspan, mfp, f"{st['read_amp']:.2f}", f"{st['est_fps']:.1f}"])
+            if log:
+                log(f"  extreme {name} {mode}: {cnt}")
+    idx = {(r["size"], r["transform"], r["lmax"], r["policy"]): r for r in rows}
+    names = [t[0] for t in TF_LIST]
+    md = ["# Memory schedule, step 2.2 (exact hardware rules)", "",
+          "Rules: D14 (P1 row reuse), D15 (BLOCK_LEN_MAX 64, driver default 64), D16 (block ends at x0 change, "
+          f"BLOCK_LEN, or SPAN_MAX = {SPAN_MAX} bytes); exact definitions in the docstring of `model/memmodel.py` "
+          "and in `spec/interface.md`. **All speeds are ESTIMATES** (same formula as step 1.4: "
+          f"cycles = max(pixels, read beats + {overhead} x read bursts) at 100 MHz, latency assumed hidden). "
+          "Full data: `memmodel_step2_2.csv`.", "",
+          "## Comparison with step 1.4 (grayscale, all sizes, Lmax 16/32/64, P0 and P1)", "",
+          f"{same} of {same + diff} rows identical to `memmodel_step1_4.csv` in "
+          f"{', '.join(COMPARE_KEYS)}." + ("" if not diff else " Differences: " + "; ".join(diffs[:10])),
+          "Reason: rule (c) never fires for the nine test transforms (largest block span at 2448x2095 is far "
+          f"below {SPAN_MAX} bytes), and rules (a), (b) and P1 are the step 1.4 rules, now written down exactly.",
+          "", f"## Grayscale {GRAY_SIZES[-1][0]}x{GRAY_SIZES[-1][1]}, P1, BLOCK_LEN 64 (D15): the configuration we build", ""]
+    W, H = GRAY_SIZES[-1]
+    lines = []
+    for n in names:
+        r = idx[(f"{W}x{H}", n, 64, "P1")]
+        lines.append([n, r["blocks"], r["bursts"], f"{r['read_amp']:.2f}", f"{r['mean_burst_beats']:.2f}",
+                      f"{r['est_fps']:.1f}", f"{r['est_read_mbps']:.0f}", r["max_span"], r["max_footprint"]])
+    md += [_md_table(["transform", "blocks", "bursts", "amp", "mean burst (beats)", "fps (est)",
+                      "read MB/s (est)", "max span (B)", "max footprint (B)"], lines), ""]
+    md += ["## Grayscale, all sizes, P1: estimated fps (Lmax 16 / 32 / 64), unchanged from step 1.4", ""]
+    lines = []
+    for n in names:
+        ln = [n]
+        for (W, H) in GRAY_SIZES:
+            ln.append(" / ".join(f"{idx[(f'{W}x{H}', n, L, 'P1')]['est_fps']:.0f}" for L in LMAXES))
+        lines.append(ln)
+    md += [_md_table(["transform"] + [f"{W}x{H}" for W, H in GRAY_SIZES], lines), ""]
+    md += ["## Extreme zoom-out (rule (c) at work), BLOCK_LEN 64, P1", "",
+           "Every D4-valid transform is supported: rule (c) caps every block at "
+           f"{SPAN_MAX} bytes per row, so a gray or Bayer A block never needs more than 2 x {SPAN_MAX} bytes "
+           "of buffer. Here the estimate stays at the compute bound (1 pixel per clock): most output pixels of a "
+           "zoom-out fall outside the source and need no data, and the valid ones read long bursts; rule (c) "
+           "only splits the blocks that would be too wide. Speed falls only where blocks become very short "
+           "(large rotations, see the table above).", ""]
+    md += [_md_table(["transform", "mode", "size", "blocks", "end: row", "end: x0", "end: len", "end: span",
+                      "max span (B)", "max footprint (B)", "amp", "fps (est)"], ext), ""]
+    md += ["## On-chip buffer", "",
+           f"NSLOT = {NSLOT} row slots x SPAN_MAX = {SPAN_MAX} bytes = {NSLOT * SPAN_MAX // 1024} KB "
+           "(gray and Bayer A need at most 2 slots per block; see spec/interface.md for the RAM organisation).", ""]
+    os.makedirs(os.path.dirname(out_base), exist_ok=True)
+    with open(out_base + ".csv", "w", newline="\n") as f:
+        f.write(rows_to_csv(rows, COLUMNS))
+    with open(out_base + ".md", "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(md) + "\n")
+    return rows, same, diff, ext
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="python -m model.memmodel", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", default=DEFAULT_OUT, help="output base path (.csv, _tiles.csv, .md are added)")
     p.add_argument("--overhead", type=int, default=OVERHEAD, help="cycles per read burst (estimate)")
+    p.add_argument("--step22", action="store_true", help="write the step 2.2 report (results/memmodel_step2_2)")
     a = p.parse_args(argv)
     t0 = time.perf_counter()
+    if a.step22:
+        rows, same, diff, _ = generate_report_22(overhead=a.overhead)
+        print(f"memmodel step 2.2: {len(rows)} rows, {same} identical to step 1.4, {diff} differ -> "
+              f"{OUT_22}.md ({time.perf_counter() - t0:.0f} s)")
+        return 0
     rows, tiles = generate_report(a.out, a.overhead)
     print(f"memmodel: {len(rows)} rows + {len(tiles)} tile rows -> {a.out}.csv/.md "
           f"({time.perf_counter() - t0:.0f} s)")

@@ -113,9 +113,14 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
   registers (D6).
 - D13 Block length is a register BLOCK_LEN (1..BLOCK_LEN_MAX). BLOCK_LEN_MAX is a synthesis parameter chosen in
   step 2.2 from the step 1.4 numbers. Out-of-range values set STATUS.error.
+- D14 Fetch policy P1: skip a row fetch when the previous block already holds that row with a covering column
+  range.
+- D15 BLOCK_LEN_MAX = 64 (synthesis parameter; BUILD_ID.BLOCK_LEN_MAX = 64; driver default BLOCK_LEN = 64).
+- D16 A block ends at the first of: (a) the source top row x0 changes, (b) BLOCK_LEN pixels reached, (c) the
+  column span of a needed row would exceed SPAN_MAX = 512 bytes. So the buffers can never overflow, and every
+  D4-valid transform is supported (speed varies). Exact rules: model/memmodel.py docstring, spec/interface.md.
 
 ## Open decisions (proposed defaults; ask before relying on them)
-- Largest rotation/scale the prefetch buffers support (step 1.4).
 - Option A output writes (step 5.1). Proposal: WSTRB-masked writes into the interleaved buffer.
 
 ## Repository layout

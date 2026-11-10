@@ -10,6 +10,12 @@ model/transforms.json. Output: data/vectors/ (git-ignored). Formats are describe
   with <stem> = <image>_<transform>_<W>x<H>
   src_rggb_<stem>.hex / exp_rggb_<stem>.hex  Bayer RGGB frames (warp_bayer), same hex format
   cfg_rggb_<stem>.txt                      W H b11 b12 b13 b21 b22 b23 TRx TRy TGrx TGry TGbx TGby TBx TBy
+  sched_blocks_<transform>_<W>x<H>_L<L>_S<S>.txt  grayscale block list (step 2.2, model/memmodel.schedule):
+                                           id u v0 n nvalid reason nrows row_top row_bot s_col span
+                                           fetch_top fetch_bot slot_top slot_bot
+  sched_bursts_<transform>_<W>x<H>_L<L>_S<S>.txt  AR burst list in issue order: block row slot word addr beats
+                                           (addr = byte address with SRC_ADDR = 0x10000000; P1, NSLOT 32)
+  with (L, S) = (BLOCK_LEN, SPAN_MAX) in memmodel.SCHED_CONFIGS: (64, 512) = D15/D16, (32, 32) = stress for rule (c)
 """
 
 import argparse
@@ -19,6 +25,7 @@ import sys
 import numpy as np
 
 from model import manifest as M
+from model import memmodel as MM
 from model import bayer as BY
 from model import patrm as P
 from model.gen_images import DEFAULT_OUT as GEN_DIR
@@ -183,6 +190,27 @@ def gen_frames(out_dir, tf, W, H, gen_dir=GEN_DIR):
     return paths
 
 
+def gen_schedules(out_dir, tf, W, H):
+    """Grayscale block and burst lists (step 2.2) for every (BLOCK_LEN, SPAN_MAX) in MM.SCHED_CONFIGS."""
+    b = tuple(tf["b"][f"{W}x{H}"])
+    ps = MM.build_passes("gray", W, H, b)[0]
+    paths = []
+    for L, S in MM.SCHED_CONFIGS:
+        blk = MM.make_blocks(ps, L, S)
+        blocks, bursts = MM.schedule(ps, blk, W, "P1", MM.NSLOT, MM.SRC_ADDR)
+        header = [f"transform {tf['name']} size {W}x{H} (W x H) b {' '.join(str(c) for c in b)}",
+                  f"mode gray BLOCK_LEN {L} SPAN_MAX {S} policy P1 NSLOT {MM.NSLOT} SRC_ADDR {MM.SRC_ADDR}",
+                  "reason: 0 row end, 1 x0 change (D16a), 2 BLOCK_LEN (D16b), 3 SPAN_MAX (D16c); see model/memmodel.py"]
+        tb, tr = MM.schedule_text(blocks, bursts, header)
+        stem = f"{tf['name']}_{W}x{H}_L{L}_S{S}"
+        for kind, text in (("sched_blocks", tb), ("sched_bursts", tr)):
+            path = os.path.join(out_dir, f"{kind}_{stem}.txt")
+            with open(path, "w", newline="\n") as f:
+                f.write(text)
+            paths.append((path, kind))
+    return paths
+
+
 def generate(out_dir=DEFAULT_OUT, gen_dir=GEN_DIR):
     if not os.path.isdir(gen_dir) or not os.listdir(gen_dir):
         raise SystemExit(f"{gen_dir} is empty: run python -m model.gen_images first")
@@ -193,6 +221,8 @@ def generate(out_dir=DEFAULT_OUT, gen_dir=GEN_DIR):
     for tf in load_transforms():
         for (W, H) in SIM_SIZES:
             entries.append(M.entry(gen_coords(out_dir, tf, W, H), W, H, f"coord:{tf['name']}"))
+            for p_, kind in gen_schedules(out_dir, tf, W, H):
+                entries.append(M.entry(p_, W, H, f"{kind}:{tf['name']}"))
             for p, kind in gen_frames(out_dir, tf, W, H, gen_dir) + gen_bayer_frames(out_dir, tf, W, H, gen_dir):
                 entries.append(M.entry(p, W, H, f"{kind}:{tf['name']}"))
     return entries, n, nfixed
