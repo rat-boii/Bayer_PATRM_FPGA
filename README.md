@@ -135,3 +135,19 @@ value on purpose, so it must print `TEST FAIL` and exit non-zero.
 `sim.py` options: `-f <filelist>` (one path per line), `--define NAME[=VALUE]`, `--incdir <dir>`,
 `--gui` (opens the xsim GUI, off by default). Every testbench is self-checking and prints exactly
 one final line: `TEST PASS` or `TEST FAIL: <reason>`.
+
+## Step 3.1: AXI-Lite register file (rtl/axil_regs.v)
+
+```
+python scripts/gen_axil_vectors.py                                     # vectors from regs.json + model/job.py
+python scripts/sim.py --top tb_axil_regs -f tb/axil_regs.f --incdir rtl
+python scripts/sim.py --top tb_axil_regs -f tb/axil_regs.f --incdir rtl --define ALT_SEED
+python scripts/sim.py --top tb_axil_regs -f tb/axil_regs.f --incdir rtl --define PATRM_FAULT_START_2CYC   # must FAIL
+python scripts/sim.py --top tb_axil_regs -f tb/axil_regs.f --incdir rtl --define PATRM_FAULT_ERR_PRIO     # must FAIL
+mkdir build\ooc\axil_regs   (first time only)
+cd build\ooc\axil_regs
+vivado -mode batch -source ../../../vivado/ooc_axil_regs.tcl          # reports -> results/ooc/
+```
+`PATRM_FAULT_*` are fault-injection defines in the RTL for the testbench only; never set them in a build.
+Known limit: `--define NAME=VALUE` does not reach xvlog on Windows (xvlog is a .bat and cmd splits at `=`);
+use defines without a value.
