@@ -1,5 +1,6 @@
 """Reusable xsim runner: xvlog -> xelab -> xsim, batch mode by default.
 
+Plain Verilog mode only (D17: no SystemVerilog; scripts/check_no_sv.py runs before compiling).
 Works inside build/sim/<top>/ (wiped at the start of each run). Logs are saved
 there (xvlog.log, xelab.log, xsim.log). Exit code 0 only if the simulation log
 contains a line starting with "TEST PASS" and no "TEST FAIL" line.
@@ -22,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from amd_tools import REPO_ROOT, require_tool  # noqa: E402
+from check_no_sv import check as check_no_sv  # noqa: E402
 
 EXIT_PASS, EXIT_FAIL, EXIT_TOOL_ERROR = 0, 1, 2
 
@@ -77,6 +79,10 @@ def main():
         cmd += ["-d", d]
     for i in args.incdir:
         cmd += ["-i", Path(i).resolve()]
+    bad = check_no_sv(sources, cmd)                      # D17: Verilog-2001 only, no -sv
+    if bad:
+        print("SIM ERROR: D17 (no SystemVerilog): " + "; ".join(bad))
+        return EXIT_TOOL_ERROR
     run_step("xvlog", cmd + sources, work)
 
     snap = args.top + "_snap"

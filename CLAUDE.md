@@ -120,6 +120,14 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
   column span of a needed row would exceed SPAN_MAX = 512 bytes. So the buffers can never overflow, and every
   D4-valid transform is supported (speed varies). Exact rules: model/memmodel.py docstring, spec/interface.md.
 
+## Decided 2026-11-15 (fixed; do not change without asking)
+- D17 No SystemVerilog unless completely necessary. All our RTL and testbenches are Verilog-2001: .v files only,
+  xvlog and read_verilog without -sv. Verilog-2005 system functions that xvlog accepts in plain Verilog mode
+  (e.g. $clog2) are fine. Vendor IP that is SystemVerilog inside (Zynq-7000 VIP, ILA) is allowed because we do
+  not write it; our testbench around it stays Verilog. Do not use AXI VIP; use our own Verilog memory model.
+  If you think SystemVerilog is needed, stop and ask me with the reason. scripts/check_no_sv.py (run by
+  scripts/sim.py before compiling) fails on .sv files or any -sv flag.
+
 ## Open decisions (proposed defaults; ask before relying on them)
 - Option A output writes (step 5.1). Proposal: WSTRB-masked writes into the interleaved buffer.
 

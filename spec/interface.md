@@ -215,6 +215,14 @@ multiply-add pipeline (paper convention), then +(b12, b22) per pixel inside the 
 mod 2^32 (one 32-bit add each). Stage S3: X0 = p11 + p12 + b13, Y0 = p21 + p22 + b23 (3-input 32-bit adds).
 8 DSP48E1 in total.
 
+**As built (step 3.2, measured).** Vivado 2026.1 puts the S1 register in the P register of each DSP48E1 (not
+the M register) and absorbs the b latched at frame_start into its A register (AREG = 1, MREG = 0, PREG = 1).
+Depth (3 stages) and function are the same. OOC post-route at 100 MHz (`results/ooc/coord_gen_summary.txt`):
+284 LUT (68 of them LUTRAM: the 4-entry start FIFO and the side-field FIFO), 367 FF, 0 BRAM, 8 DSP48E1,
+WNS +3.817 ns (register-to-register paths only). Critical path: start-FIFO not-empty (`start_wptr`) -> stepper
+load / add (`y_r`), 6.2 ns, 11 logic levels; it is the first candidate to pipeline for the 150 MHz experiment
+in step 7.3. The path from `desc_u` / `desc_v0` into the DSP48E1 needs 3.6 ns inside this module.
+
 **Ports**
 
 | port | dir | width | meaning |
@@ -583,7 +591,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 |---|---|---|
 | block_planner | rule decision loop: min/max of 13-bit columns -> word span subtract -> compare with SPAN_MAX/8 -> restart mux -> block state register (about 5 LUT levels + two short carry chains) | coordinate step (P1) and D1 compares (P2) are separate stages; only the 13-bit decision loop is left; along a row y0 is monotonic, so min/max can be replaced by "first" and "current" if needed |
 | block_planner | block close: two row compares + range compares + ring pointer with up to 2 skips | own stage P3, 5-bit pointer logic |
-| coord_gen | 32-bit 3-input add (S3) | 3 stages S1-S3 (DSP M register, 32-bit add, 3-input add); stepper is one 32-bit add |
+| coord_gen | MEASURED (step 3.2): start-FIFO not-empty -> stepper load / add, 6.2 ns (WNS +3.817 ns); S3 3-input add 5.4 ns | 3 stages S1-S3 (DSP P register, 32-bit add, 3-input add); stepper is one 32-bit add |
 | prefetch_ctrl | row * W + s_col + SRC_ADDR | DSP48E1 with M and P registers, then one 32-bit add |
 | pixel_fetch | BRAM clock-to-out + 8:1 byte mux | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
 | bilinear_interp | stage 2: 3-input 16-bit add + 17-bit subtract | DSP M/P registers in stages 1 and 3; stage 4 adder tree 24 bit (two levels) |
@@ -597,7 +605,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | axil_regs | 400 | 700 | 0 | 0 |
 | ctrl_fsm | 200 | 200 | 0 | 0 |
 | block_planner (incl. desc / fetch FIFOs) | 600 | 500 | 0 | 0 |
-| coord_gen | 350 | 500 | 0 | 8 |
+| coord_gen (MEASURED, step 3.2, OOC post-route) | 284 (68 LUTRAM) | 367 | 0 | 8 |
 | prefetch_ctrl | 300 | 400 | 0 | 1 |
 | line_buf | 50 | 0 | 8 | 0 |
 | pixel_fetch | 200 | 300 | 0 | 0 |
@@ -605,7 +613,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | out_fifo | 180 | 120 | 0 | 0 |
 | axi_rd_master | 150 | 150 | 0 | 0 |
 | axi_wr_master | 150 | 150 | 0 | 0 |
-| **total (ESTIMATE)** | **about 2,700 (5 %)** | **about 3,300 (3 %)** | **8 (6 %)** | **16 (7 %)** |
+| **total (ESTIMATE; coord_gen row measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
 
 Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
 

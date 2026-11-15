@@ -255,7 +255,7 @@ class Step14(unittest.TestCase):
                     bb = MM.frame_stats("B", W, H, b, L, pol)
                     self.assertLessEqual(bb["bytes_read"], a["bytes_read"], f"{name} L={L} {pol}")
                     ratios.append((a["bytes_read"] / bb["bytes_read"], name, L, pol))
-        report(5, f"{W}x{H}, 9 transforms x Lmax 16/32/64 x P0/P1: B <= A in all {len(ratios)} cases; "
+        report(5, f"{W}x{H}, {len(TF)} transforms x Lmax 16/32/64 x P0/P1: B <= A in all {len(ratios)} cases; "
                   f"A/B bytes read min {min(ratios)[0]:.2f} ({min(ratios)[1]} L{min(ratios)[2]} {min(ratios)[3]}), "
                   f"max {max(ratios)[0]:.2f} ({max(ratios)[1]} L{max(ratios)[2]} {max(ratios)[3]})")
         path = MM.DEFAULT_OUT + ".csv"
@@ -389,7 +389,7 @@ class Step22(unittest.TestCase):
         s_col, e_col, nr = MM._block_geometry(ps, MM.make_blocks(ps, 64, None))
         nofc = int((nr * (e_col - s_col)).max())
         self.assertGreater(nofc, 2 * MM.SPAN_MAX)
-        report(8, f"gray 2448x2095 and Bayer A 2448x2048, 9 test transforms + {len(MM.EXTREMES)} extremes "
+        report(8, f"gray 2448x2095 and Bayer A 2448x2048, {len(TF)} test transforms + {len(MM.EXTREMES)} extremes "
                   f"(scale 0.1, 0.25, columns x0.1, rot30 + scale 0.2), BLOCK_LEN 64 and 4096: largest footprint "
                   f"{worst} B <= 2 x SPAN_MAX = {2 * MM.SPAN_MAX} B in every block")
         for ln in lines:

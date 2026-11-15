@@ -25,6 +25,8 @@ TRANSFORMS = [
     ("scale0p8", {"sx": 0.8, "sy": 0.8}),
     ("scale1p25", {"sx": 1.25, "sy": 1.25}),
     ("combined", {"rot_deg": 10.0, "sx": 0.9, "sy": 0.9, "shift": [6.5, -4.25]}),
+    ("rot90", {"rot_deg": 90.0}),          # added after step 3.2 (appended so earlier entries keep their order)
+    ("rot180", {"rot_deg": 180.0}),
 ]
 
 

@@ -8,8 +8,8 @@ into data/vectors/coord_gen/ (not tracked; rerun this before the testbench):
 
   coord_vectors_<name>_<W>x<H>.txt                   same format as the step 1.2 files (u v X Y valid x0 y0 xf yf)
   sched_blocks_<name>_<W>x<H>_L<L>_S<S>.txt          same format as the step 2.2 files
-      for the sets that are NOT in model/transforms.json:
-      rot90, rot180   make_b(rot_deg = 90 / 180) at the sim sizes (D4 checked)
+      for the sets that are NOT in model/transforms.json (rot90 / rot180 are in transforms.json since
+      housekeeping 10b and come from the step 1.2 / 2.2 files like every other transform):
       worked          the worked example of CLAUDE.md, b = (52429, -39322, 131072, 39322, 52429, 65536), 64x64
       wrap            the 32-bit wrap case of model/test_patrm.py test_06, 128x96. It is outside D4 on purpose
                       (it only tests arithmetic mod 2^32), so its block list is built without the D4 check.
@@ -48,7 +48,6 @@ WORKED_B = (52429, -39322, 131072, 39322, 52429, 65536)            # CLAUDE.md w
 WORKED_SIZE = (64, 64)
 WRAP_B = (65536, 0x7FFF0000, -0x7FFF0000, 0, 65536, 0)             # model/test_patrm.py test_06
 WRAP_SIZE = (128, 96)
-EXTRA_ROT = (("rot90", 90.0), ("rot180", 180.0))
 RAND_SIZE = (4096, 4096)                                           # D11 maximum; only used for the D1 column
 RAND_BLOCKS = 2000
 SEED_RAND = 32_001
@@ -152,11 +151,9 @@ def main():
     for tf in std:
         for (W, H) in SIM_SIZES:
             sets[(tf["name"], W, H)] = (tuple(tf["b"][f"{W}x{H}"]), "")
-    for name, deg in EXTRA_ROT:
-        for (W, H) in SIM_SIZES:
-            b = P.make_b(W, H, rot_deg=deg)
-            write_set(name, W, H, b)
-            sets[(name, W, H)] = (b, SUB + "/")
+    for need in ("rot90", "rot180"):
+        if not any(tf["name"] == need for tf in std):
+            raise SystemExit(f"model/transforms.json has no {need}: run python -m model.gen_transforms")
     write_set("worked", *WORKED_SIZE, WORKED_B)
     sets[("worked",) + WORKED_SIZE] = (WORKED_B, SUB + "/")
     write_set("wrap", *WRAP_SIZE, WRAP_B, d4=False)
@@ -178,7 +175,7 @@ def main():
             raise SystemExit(f"{name}: abort_at must be inside the frame")
         cases.append([GROUP[group], name, W, H, *b, nblk, npix, bp, gap, abort, abort_at, fb, fc])
 
-    frame_names = [tf["name"] for tf in std] + [n for n, _ in EXTRA_ROT]
+    frame_names = [tf["name"] for tf in std]
     (L0, S0), (L1, S1) = MM.SCHED_CONFIGS                           # (64, 512) = D15/D16, (32, 32) = stress
     # a. every transform x sim size, ready always 1, descriptors always available
     for name in frame_names:
@@ -223,10 +220,8 @@ def main():
     nw, nwv = wrap_stats(WRAP_B, *WRAP_SIZE)
     print(f"wrote {OUT_DIR.relative_to(ROOT).as_posix()}/cases.txt: {len(cases)} cases "
           + ", ".join(f"{g}={n}" for g, n in ngrp.items()))
-    print(f"frame sets: {len(std)} transforms of transforms.json + {', '.join(n for n, _ in EXTRA_ROT)} "
-          f"(generated here, not in transforms.json) x sizes {', '.join(f'{w}x{h}' for w, h in SIM_SIZES)}")
-    for name, _ in EXTRA_ROT:
-        print(f"  {name}: " + "; ".join(f"{W}x{H} b = {sets[(name, W, H)][0]}" for W, H in SIM_SIZES))
+    print(f"frame sets: {len(std)} transforms of transforms.json ({', '.join(frame_names)}) "
+          f"x sizes {', '.join(f'{w}x{h}' for w, h in SIM_SIZES)}")
     print(f"wrap {WRAP_SIZE[0]}x{WRAP_SIZE[1]} b = {WRAP_B}: {nw} pixels whose exact sum does not fit 32 bits, "
           f"{nwv} of them D1-valid after the wrap")
     for name, b, nblk, npix in rand_info:
