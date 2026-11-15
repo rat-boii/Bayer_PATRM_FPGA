@@ -8,9 +8,13 @@ Examples:
   python scripts/sim.py --top tb_counter4 tb/smoke/counter4.v tb/smoke/tb_counter4.v
   python scripts/sim.py --top tb_counter4 -f tb/smoke/files.f --define BREAK_EXPECTED
   python scripts/sim.py --top tb_counter4 <sources> --gui
+  python scripts/sim.py --top tb_coord_gen -f tb/coord_gen.f --plusarg VEC_DIR=data/vectors
+--plusarg NAME=VALUE reaches the testbench as $value$plusargs("NAME=%s", ...). A VALUE that is an existing
+path is made absolute with forward slashes (the simulation runs inside build/sim/<top>/).
 File lists: one path per line, relative to the list file; '#' and '//' start comments.
 """
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -47,6 +51,8 @@ def main():
     ap.add_argument("-f", "--filelist", action="append", default=[], help="file with one source per line")
     ap.add_argument("--define", action="append", default=[], help="NAME or NAME=VALUE (repeatable)")
     ap.add_argument("--incdir", action="append", default=[], help="include directory (repeatable)")
+    ap.add_argument("--plusarg", action="append", default=[],
+                    help="NAME=VALUE passed to the simulation as +NAME=VALUE (repeatable)")
     ap.add_argument("--gui", action="store_true", help="open the xsim GUI instead of batch mode")
     args = ap.parse_args()
 
@@ -78,10 +84,21 @@ def main():
     run_step("xelab", [xelab, "--log", "xelab.log", "--debug", debug, "--timescale", "1ns/1ps",
                        "-s", snap, "work." + args.top], work)
 
-    if args.gui:
-        subprocess.run([str(xsim), snap, "--gui", "--log", "xsim.log"], cwd=work)
+    mode = ["--gui"] if args.gui else ["--runall"]
+    cmd = [str(xsim), snap] + mode + ["--log", "xsim.log"]
+    plus = []
+    for pa in args.plusarg:
+        name, sep, value = pa.partition("=")
+        if sep and Path(value).exists():
+            value = Path(value).resolve().as_posix()
+        plus.append(name + sep + value)
+    if plus and os.name == "nt":
+        # xsim is a .bat: cmd splits an unquoted argument at '=', so each plusarg is quoted by hand
+        cmd = subprocess.list2cmdline(cmd) + "".join(f' --testplusarg "{p}"' for p in plus)
     else:
-        subprocess.run([str(xsim), snap, "--runall", "--log", "xsim.log"], cwd=work)
+        for p in plus:
+            cmd += ["--testplusarg", p]
+    subprocess.run(cmd, cwd=work)
 
     log = work / "xsim.log"
     text = log.read_text(errors="replace") if log.is_file() else ""

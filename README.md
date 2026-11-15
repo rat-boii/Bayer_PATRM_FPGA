@@ -151,3 +151,28 @@ vivado -mode batch -source ../../../vivado/ooc_axil_regs.tcl          # reports 
 `PATRM_FAULT_*` are fault-injection defines in the RTL for the testbench only; never set them in a build.
 Known limit: `--define NAME=VALUE` does not reach xvlog on Windows (xvlog is a .bat and cmd splits at `=`);
 use defines without a value.
+
+## Step 3.2: coordinate generator (rtl/coord_gen.v)
+
+```
+python -m model.gen_vectors                                            # step 1.2 / 2.2 vectors (not gen_images)
+python scripts/gen_coord_gen_vectors.py                                # case list + extra vectors from the model
+python scripts/sim.py --top tb_coord_gen -f tb/coord_gen.f --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_coord_gen -f tb/coord_gen.f --plusarg VEC_DIR=data/vectors --define ALT_SEED
+python scripts/sim.py --top tb_coord_gen -f tb/coord_gen.f --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_COL_STEP   # must FAIL
+mkdir build\ooc\coord_gen   (first time only)
+cd build\ooc\coord_gen
+vivado -mode batch -source ../../../vivado/ooc_coord_gen.tcl         # reports -> results/ooc/
+```
+`coord_gen` owns only the coordinates (spec/interface.md section 4): the block planner (section 3) and the D1
+valid bit / integer-fraction split (pixel_fetch, section 7) are other modules. The testbench plays the planner
+with the step 2.2 block lists and compares every pixel with the step 1.2 coordinate dumps.
+
+`sim.py --plusarg NAME=VALUE` passes `+NAME=VALUE` to the simulation (a VALUE that is an existing path is made
+absolute). `tb_coord_gen` reads `+VEC_DIR=<folder>`; without it, it uses `../../../data/vectors` (the repo folder
+seen from `build/sim/tb_coord_gen/`).
+
+| File | Format |
+|------|--------|
+| `data/vectors/coord_gen/cases.txt` | One testbench case per line: `group name W H b11 b12 b13 b21 b22 b23 nblk npix bp gap abort abort_at blocks_file coords_file`. group: 0 = a (stream, ready always 1), 2 = c (back-pressure), 3 = d (worked example), 4 = e (wrap), 5 = f (start / restart). bp = percent of cycles with `pix_ready` = 0, gap = percent of descriptors that arrive late. abort: 0 = whole frame, 1 = `aresetn` low after `abort_at` pixels, 2 = next `frame_start` after `abort_at` pixels. File names are relative to `data/vectors/`. |
+| `data/vectors/coord_gen/coord_vectors_*.txt`, `sched_blocks_*.txt` | Same formats as the step 1.2 / 2.2 files, for the sets that are not in `transforms.json`: `rot90`, `rot180` (sim sizes), `worked` (worked example, 64x64), `wrap` (the 32-bit wrap case of `model/test_patrm.py`, 128x96, outside D4 on purpose), `rand0..3` (random descriptors, u and v0 up to 4095, full-range 32-bit b; not a frame). |
