@@ -1,0 +1,30 @@
+module        bilinear_interp (OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route)
+vivado        2026.1
+LUT           80 (Slice LUTs: 79 logic + 1 memory; 82 LUT cells before LUT combining)
+FF            9
+BRAM (RAMB*)  0
+DSP48E1       7
+latches       synth 0, route 0
+WNS (ns)      4.252
+WHS (ns)      0.058
+critical path p3_reg/CLK -> acc/A[15]
+              data path 5.120 ns, 4 logic levels
+stage         1 (p2, p3, p4 = P registers of the weight DSPs): data comes from the ip_xf / ip_yf ports (see port to reg); the only register-to-register path is the clock enable:
+stage         1 clock enable: slack 5.549 ns, data path 3.843 ns, 1 levels, vld_reg[3]/C -> p3_reg/CEP
+stage         2 (w1..w4 = A registers of the pixel DSPs): slack 4.252 ns, data path 5.120 ns, 4 levels, p3_reg/CLK -> acc/A[15]
+stage         3 (q1..q4): multiply between the A/B registers and the M (or P) register inside each pixel DSP48E1, no fabric path
+stage         4 (sum of q1..q4 -> op_d, DSP post-adders over PCOUT/PCIN): slack 4.388 ns, data path 4.128 ns, 1 levels, acc/CLK -> acc__1/PCIN[0]
+DSP48E1 cells (product; AREG BREG CREG MREG PREG; USE_MULT):
+  acc  q1 = w1 * r1  (17 x 8, pixel) + running sum from q3_reg (post-adder, PCIN);  1 2 1 1 0;  MULTIPLY
+  acc__0  q2 = w2 * r2  (16 x 8, pixel) + running sum from acc (post-adder, PCIN);  1 2 1 1 0;  MULTIPLY
+  acc__1  q4 = w4 * r4  (16 x 8, pixel) + running sum from acc__0 (post-adder, PCIN); P register = op_d;  1 2 1 1 1;  MULTIPLY
+  p2_reg  p2 = (65536 - xf) * yf  (17 x 16, weight; w2 = p2 >> 16);  0 0 0 0 1;  MULTIPLY
+  p3_reg  p3 = xf * (65536 - yf)  (16 x 17, weight; w3 = p3 >> 16);  0 0 0 0 1;  MULTIPLY
+  p4_reg  p4 = xf * yf  (16 x 16, weight; w4 = p4 >> 16);  0 0 0 0 1;  MULTIPLY
+  q3_reg  q3 = w3 * r3  (16 x 8, pixel);  1 2 0 0 1;  MULTIPLY
+fabric cells  FF: last_a_reg last_r_reg ok_a_reg ok_b_reg ok_c_reg {vld_reg[0]} {vld_reg[1]} {vld_reg[2]} {vld_reg[3]}; SRL: last_c_reg_srl2
+port to reg   ip_xf[*] -> p2_reg/A[15]: needs 6.054 ns of the 10.000 ns (information only; module ports are not constrained in the OOC run)
+port to reg   ip_yf[*] -> p3_reg/A[14]: needs 6.000 ns of the 10.000 ns (information only; module ports are not constrained in the OOC run)
+port to reg   ip_r1[*] -> acc/B[0]: needs 0.534 ns of the 10.000 ns (information only; module ports are not constrained in the OOC run)
+port to reg   ip_valid -> vld_reg[0]/D: needs 0.115 ns of the 10.000 ns (information only; module ports are not constrained in the OOC run)
+port to reg   op_ready -> p3_reg/CEP: needs 3.103 ns of the 10.000 ns (information only; module ports are not constrained in the OOC run)

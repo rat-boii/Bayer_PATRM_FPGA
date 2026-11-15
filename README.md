@@ -179,3 +179,20 @@ seen from `build/sim/tb_coord_gen/`).
 |------|--------|
 | `data/vectors/coord_gen/cases.txt` | One testbench case per line: `group name W H b11 b12 b13 b21 b22 b23 nblk npix bp gap abort abort_at blocks_file coords_file`. group: 0 = a (stream, ready always 1), 2 = c (back-pressure), 3 = d (worked example), 4 = e (wrap), 5 = f (start / restart). bp = percent of cycles with `pix_ready` = 0, gap = percent of descriptors that arrive late. abort: 0 = whole frame, 1 = `aresetn` low after `abort_at` pixels, 2 = next `frame_start` after `abort_at` pixels. File names are relative to `data/vectors/`. |
 | `data/vectors/coord_gen/coord_vectors_*.txt`, `sched_blocks_*.txt` | Same formats as the step 1.2 / 2.2 files, for the sets that are not in `transforms.json`: `worked` (worked example, 64x64), `wrap` (the 32-bit wrap case of `model/test_patrm.py`, 128x96, outside D4 on purpose), `rand0..3` (random descriptors, u and v0 up to 4095, full-range 32-bit b; not a frame). |
+
+## Step 3.3: bilinear interpolator (rtl/bilinear_interp.v)
+
+```
+python -m model.gen_vectors                                            # interp_vectors.txt (not gen_images)
+python scripts/sim.py --top tb_bilinear_interp -f tb/bilinear_interp.f --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_bilinear_interp -f tb/bilinear_interp.f --plusarg VEC_DIR=data/vectors --define ALT_SEED
+python scripts/sim.py --top tb_bilinear_interp -f tb/bilinear_interp.f --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_W1   # must FAIL
+mkdir build\ooc\bilinear_interp   (first time only)
+cd build\ooc\bilinear_interp
+vivado -mode batch -source ../../../vivado/ooc_bilinear_interp.tcl   # reports -> results/ooc/
+```
+`bilinear_interp` computes the D10 weights and D (spec/interface.md section 8) and forces the output to 0 when
+`ip_ok` = 0. The D1 range compare that makes `ip_ok`, the integer / fraction split and the clamp of the
+neighbour indices belong to `pixel_fetch` (section 7). The testbench reads `<VEC_DIR>/interp_vectors.txt`
+(default `../../../data/vectors`), compares D on every output pixel and w1..w4 inside the module, and builds the
+corner, invalid-pixel, back-pressure and reset streams itself (seeded; `ALT_SEED` = second seed).
