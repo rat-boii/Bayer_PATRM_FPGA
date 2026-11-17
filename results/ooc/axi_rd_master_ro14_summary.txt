@@ -1,0 +1,16 @@
+module        axi_rd_master (OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route, RD_OUTSTANDING = 14)
+vivado        2026.1
+LUT           148 (Slice LUTs: 134 logic + 14 memory)
+FF            197
+BRAM (RAMB*)  0
+DSP48E1       0
+latches       synth 0, route 0
+WNS (ns)      4.928
+WHS (ns)      0.05
+critical path cnt_reg[0]/C -> ar_word_reg[2]/R
+              data path 4.464 ns, 3 logic levels
+port path     cmd_valid -> ar_word_reg[2]/R: needs 2.850 ns of the 10.000 ns, 2 logic levels (information only)
+port path     cmd_addr[*] -> m_axi_hp0_arlen_reg[2]/D: needs 6.594 ns of the 10.000 ns, 6 logic levels (information only)
+port path     cmd_words[*] -> m_axi_hp0_arlen_reg[2]/D: needs 3.701 ns of the 10.000 ns, 4 logic levels (information only)
+port path     m_axi_hp0_arready -> ar_word_reg[2]/R: needs 2.850 ns of the 10.000 ns, 2 logic levels (information only)
+port path     m_axi_hp0_rvalid -> bcnt_reg[2]/R: needs 2.399 ns of the 10.000 ns, 3 logic levels (information only)

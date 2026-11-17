@@ -16,6 +16,10 @@
 // 3 d (random timing), 4 e (SLVERR), 6 g (reset in the middle). Group h = the protocol checker of axi_mem and the
 // simulation checks of the master: 0 violations over all groups.
 // Prints per group cases / bursts / beats compared and exactly one final line: TEST PASS or TEST FAIL: <reason>.
+//
+// Options (defaults = the step 3.4 run): --define TB_RD_OUTSTANDING_14 sets the master's RD_OUTSTANDING to 14
+// (default 8; a define without a value, because xvlog.bat splits "NAME=VALUE" at the '='); +MEM_MAX_OUT_MIN=<n>
+// makes the memory accept at least n bursts in every case (default: as cases.txt).
 `timescale 1ns/1ps
 module tb_axi_rd_master;
 
@@ -25,6 +29,11 @@ module tb_axi_rd_master;
     localparam MAXB         = 65536;
     localparam RST_CYCLES   = 16;
     localparam DRAIN        = 64;
+`ifdef TB_RD_OUTSTANDING_14
+    localparam RD_OUT       = 14;
+`else
+    localparam RD_OUT       = 8;
+`endif
 
     reg aclk = 1'b0;
     always #5 aclk = ~aclk;                               // 100 MHz
@@ -48,7 +57,7 @@ module tb_axi_rd_master;
     wire [4:0]  rd_slot;
     wire [5:0]  rd_word;
 
-    axi_rd_master #(.RD_OUTSTANDING(8)) dut (
+    axi_rd_master #(.RD_OUTSTANDING(RD_OUT)) dut (
         .aclk(aclk), .aresetn(aresetn),
         .cmd_valid(cmd_valid), .cmd_ready(cmd_ready), .cmd_addr(cmd_addr), .cmd_words(cmd_words),
         .cmd_slot(cmd_slot),
@@ -66,7 +75,12 @@ module tb_axi_rd_master;
         .aclk(aclk), .aresetn(aresetn),
         .s_arid(arid), .s_araddr(araddr), .s_arlen({4'd0, arlen}), .s_arsize(arsize), .s_arburst(arburst),
         .s_arvalid(arvalid), .s_arready(arready),
-        .s_rid(rid), .s_rdata(rdata), .s_rresp(rresp), .s_rlast(rlast), .s_rvalid(rvalid), .s_rready(rready)
+        .s_rid(rid), .s_rdata(rdata), .s_rresp(rresp), .s_rlast(rlast), .s_rvalid(rvalid), .s_rready(rready),
+        // write channel not used here (HP0 is read only): tied off
+        .s_awid(6'd0), .s_awaddr(32'd0), .s_awlen(8'd0), .s_awsize(3'd3), .s_awburst(2'b01), .s_awvalid(1'b0),
+        .s_awready(),
+        .s_wid(6'd0), .s_wdata(64'd0), .s_wstrb(8'd0), .s_wlast(1'b0), .s_wvalid(1'b0), .s_wready(),
+        .s_bid(), .s_bresp(), .s_bvalid(), .s_bready(1'b1)
     );
 
     // ---------------- vectors ----------------
@@ -183,7 +197,7 @@ module tb_axi_rd_master;
 
     // ---------------- group statistics ----------------
     integer g_cases [0:7], g_bursts [0:7], g_beats [0:7];
-    integer i, fd, fdc, r, a, w, s, wd, la, ncase, t0, limit, exp_err, k, g;
+    integer i, fd, fdc, r, a, w, s, wd, la, ncase, t0, limit, exp_err, k, g, max_out_min;
     reg [8*8-1:0] gname;
     real thr_all, thr_ss, ovh;
 
@@ -193,6 +207,8 @@ module tb_axi_rd_master;
         n_rd_beat = 0; n_bus_beat = 0; n_err_beat = 0; n_rd_valid = 0;
         t_first_cmd = -1; t_first_beat = -1; t_last_beat = -1;
         if (!$value$plusargs("VEC_DIR=%s", vecdir)) vecdir = "../../../data/vectors/axi_rd";
+        if (!$value$plusargs("MEM_MAX_OUT_MIN=%d", max_out_min)) max_out_min = 0;
+        $display("RD_OUTSTANDING = %0d, memory accepts at least %0d bursts", RD_OUT, max_out_min);
         $sformat(path, "%0s/mem.hex", vecdir);
         $readmemh(path, tbmem);
         $readmemh(path, mem.mem);
@@ -236,6 +252,7 @@ module tb_axi_rd_master;
                 if (err_k >= 0) exp_err = e_beats[err_k];
                 // memory knobs (between transfers, the memory is idle)
                 mem.lat_min = lat_min; mem.lat_max = lat_max; mem.ar_bp_pct = ar_bp; mem.r_gap_pct = r_gap;
+                if (max_out < max_out_min) max_out = max_out_min;
                 mem.max_out = max_out; mem.seed = cseed;
                 mem.err_burst = (err_k >= 0) ? mem.ar_count + err_k : -1;
                 tseed = cseed + 7;

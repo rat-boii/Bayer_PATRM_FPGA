@@ -1,9 +1,11 @@
 # Out-of-context synthesis + implementation of rtl/axi_rd_master.v (step 3.4), part xc7z020clg484-1, 100 MHz.
 #
 # Run from build/ooc/axi_rd_master (keeps Vivado's .jou/.log out of the repo):
-#   vivado -mode batch -source ../../../vivado/ooc_axi_rd_master.tcl
+#   vivado -mode batch -source ../../../vivado/ooc_axi_rd_master.tcl [-tclargs <RD_OUTSTANDING>]
 # Reports go to results/ooc/: axi_rd_master_utilization_{synth,route}.rpt, axi_rd_master_timing_route.rpt and
 # axi_rd_master_summary.txt (LUT / FF / BRAM / DSP / latches / WNS / WHS, the critical path).
+# RD_OUTSTANDING defaults to 8 (the build value). Any other value (step 3.5 check: 14) writes the reports as
+# axi_rd_master_ro<n>_*, so the RD_OUTSTANDING = 8 reports are never overwritten.
 # Timing covers register-to-register paths only (no I/O delays on module ports in an OOC run). The "port to reg"
 # and "port to port" lines are information only: how much of the 10 ns the path from an input port needs
 # inside this module (cmd_* -> AR registers is the command bypass; m_axi_hp0_arready -> cmd_ready is
@@ -15,11 +17,13 @@ set top        axi_rd_master
 set part       xc7z020clg484-1
 set out        [file join $repo results ooc]
 file mkdir $out
+set ro         [expr {$argc >= 1 ? [lindex $argv 0] : 8}]
+set tag        [expr {$ro == 8 ? $top : "${top}_ro${ro}"}]
 
 read_verilog [file join $repo rtl $top.v]
 read_xdc -mode out_of_context [file join $script_dir ooc_100mhz.xdc]
-synth_design -top $top -part $part -mode out_of_context
-report_utilization -file [file join $out ${top}_utilization_synth.rpt]
+synth_design -top $top -part $part -mode out_of_context -generic RD_OUTSTANDING=$ro
+report_utilization -file [file join $out ${tag}_utilization_synth.rpt]
 
 proc count_latches {} { return [llength [get_cells -quiet -hier -filter {REF_NAME =~ LD*}]] }
 set latches_synth [count_latches]
@@ -27,8 +31,8 @@ set latches_synth [count_latches]
 opt_design
 place_design
 route_design
-report_utilization   -file [file join $out ${top}_utilization_route.rpt]
-report_timing_summary -max_paths 10 -file [file join $out ${top}_timing_route.rpt]
+report_utilization   -file [file join $out ${tag}_utilization_route.rpt]
+report_timing_summary -max_paths 10 -file [file join $out ${tag}_timing_route.rpt]
 
 proc n_cells {flt} { return [llength [get_cells -quiet -hier -filter $flt]] }
 proc util_row {txt name} {
@@ -47,8 +51,8 @@ set hold  [get_timing_paths -quiet -hold  -max_paths 1]
 set wns   [expr {[llength $setup] ? [get_property SLACK $setup] : "n/a"}]
 set whs   [expr {[llength $hold]  ? [get_property SLACK $hold]  : "n/a"}]
 
-set f [open [file join $out ${top}_summary.txt] w]
-puts $f "module        $top (OOC, $part, aclk 10.000 ns = 100 MHz, post-route, RD_OUTSTANDING = 8)"
+set f [open [file join $out ${tag}_summary.txt] w]
+puts $f "module        $top (OOC, $part, aclk 10.000 ns = 100 MHz, post-route, RD_OUTSTANDING = $ro)"
 puts $f "vivado        [version -short]"
 puts $f "LUT           $lut (Slice LUTs: $lutlogic logic + $lutmem memory)"
 puts $f "FF            $ff"
@@ -73,5 +77,5 @@ foreach pat {cmd_valid cmd_addr[*] cmd_words[*] m_axi_hp0_arready m_axi_hp0_rval
     }
 }
 close $f
-write_checkpoint -force ${top}_route.dcp   ;# in the run folder (build/), for later inspection
+write_checkpoint -force ${tag}_route.dcp   ;# in the run folder (build/), for later inspection
 puts "OOC SUMMARY [join [list LUT=$lut FF=$ff BRAM=$bram DSP=$dsp LATCHES=$latches_synth WNS=$wns WHS=$whs] { }]"

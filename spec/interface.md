@@ -463,6 +463,13 @@ of the frame, i.e. address order, little endian) and buffers words for axi_wr_ma
 clock in, 1 word per clock out. **Storage.** OUT_DEPTH = 64 words (LUTRAM). **Reset.** Empty, packer index 0.
 **Stall.** Full FIFO -> `op_ready` = 0 -> interpolator stalls (WR_STALL).
 
+**Implementation (step 3.5, rtl/out_fifo.v).** `op_ready = !(packer holds 7 bytes && count == OUT_DEPTH)`, from
+registers only (no bypass for a word leaving in the same cycle). The 8th byte and the 7 held bytes enter the FIFO
+as one word at the same edge. frame_start clears the packer and the FIFO. `op_last` is not used by the logic
+(axi_wr_master knows W and H); simulation checks it arrives as the 8th byte of a word. **OOC (measured, post-route,
+100 MHz):** 114 LUT (86 as LUTRAM: the 64 x 64-bit FIFO), 78 FF, 0 BRAM, 0 DSP, 0 latches, WNS +6.000 ns; critical
+path count -> FIFO write enable (3.38 ns).
+
 ## 10. axi_rd_master (HP0)
 
 **Purpose.** Executes row read commands as AXI3 read bursts: 64-bit beats, ARSIZE = 3, ARBURST = INCR,
@@ -527,6 +534,16 @@ predicted).
 inside the module (information only): cmd_addr -> s_active 5.93 ns (the bypass), arready -> AR / FIFO
 registers 3.19 ns. `results/ooc/axi_rd_master_summary.txt`.
 
+**RD_OUTSTANDING = 14 check (step 3.5; no change, the build value stays 8).** No RTL change needed (pointers wrap at
+RD_OUTSTANDING - 1). tb_axi_rd_master with RD_OUTSTANDING = 14 and the memory accepting >= 14: TEST PASS (172 cases).
+OOC: 148 LUT, 197 FF, WNS +4.928 ns (+3 LUT, +6 FF vs 8). Schedule rot37 256x192, beats per clock:
+
+| L (cycles) | RD_OUTSTANDING = 8 | RD_OUTSTANDING = 14 |
+|---|---|---|
+| 20 | 0.466 | 0.793 |
+| 40 | 0.246 | 0.426 |
+| 60 | 0.167 | 0.291 |
+
 ## 11. axi_wr_master (HP1)
 
 **Purpose.** Writes the output frame row by row: row u at DST_ADDR + u W, split like the reads (<= 16 beats,
@@ -553,15 +570,33 @@ responses; after the last B of the frame pulses `wr_frame_done`.
 | m_axi_hp1_wlast | out | 1 | |
 | m_axi_hp1_wvalid / wready | out / in | 1 | |
 | m_axi_hp1_bid | in | [6] | ignored |
-| m_axi_hp1_bresp | in | [2] | not OKAY: open question Q1 |
+| m_axi_hp1_bresp | in | [2] | not OKAY: the frame still completes, `wr_err` = 1 for that response (Q1) |
 | m_axi_hp1_bvalid / bready | in / out | 1 | bready = 1 always |
-| wr_beat | out | 1 | to ctrl_fsm (BYTES_WR += 8) |
-| wr_frame_done | out | 1 | to ctrl_fsm |
+| wr_beat | out | 1 | to ctrl_fsm (BYTES_WR += 8); one cycle after the W handshake |
+| wr_frame_done | out | 1 | to ctrl_fsm; one cycle after the last B response of the frame |
+| wr_err | out | 1 | one cycle per B response with BRESP != OKAY, one cycle after it. For Q1 (BUS_ERROR status, wired in step 3.7); not connected before that |
 
 **Handshake.** AW and W are independent; W beats of a burst follow in order after (or with) its AW.
 **Latency.** wq_count reaching the burst length to AWVALID: 1 cycle. **Throughput.** One beat per clock.
 **Reset.** All valid = 0, counters 0. **Stall.** No AW while fewer beats than the burst are in out_fifo or
 WR_OUTSTANDING bursts lack a B response; awready / wready back-pressure from HP1.
+
+**Implementation (step 3.5, rtl/axi_wr_master.v).** Rows are contiguous, so the burst address runs on through the
+frame and only the words-left counter restarts at W / 8 per row. An AW needs `wq_count - pending_w >= length`
+(pending_w = beats promised to issued bursts and not yet taken from out_fifo). The burst length is registered
+one cycle ahead (section 15): no AW in the cycle after an issue or frame_start, so at most one AW every 2 cycles
+(the pixel input fills at most one word per 8 cycles). W: a burst's length enters a W-burst FIFO one cycle after
+its issue; W beats load into the registered W outputs only for bursts in that FIFO, so a burst's first WVALID
+comes at the earliest one cycle after its AWVALID. A burst is outstanding from its issue to its B response;
+wr_frame_done when all rows are issued and none is outstanding.
+
+**Measured (step 3.5, tb_out_path: bilinear_interp pass-through -> out_fifo -> axi_wr_master -> tb/axi_mem.v).**
+At 1 pixel per clock with no back-pressure and B latency 20 the pixel stream is never stalled (0 stall cycles,
+1.000 pixel and 0.125 W beat per clock, 256x192, 2448x8, 4096x2, 8x1024). Last pixel in -> last B response:
+28 to 43 cycles (B latency 20), wr_frame_done 2 cycles after the last B response. **OOC (post-route, 100 MHz,
+WR_OUTSTANDING = 8):** 135 LUT (4 LUTRAM), 206 FF, 0 BRAM, 0 DSP, 0 latches, WNS +2.824 ns; critical path
+pending_w -> words-available compare -> AW register enable (6 levels, 6.68 ns). Port path wq_count -> same, 6.17 ns
+inside the module (wq_count is a register in out_fifo).
 
 ## 12. patrm_top
 
@@ -620,7 +655,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | pixel_fetch | BRAM clock-to-out + 8:1 byte mux | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
 | bilinear_interp | stage 2: 3-input 16-bit add + 17-bit subtract | DSP M/P registers in stages 1 and 3; stage 4 adder tree 24 bit (two levels) |
 | axi_rd_master | MEASURED (step 3.4): s_active -> ar_word 4.76 ns, WNS +4.730 ns; port path cmd_addr -> burst length -> s_active 5.93 ns | registered AR outputs; 4 KB room of the command in progress computed one cycle ahead |
-| axi_wr_master | 32-bit address + 4 KB boundary length | registered outputs; length computed one cycle ahead |
+| axi_wr_master | MEASURED (step 3.5): pending_w -> words-available compare -> AW enable 6.68 ns, WNS +2.824 ns | registered outputs; length computed one cycle ahead |
+| out_fifo | MEASURED (step 3.5): count -> FIFO write enable 3.38 ns, WNS +6.000 ns | registered count, LUTRAM FIFO |
 | axil_regs | read mux 27 x 32 bit | registered read data |
 
 ## 16. Resource estimate (ESTIMATE until step 3.8; XC7Z020: 53,200 LUT, 106,400 FF, 140 RAMB36, 220 DSP48E1)
@@ -635,10 +671,10 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | line_buf | 50 | 0 | 8 | 0 |
 | pixel_fetch | 200 | 300 | 0 | 0 |
 | bilinear_interp | 100 | 250 | 0 | 7 |
-| out_fifo | 180 | 120 | 0 | 0 |
+| out_fifo (MEASURED, step 3.5, OOC post-route) | 114 (86 LUTRAM) | 78 | 0 | 0 |
 | axi_rd_master (MEASURED, step 3.4, OOC post-route) | 145 (14 LUTRAM) | 191 | 0 | 0 |
-| axi_wr_master | 150 | 150 | 0 | 0 |
-| **total (ESTIMATE; coord_gen, axi_rd_master rows measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
+| axi_wr_master (MEASURED, step 3.5, OOC post-route) | 135 (4 LUTRAM) | 206 | 0 | 0 |
+| **total (ESTIMATE; coord_gen, out_fifo, axi_rd_master, axi_wr_master rows measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
 
 Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
 
@@ -647,7 +683,8 @@ Not included: AXI interconnect, protocol converters and the Processor System Res
 - **Q1 AXI error responses.** Approved in principle (2026-11-17): a frame with RRESP / BRESP != OKAY still
   completes (DONE + interrupt as normal) and STATUS.ERROR is set with a new ERR_CODE 6 BUS_ERROR, sticky until
   cleared. `spec/regs.json` changes once, in step 3.7, together with BRESP from step 3.5. Until then the data
-  path stays as above (data used as is); axi_rd_master already outputs `rd_err` (step 3.4).
+  path stays as above (data used as is); axi_rd_master outputs `rd_err` (step 3.4), axi_wr_master `wr_err`
+  (step 3.5).
 - **Q2 NSLOT.** 32 (16 KB, 8 RAMB36) proposed; 16 halves the BRAM. Decide after the step 3.6 latency tests.
 - **Q3 Outstanding reads. Closed (2026-11-17).** UG585 (Zynq-7000 TRM), AXI_HP Interfaces, Features: read
   acceptance 14 to 70 commands, write acceptance 8 to 32 commands, both depending on the burst length.
