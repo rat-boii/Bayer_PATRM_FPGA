@@ -29,9 +29,10 @@ Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-s
 
 ## Setup (Windows, native)
 
-1. **Vivado/Vitis 2026.1** with a valid license. On our machine it is installed in `D:\AMD\2026.1`.
-   Our scripts find the tools even when they are not on PATH. To run them by hand, add
-   `D:\AMD\2026.1\Vivado\bin` and `D:\AMD\2026.1\Vitis\bin` to PATH.
+1. **Vivado/Vitis 2026.1** with a valid license. Installed in `D:\AMD\2026.1` on the first laptop and in
+   `C:\AMDDesignTools\2026.1` on the second. Our scripts find the tools even when they are not on PATH
+   (`scripts/amd_tools.py` searches `\AMD`, `\AMDDesignTools` and `\Xilinx` on C:, D:, E:). To run them by
+   hand, add `<install>\Vivado\bin` and `<install>\Vitis\bin` to PATH.
 2. **Git for Windows** (`C:\Program Files\Git\cmd`).
 3. **Python 3.10 or newer** (we use 3.14). Install the packages:
 
@@ -42,11 +43,33 @@ Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-s
    If `python` opens the Microsoft Store, the Store alias comes first in PATH. Turn off the
    `python.exe`/`python3.exe` App execution aliases (Settings > Apps > Advanced app settings),
    or use `py -3` instead of `python` in every command below.
+4. **ZedBoard board files** (needed from step 0.2a / 4.1; there is no install script yet). Manual steps used
+   on the second laptop (2026-11-18):
+   1. Download the Digilent board files: GitHub repository `Digilent/vivado-boards` (Code > Download ZIP,
+      or `git clone https://github.com/Digilent/vivado-boards.git`).
+   2. Close Vivado. Copy the `zedboard` folder from `new/board_files/` in that download into
+      `<install>\Vivado\data\boards\board_files\`. Result on our laptop:
+      `C:\AMDDesignTools\2026.1\Vivado\data\boards\board_files\zedboard\1.3\board.xml`
+      (with `preset.xml`, `part0_pins.xml`, `zed_board.jpg`). Use version 1.3.
+   3. Fallback, if the Vivado install folder cannot be written: keep the `board_files` folder anywhere
+      (for example `C:\boards\board_files`) and add this line to
+      `%APPDATA%\Xilinx\Vivado\Vivado_init.tcl` (create the file if it does not exist):
+
+      ```
+      set_param board.repoPaths [list C:/boards/board_files]
+      ```
+   4. Check (from `build/`): `vivado -mode batch -source ../vivado/check_part.tcl` must print
+      `BOARD FOUND: digilentinc.com:zedboard:part0:1.1` (Vivado shows it as "ZedBoard", vendor
+      digilentinc.com; the board part version is 1.1 although the folder is 1.3).
+
+   Never use the ZC702 board or preset (same chip, different DDR and pins). The 1.3 preset sets the Rev D DDR
+   part (MT41K128M16 JT-125); our lab board is Rev C, so every block design overrides it to
+   MT41J128M16 HA-15E after `apply_bd_automation` (D18 in CLAUDE.md).
 
 ## Known setup items
 
-- ZedBoard Rev C board files are **not installed** (needed before step 4.1). Step 0.2a is
-  postponed until lab access to the ZedBoard is confirmed.
+- ZedBoard board files (Digilent zedboard 1.3) installed on the second laptop on 2026-11-18 (Setup item 4).
+  Pending for D18: decode the DDR chip marking on the lab board with Micron's FBGA decoder.
 - Zynq-7000 VIP is available in Vivado 2026.1: `processing_system7_vip` 1.0 and
   `processing_system7` 5.5 (used by the full-system simulation in step 4.1b).
 
