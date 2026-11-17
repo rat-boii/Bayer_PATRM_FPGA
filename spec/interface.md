@@ -203,6 +203,21 @@ user with NSLOT = 32 (test_memmodel [9]), so slot waits in prefetch_ctrl do not 
 
 **Stall.** Stops (holds state) when either FIFO is full. Never waits for data.
 
+**As built (step 3.6a, measured).** Four stages instead of the estimated three, same function: A scan (u, v, the
+add-only X, Y; the start of the next output row is kept as a running sum, so every step is one 32-bit add),
+B (D1 valid, x0, x0 = H-1, word columns wlo = y0 >> 3, whi = y1 >> 3), C (rules a, b, c and the block state),
+D (rows, P1 reuse, slots, both FIFO writes). A block is closed by the first pixel of the next block, or by one
+extra "flush" cycle after the last pixel of the frame, so at most one record is written per cycle: 1-pixel blocks
+run at 1 descriptor per clock (rot90 64x64: 4096 descriptors in 4101 cycles from frame_start = W x H + 5). The
+whole pipeline advances on ce = both FIFOs not full. The FIFOs are inside the module (distributed RAM, 16
+entries each); a frame_start empties them. Blocks with nrows = 0 drive 0 on desc_slot_top / desc_slot_bot /
+desc_s_col (the model writes -1 = none). 0 DSP48E1: the planner's coordinates are additions only, so they exist
+twice by design (coord_gen recomputes each block start with its multiply-add). OOC post-route at 100 MHz
+(`results/ooc/block_planner_summary.txt`): 591 LUT (80 LUTRAM), 703 FF, 0 BRAM, 0 DSP48E1, 0 latches,
+WNS +0.373 ns. Critical path: closed block (d_x0last) -> row compares -> reuse -> slot muxes -> fetch FIFO write
+data, 9.29 ns, 11 logic levels; stage C (rule decision) is close behind (slack +0.461 ns). Both are the first
+candidates to pipeline if step 3.8 loses slack in the full design.
+
 ## 4. coord_gen
 
 **Purpose.** Produces the exact (X, Y) of every output pixel in frame order for the interpolation, from the
@@ -648,8 +663,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 
 | module | likely critical path | how it is pipelined |
 |---|---|---|
-| block_planner | rule decision loop: min/max of 13-bit columns -> word span subtract -> compare with SPAN_MAX/8 -> restart mux -> block state register (about 5 LUT levels + two short carry chains) | coordinate step (P1) and D1 compares (P2) are separate stages; only the 13-bit decision loop is left; along a row y0 is monotonic, so min/max can be replaced by "first" and "current" if needed |
-| block_planner | block close: two row compares + range compares + ring pointer with up to 2 skips | own stage P3, 5-bit pointer logic |
+| block_planner | MEASURED (step 3.6a): stage C rule decision blk_whi -> min/max -> span compare -> block state, 9.41 ns, slack +0.461 ns | scan (A) and D1 compares (B) are separate stages; along a row y0 is monotonic, so min/max can be replaced by "first" and "current" if needed |
+| block_planner | MEASURED (step 3.6a): stage D close d_x0last -> row / range compares -> reuse -> slot muxes -> fetch FIFO write, 9.29 ns, WNS +0.373 ns (module critical path) | own stage D; a register between the reuse decision and the FIFO write is the fallback |
 | coord_gen | MEASURED (step 3.2): start-FIFO not-empty -> stepper load / add, 6.2 ns (WNS +3.817 ns); S3 3-input add 5.4 ns | 3 stages S1-S3 (DSP P register, 32-bit add, 3-input add); stepper is one 32-bit add |
 | prefetch_ctrl | row * W + s_col + SRC_ADDR | DSP48E1 with M and P registers, then one 32-bit add |
 | pixel_fetch | BRAM clock-to-out + 8:1 byte mux | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
@@ -665,7 +680,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 |---|---|---|---|---|
 | axil_regs | 400 | 700 | 0 | 0 |
 | ctrl_fsm | 200 | 200 | 0 | 0 |
-| block_planner (incl. desc / fetch FIFOs) | 600 | 500 | 0 | 0 |
+| block_planner (incl. desc / fetch FIFOs; MEASURED, step 3.6a, OOC post-route) | 591 (80 LUTRAM) | 703 | 0 | 0 |
 | coord_gen (MEASURED, step 3.2, OOC post-route) | 284 (68 LUTRAM) | 367 | 0 | 8 |
 | prefetch_ctrl | 300 | 400 | 0 | 1 |
 | line_buf | 50 | 0 | 8 | 0 |
@@ -674,7 +689,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | out_fifo (MEASURED, step 3.5, OOC post-route) | 114 (86 LUTRAM) | 78 | 0 | 0 |
 | axi_rd_master (MEASURED, step 3.4, OOC post-route) | 145 (14 LUTRAM) | 191 | 0 | 0 |
 | axi_wr_master (MEASURED, step 3.5, OOC post-route) | 135 (4 LUTRAM) | 206 | 0 | 0 |
-| **total (ESTIMATE; coord_gen, out_fifo, axi_rd_master, axi_wr_master rows measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
+| **total (ESTIMATE; block_planner, coord_gen, out_fifo, axi_rd_master, axi_wr_master rows measured)** | **about 2,600 (5 %)** | **about 3,400 (3 %)** | **8 (6 %)** | **16 (7 %)** |
 
 Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
 

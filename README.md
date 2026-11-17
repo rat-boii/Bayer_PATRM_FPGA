@@ -172,8 +172,8 @@ cd build\ooc\axil_regs
 vivado -mode batch -source ../../../vivado/ooc_axil_regs.tcl          # reports -> results/ooc/
 ```
 `PATRM_FAULT_*` are fault-injection defines in the RTL for the testbench only; never set them in a build.
-Known limit: `--define NAME=VALUE` does not reach xvlog on Windows (xvlog is a .bat and cmd splits at `=`);
-use defines without a value.
+`--define NAME=VALUE` reaches xvlog as `-d "NAME=VALUE"` (sim.py quotes it on Windows, where xvlog is a .bat
+and cmd would split an unquoted argument at `=`; fixed in step 3.6a).
 
 ## Step 3.2: coordinate generator (rtl/coord_gen.v)
 
@@ -195,7 +195,7 @@ D17 (no SystemVerilog): `sim.py` runs `scripts/check_no_sv.py` before compiling 
 `-sv` flag; `python scripts/check_no_sv.py --syntax` also scans `rtl/` and `tb/` for SystemVerilog-only syntax.
 
 `sim.py --plusarg NAME=VALUE` passes `+NAME=VALUE` to the simulation (a VALUE that is an existing path is made
-absolute). `tb_coord_gen` reads `+VEC_DIR=<folder>`; without it, it uses `../../../data/vectors` (the repo folder
+relative to the simulation folder `build/sim/<top>/`, so a repo path with spaces still works). `tb_coord_gen` reads `+VEC_DIR=<folder>`; without it, it uses `../../../data/vectors` (the repo folder
 seen from `build/sim/tb_coord_gen/`).
 
 | File | Format |
@@ -219,3 +219,26 @@ vivado -mode batch -source ../../../vivado/ooc_bilinear_interp.tcl   # reports -
 neighbour indices belong to `pixel_fetch` (section 7). The testbench reads `<VEC_DIR>/interp_vectors.txt`
 (default `../../../data/vectors`), compares D on every output pixel and w1..w4 inside the module, and builds the
 corner, invalid-pixel, back-pressure and reset streams itself (seeded; `ALT_SEED` = second seed).
+
+## Step 3.6a: block planner (rtl/block_planner.v)
+
+```
+python -m model.gen_vectors                                            # step 2.2 block lists (not gen_images)
+python scripts/gen_block_planner_vectors.py                            # 208x120, BLOCK_LEN and D16-edge lists + cases
+python scripts/sim.py --top tb_block_planner -f tb/block_planner.f --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_block_planner -f tb/block_planner.f --plusarg VEC_DIR=data/vectors --define ALT_SEED
+python scripts/sim.py --top tb_block_planner -f tb/block_planner.f --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_SPAN   # must FAIL
+mkdir build\ooclock_planner   (first time only)
+cd build\ooclock_planner
+vivado -mode batch -source ../../../vivado/ooc_block_planner.tcl     # reports -> results/ooc/
+```
+`block_planner` (spec/interface.md section 3) scans the output frame with its own add-only coordinates, cuts the
+blocks by D16, decides rows, P1 row reuse (D14) and slots, and holds the descriptor and fetch FIFOs. The testbench
+compares every record of the model block lists (`sched_blocks_*.txt`) on both ports, plus the end reason and the
+valid-pixel count inside the DUT; it runs two instances (SPAN_MAX 512 and 32). `tb_axi_rd_master` now also takes
+`--define TB_RD_OUTSTANDING=<n>` (vectors: `--plusarg VEC_DIR=data/vectors/axi_rd`).
+
+| File | Format |
+|------|--------|
+| `data/vectors/block_planner/cases.txt` | One case per line: `group name W H L S b11 b12 b13 b21 b22 b23 nblk nfetch bp abort abort_at blocks_file`. group 0..5 = a..f of the step 3.6a prompt; S = SPAN_MAX of the DUT instance (512 or 32); bp = percent of cycles with `desc_ready` = 0 and, independently, `fetch_ready` = 0; abort: 0 = whole frame, 1 = `aresetn` after `abort_at` descriptors, 2 = next `frame_start` after `abort_at` descriptors. File names are relative to `data/vectors/`. |
+| `data/vectors/block_planner/sched_blocks_*.txt`, `sched_bursts_*.txt` | Step 2.2 formats. 208x120 (rows cross 4 KB pages) for every transform at both (L, S); BLOCK_LEN 1 / 7 / 63 / 64 and random lists; `c_span_exact`, `c_span_over`, `c_x0_lastpix`, `c_x0_and_len` (D16 edge cases found by search, see `scripts/gen_block_planner_vectors.py`). |

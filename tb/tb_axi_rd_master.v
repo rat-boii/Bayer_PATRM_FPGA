@@ -17,8 +17,8 @@
 // simulation checks of the master: 0 violations over all groups.
 // Prints per group cases / bursts / beats compared and exactly one final line: TEST PASS or TEST FAIL: <reason>.
 //
-// Options (defaults = the step 3.4 run): --define TB_RD_OUTSTANDING_14 sets the master's RD_OUTSTANDING to 14
-// (default 8; a define without a value, because xvlog.bat splits "NAME=VALUE" at the '='); +MEM_MAX_OUT_MIN=<n>
+// Options (defaults = the step 3.4 run): --define TB_RD_OUTSTANDING=<n> sets the master's RD_OUTSTANDING to n
+// (default 8; --define TB_RD_OUTSTANDING_14 is the older flag form, same as =14); +MEM_MAX_OUT_MIN=<n>
 // makes the memory accept at least n bursts in every case (default: as cases.txt).
 `timescale 1ns/1ps
 module tb_axi_rd_master;
@@ -29,10 +29,14 @@ module tb_axi_rd_master;
     localparam MAXB         = 65536;
     localparam RST_CYCLES   = 16;
     localparam DRAIN        = 64;
+`ifdef TB_RD_OUTSTANDING
+    localparam RD_OUT       = `TB_RD_OUTSTANDING;
+`else
 `ifdef TB_RD_OUTSTANDING_14
     localparam RD_OUT       = 14;
 `else
     localparam RD_OUT       = 8;
+`endif
 `endif
 
     reg aclk = 1'b0;

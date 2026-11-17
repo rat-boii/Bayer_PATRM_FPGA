@@ -11,7 +11,10 @@ Examples:
   python scripts/sim.py --top tb_counter4 <sources> --gui
   python scripts/sim.py --top tb_coord_gen -f tb/coord_gen.f --plusarg VEC_DIR=data/vectors
 --plusarg NAME=VALUE reaches the testbench as $value$plusargs("NAME=%s", ...). A VALUE that is an existing
-path is made absolute with forward slashes (the simulation runs inside build/sim/<top>/).
+path is rewritten relative to build/sim/<top>/ (where the simulation runs), with forward slashes; relative, so a
+repo path with spaces does not break the xsim command line.
+--define NAME=VALUE reaches xvlog as -d "NAME=VALUE" (quoted on Windows, like the plusargs: xvlog is a .bat and
+cmd would split an unquoted argument at '=').
 File lists: one path per line, relative to the list file; '#' and '//' start comments.
 """
 import argparse
@@ -38,9 +41,25 @@ def read_filelist(path):
     return files
 
 
+def bat_cmdline(cmd):
+    """One command line for a .bat tool on Windows: every argument that contains '=' is put in double quotes
+    (cmd.exe splits an unquoted argument at '='; list2cmdline only quotes arguments with spaces)."""
+    parts = []
+    for c in cmd:
+        c = str(c)
+        if "=" in c and not (c.startswith('"') and c.endswith('"')):
+            parts.append('"' + c + '"')
+        else:
+            parts.append(subprocess.list2cmdline([c]))
+    return " ".join(parts)
+
+
 def run_step(name, cmd, cwd):
     print(f"--- {name}: {' '.join(str(c) for c in cmd)}", flush=True)
-    r = subprocess.run([str(c) for c in cmd], cwd=cwd)
+    if os.name == "nt" and any("=" in str(c) for c in cmd):
+        r = subprocess.run(bat_cmdline(cmd), cwd=cwd)
+    else:
+        r = subprocess.run([str(c) for c in cmd], cwd=cwd)
     if r.returncode != 0:
         print(f"SIM ERROR: {name} failed (exit {r.returncode}); see {cwd / (name + '.log')}")
         sys.exit(EXIT_TOOL_ERROR)
@@ -96,7 +115,10 @@ def main():
     for pa in args.plusarg:
         name, sep, value = pa.partition("=")
         if sep and Path(value).exists():
-            value = Path(value).resolve().as_posix()
+            try:
+                value = Path(os.path.relpath(Path(value).resolve(), work)).as_posix()
+            except ValueError:                          # other drive: keep it absolute
+                value = Path(value).resolve().as_posix()
         plus.append(name + sep + value)
     if plus and os.name == "nt":
         # xsim is a .bat: cmd splits an unquoted argument at '=', so each plusarg is quoted by hand
