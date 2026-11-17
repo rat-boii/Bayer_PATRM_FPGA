@@ -128,6 +128,19 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
   If you think SystemVerilog is needed, stop and ask me with the reason. scripts/check_no_sv.py (run by
   scripts/sim.py before compiling) fails on .sv files or any -sv flag.
 
+## Decided 2026-11-18 (fixed; do not change without asking)
+- D18 ZedBoard DDR memory part. The lab board is ZedBoard Rev C (confirmed from the silkscreen), which uses
+  MT41J128M16 HA-15E. The Digilent zedboard 1.3 preset sets PCW_UIPARAM_DDR_PARTNO = "MT41K128M16 JT-125"
+  (the Rev D part). After apply_bd_automation with the board preset, set the Zynq PS DDR memory part to
+  MT41J128M16 HA-15E. Pending: confirm the DDR chip marking on the lab board with Micron's FBGA decoder; if it
+  decodes to MT41K128M16JT-125, D18 is reverted.
+  Never use the ZC702 board or preset (same chip, different DDR and pins).
+- Board files: Digilent vivado-boards, zedboard version 1.3, installed in
+  C:\AMDDesignTools\2026.1\Vivado\data\boards\board_files\zedboard\1.3. Vivado shows the board as "ZedBoard",
+  vendor digilentinc.com; board part name (get_board_parts *zed*): digilentinc.com:zedboard:part0:1.1.
+  Fallback if they cannot go in the Vivado install folder: keep them elsewhere and add
+  `set_param board.repoPaths [list <folder>]` to %APPDATA%\Xilinx\Vivado\Vivado_init.tcl.
+
 ## Open decisions (proposed defaults; ask before relying on them)
 - Option A output writes (step 5.1). Proposal: WSTRB-masked writes into the interleaved buffer.
 
