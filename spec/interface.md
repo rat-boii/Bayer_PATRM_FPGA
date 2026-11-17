@@ -33,8 +33,8 @@ step 3.8 (OOC implementation) and step 4.1 (full build).
 | BLOCK_LEN_MAX | 64 | D15; BUILD_ID.BLOCK_LEN_MAX; driver default BLOCK_LEN = 64 |
 | SPAN_MAX | 512 | D16 rule (c), bytes per row per block = one buffer slot (64 words) |
 | NSLOT | 32 | line buffer row slots (proposal, section 6.2) |
-| RD_OUTSTANDING | 8 | read bursts in flight on HP0 (>= 2 required; proposal) |
-| WR_OUTSTANDING | 8 | write bursts without B response on HP1 (proposal) |
+| RD_OUTSTANDING | 8 | read bursts in flight on HP0 (>= 2 required; within the HP read acceptance of 14 to 70 commands, UG585; Q3 closed) |
+| WR_OUTSTANDING | 8 | write bursts without B response on HP1 (at most 8: HP write acceptance is 8 to 32 commands, UG585; Q3) |
 | DESC_DEPTH | 16 | block descriptor FIFO (planner -> coord_gen) |
 | FETCH_DEPTH | 16 | fetch FIFO (planner -> prefetch_ctrl) |
 | OUT_DEPTH | 64 | out_fifo depth in 64-bit words (4 bursts) |
@@ -491,17 +491,41 @@ awvalid = wvalid = 0, bready = 1)**
 | m_axi_hp0_arvalid / arready | out / in | 1 | |
 | m_axi_hp0_rid | in | [6] | ignored (single ID, in order) |
 | m_axi_hp0_rdata | in | [64] | |
-| m_axi_hp0_rresp | in | [2] | not OKAY: see open question Q1 |
+| m_axi_hp0_rresp | in | [2] | not OKAY: data delivered unchanged, `rd_err` = 1 on that beat (Q1) |
 | m_axi_hp0_rlast | in | 1 | checked against the expected length (simulation assertion) |
 | m_axi_hp0_rvalid / rready | in / out | 1 | rready = 1 always |
 | rd_valid, rd_data, rd_slot, rd_word, rd_cmd_last | out | 1, [64], [5], [6], 1 | to prefetch_ctrl |
-| rd_beat | out | 1 | to ctrl_fsm (BYTES_RD += 8) |
+| rd_beat | out | 1 | to ctrl_fsm (BYTES_RD += 8); same cycle as rd_valid |
+| rd_err | out | 1 | one cycle per beat with RRESP != OKAY, same cycle as its rd_valid. For Q1 (BUS_ERROR status, wired in step 3.7); not connected before that |
 
 **Handshake.** AR: valid held until ready (AXI). A burst-info FIFO (RD_OUTSTANDING entries: slot, first word,
 last-of-command) records each issued burst; R beats are matched in order. **Latency.** Command to first AR:
 1 cycle. R beat to rd_valid: 1 cycle (registered). **Throughput.** One AR per cycle, one beat per cycle.
 **Reset.** arvalid = 0, FIFO empty. **Stall.** Stops issuing when RD_OUTSTANDING bursts are in flight or
 arready = 0; never back-pressures R.
+
+**Implementation (step 3.4, rtl/axi_rd_master.v).** The first burst of a command is formed from the input port
+(bypass), so a command accepted in cycle t has ARVALID in cycle t + 1. cmd_ready = no command in progress, AR
+register free, fewer than RD_OUTSTANDING bursts in flight; it therefore depends combinationally on arready
+(ready -> ready, allowed by section 0). The burst length is computed separately for the port and for the command
+in progress (whose 4 KB room is precomputed one cycle ahead) and selected at the end. The burst-info FIFO
+entry is written one cycle after the issue from the AR register (the first R beat can come two cycles after
+the issue at the earliest). A burst counts as in flight from its issue to its last R beat.
+
+**Measured (step 3.4, tb_axi_rd_master with tb/axi_mem.v; the memory latency is a model parameter, the real HP0
+latency is unknown until step 4.3).** Command -> first rd_valid = 1 + L + 1 cycles (L = AR handshake -> first
+RVALID). With RD_OUTSTANDING = 8 and no back-pressure: bursts of 8 or 16 beats stream at 1.000 beat per clock
+with 0 cycles between bursts for L = 20, 40, 60. Short bursts are bound by latency: about (L + 2) / 8 cycles per
+burst. 1-beat bursts: 2.74 / 5.23 / 7.72 cycles per burst at L = 20 / 40 / 60. Schedule rot37 256x192
+(28,183 bursts, 1.30 beats per burst): 0.466 / 0.246 / 0.167 beats per clock at L = 20 / 40 / 60. memmodel
+OVERHEAD = 2 (step 1.4: beats + 2 x bursts) is pessimistic for long bursts and for short bursts while L <= about
+20 cycles, and optimistic for short bursts when L is larger (rot37 at L = 40: 149,023 cycles measured vs 93,013
+predicted).
+
+**OOC (step 3.4, post-route, 100 MHz, RD_OUTSTANDING = 8).** 145 LUT (14 as LUTRAM: the burst-info FIFO), 191 FF,
+0 BRAM, 0 DSP, 0 latches, WNS +4.730 ns; critical path s_active -> ar_word (2 logic levels, 4.76 ns). Port paths
+inside the module (information only): cmd_addr -> s_active 5.93 ns (the bypass), arready -> AR / FIFO
+registers 3.19 ns. `results/ooc/axi_rd_master_summary.txt`.
 
 ## 11. axi_wr_master (HP1)
 
@@ -595,7 +619,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | prefetch_ctrl | row * W + s_col + SRC_ADDR | DSP48E1 with M and P registers, then one 32-bit add |
 | pixel_fetch | BRAM clock-to-out + 8:1 byte mux | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
 | bilinear_interp | stage 2: 3-input 16-bit add + 17-bit subtract | DSP M/P registers in stages 1 and 3; stage 4 adder tree 24 bit (two levels) |
-| axi_rd_master / axi_wr_master | 32-bit address + 4 KB boundary length | registered outputs; length computed one cycle ahead |
+| axi_rd_master | MEASURED (step 3.4): s_active -> ar_word 4.76 ns, WNS +4.730 ns; port path cmd_addr -> burst length -> s_active 5.93 ns | registered AR outputs; 4 KB room of the command in progress computed one cycle ahead |
+| axi_wr_master | 32-bit address + 4 KB boundary length | registered outputs; length computed one cycle ahead |
 | axil_regs | read mux 27 x 32 bit | registered read data |
 
 ## 16. Resource estimate (ESTIMATE until step 3.8; XC7Z020: 53,200 LUT, 106,400 FF, 140 RAMB36, 220 DSP48E1)
@@ -611,17 +636,19 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | pixel_fetch | 200 | 300 | 0 | 0 |
 | bilinear_interp | 100 | 250 | 0 | 7 |
 | out_fifo | 180 | 120 | 0 | 0 |
-| axi_rd_master | 150 | 150 | 0 | 0 |
+| axi_rd_master (MEASURED, step 3.4, OOC post-route) | 145 (14 LUTRAM) | 191 | 0 | 0 |
 | axi_wr_master | 150 | 150 | 0 | 0 |
-| **total (ESTIMATE; coord_gen row measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
+| **total (ESTIMATE; coord_gen, axi_rd_master rows measured)** | **about 2,600 (5 %)** | **about 3,200 (3 %)** | **8 (6 %)** | **16 (7 %)** |
 
 Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
 
 ## 17. Open questions (need a decision; defaults used in this spec)
 
-- **Q1 AXI error responses.** RRESP / BRESP other than OKAY are currently ignored (data used as is). Proposal:
-  add STATUS error code 6 BUS_ERROR (sticky, frame still completes). Changes `spec/regs.json` (step 2.1); not
-  done without your OK.
+- **Q1 AXI error responses.** Approved in principle (2026-11-17): a frame with RRESP / BRESP != OKAY still
+  completes (DONE + interrupt as normal) and STATUS.ERROR is set with a new ERR_CODE 6 BUS_ERROR, sticky until
+  cleared. `spec/regs.json` changes once, in step 3.7, together with BRESP from step 3.5. Until then the data
+  path stays as above (data used as is); axi_rd_master already outputs `rd_err` (step 3.4).
 - **Q2 NSLOT.** 32 (16 KB, 8 RAMB36) proposed; 16 halves the BRAM. Decide after the step 3.6 latency tests.
-- **Q3 Outstanding reads.** RD_OUTSTANDING = 8 proposed (spec requires >= 2); the HP port's own acceptance limit
-  is to be checked in UG585 before step 3.4.
+- **Q3 Outstanding reads. Closed (2026-11-17).** UG585 (Zynq-7000 TRM), AXI_HP Interfaces, Features: read
+  acceptance 14 to 70 commands, write acceptance 8 to 32 commands, both depending on the burst length.
+  RD_OUTSTANDING = 8 is within the read minimum; axi_wr_master (step 3.5) uses at most 8 outstanding writes.
