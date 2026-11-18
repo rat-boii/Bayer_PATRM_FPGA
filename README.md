@@ -428,6 +428,7 @@ check that a known signal (for example `hp0_arvalid`) behaves as expected before
 | `xsdb scripts/board/load_run.tcl [--dry-run] [--bit f] [--init f] [--elf f] [--no-run]` | Program the bitstream, initialise the PS and DDR, load and run the ELF |
 | `xsdb scripts/board/put_image.tcl [--dry-run] <file> <address>` | Raw file -> DDR, prints s/MB |
 | `xsdb scripts/board/get_image.tcl [--dry-run] <address> <bytes> <file>` | DDR -> raw file, prints s/MB |
+| `python scripts/board/run_frame.py <image> <transform> <W> <H> [--dry-run] [--bit f] [--init f] [--no-program] [--timeout s]` | One frame with XSDB only (no ARM program), compared with the model (step 4.2a) |
 
 `--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
 even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
@@ -502,3 +503,46 @@ Run the steps in this order.
 6. **DDR chip marking (D18).** Read the marking printed on a DDR3 chip on the board and decode it with Micron's FBGA
    marking decoder. `MT41J128M16HA-15E` confirms D18. `MT41K128M16JT-125` means D18 is reverted: stop and rebuild with
    that part before trusting any DDR result.
+7. **Frames with XSDB only (step 4.2a).** No ARM program is involved. Each run programs the bitstream, initialises the
+   PS and DDR, loads the source, fills the output area with `0xA5`, starts the engine, polls STATUS and reads the output
+   back. Run these in order, and do not go on after a failure:
+   ```
+   python scripts/board/run_frame.py mixed identity 64 64
+   python scripts/board/run_frame.py mixed mirror_cols 64 64
+   python scripts/board/run_frame.py mixed rot15 128 96
+   python scripts/board/run_frame.py photo rot15 480 272
+   python scripts/board/run_frame.py photo rot37 480 272
+   ```
+
+   | Run | BYTES_RD (memmodel) | BYTES_WR (W x H) |
+   |-----|--------------------:|-----------------:|
+   | mixed identity 64x64 | 4,096 | 4,096 |
+   | mixed mirror_cols 64x64 | 4,096 | 4,096 |
+   | mixed rot15 128x96 | 54,376 | 12,288 |
+   | photo rot15 480x272 | 568,496 | 130,560 |
+   | photo rot37 480x272 | 730,056 | 130,560 |
+
+   **A pass** ends with `FRAME PASS` and exit code 0, and shows all of these:
+   - `BUILD_ID 0x00401001`, and STATUS at DONE with `BUSY=0 DONE=1 ERROR=0 ERR_CODE=0`
+   - `differing rows 0` and `differing bytes 0`
+   - `LAST ROW (row H-1): MATCHES the model`. The VIP simulation of step 4.1b held back the last write burst, so this
+     line is the hardware confirmation that the last burst reaches DDR.
+   - `0 of 4096 guard bytes changed`, and BYTES_RD and BYTES_WR marked `same`
+
+   Note CYCLES, RD_STALL and WR_STALL for each run. They are the first measured numbers from the board. To look at a
+   result: `python -m model.raw2png build/board/<run folder>/output.raw --w 480 --h 272 --out build/view/out.png`.
+
+   **If a run fails**, check in this order:
+   1. **BUILD_ID.** `BOARD ERROR: BUILD_ID` or a hang on that read means the bitstream, the PS setup or the PL clock and
+      reset are wrong. Repeat step 3.
+   2. **DDR round trip.** Repeat steps 4 to 6. An error on the source or fill words, or scattered wrong bytes, points to
+      DDR or the JTAG path and not to the engine.
+   3. **ILA build.** Use it when BUILD_ID and DDR are good but the frame is wrong or times out. Bytes that still hold
+      `0xA5` were never written, and a `timeout` prints STATUS and the counters. Load the build with one run, arm the ILA,
+      then start the frame again without reprogramming. `CTRL.IRQ_EN` is 0 here, so trigger on `hp0_arvalid` or
+      `hp1_awvalid`, not on `interrupt`.
+      ```
+      python scripts/board/run_frame.py mixed identity 64 64 --bit results/hw/patrm_gray_ila.bit
+      # Vivado Hardware Manager: open the target, load patrm_gray_ila.ltx, source scripts/board/ila_probes.tcl, arm
+      python scripts/board/run_frame.py mixed identity 64 64 --no-program
+      ```
