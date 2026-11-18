@@ -746,7 +746,8 @@ write drain after the last pixel: 41 cycles at L = 20, 61 at L = 40, the same fo
 | rot90 | 108,427 | 0.453 | 108,386 | 194,273 | 0.253 | 194,212 |
 
 **Synthesis only (step 3.7, OOC, `results/ooc/patrm_top_synth_summary.txt`; no placement or routing, timing is step
-3.8).** 2,376 LUT (260 as memory), 3,475 FF, 8 RAMB36, 17 DSP48E1, 0 latches, 0 multi-driven nets.
+3.8).** 2,376 LUT (260 as memory), 3,475 FF, 8 RAMB36, 17 DSP48E1, 0 latches, 0 multi-driven nets. Post-route numbers
+and timing of step 3.8: sections 15 and 16.
 
 ## 13. Counters: exact definitions
 
@@ -778,7 +779,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
   designed in 6.1.
 - Shared now: the T registers, MODE, BUILD_ID.MODES, and the plane-row / plane-column parameters of the planner.
 
-## 15. Timing budget at 100 MHz (10 ns; ESTIMATE until step 3.8)
+## 15. Timing at 100 MHz (10 ns; whole engine MEASURED in step 3.8, module rows from the module runs)
 
 | module | likely critical path | how it is pipelined |
 |---|---|---|
@@ -793,24 +794,71 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | out_fifo | MEASURED (step 3.5): count -> FIFO write enable 3.38 ns, WNS +6.000 ns | registered count, LUTRAM FIFO |
 | axil_regs | read mux 27 x 32 bit | registered read data |
 
-## 16. Resource estimate (ESTIMATE until step 3.8; XC7Z020: 53,200 LUT, 106,400 FF, 140 RAMB36, 220 DSP48E1)
+**Whole engine, MEASURED (step 3.8).** `vivado/ooc_patrm_top.tcl`, OOC, post-route, xc7z020clg484-1, aclk 10 ns, no I/O
+delays (`results/ooc/patrm_top_summary.txt`).
 
-| module | LUT | FF | RAMB36 | DSP48E1 |
-|---|---|---|---|---|
-| axil_regs | 400 | 700 | 0 | 0 |
-| ctrl_fsm | 200 | 200 | 0 | 0 |
-| block_planner (incl. desc / fetch FIFOs; MEASURED, step 3.6c, OOC post-route) | 569 (80 LUTRAM) | 826 | 0 | 0 |
-| coord_gen (MEASURED, step 3.2, OOC post-route) | 284 (68 LUTRAM) | 367 | 0 | 8 |
-| prefetch_ctrl (MEASURED, step 3.6b, OOC post-route) | 447 (22 LUTRAM) | 882 | 0 | 2 |
-| line_buf (MEASURED, step 3.6b, OOC post-route) | 1 | 0 | 8 | 0 |
-| pixel_fetch (MEASURED, step 3.6b, OOC post-route) | 226 | 232 | 0 | 0 |
-| bilinear_interp | 100 | 250 | 0 | 7 |
-| out_fifo (MEASURED, step 3.5, OOC post-route) | 114 (86 LUTRAM) | 78 | 0 | 0 |
-| axi_rd_master (MEASURED, step 3.4, OOC post-route) | 145 (14 LUTRAM) | 191 | 0 | 0 |
-| axi_wr_master (MEASURED, step 3.5, OOC post-route) | 135 (4 LUTRAM) | 206 | 0 | 0 |
-| **total (ESTIMATE: sum of the rows; rows marked MEASURED are OOC numbers, the others the step 2.2 estimates)** | **about 2,600 (5 %)** | **about 3,800 (4 %)** | **8 (6 %)** | **17 (8 %)** |
+| quantity | value |
+|---|---|
+| WNS / TNS | +1.634 ns / 0.000 ns (0 of 9,954 endpoints failing) |
+| WHS | +0.026 ns (0 failing) |
+| Fmax implied by WNS | about 119.5 MHz, ESTIMATE = 1000 / (10 - 1.634); not a run at that clock (the 150 MHz experiment is step 7.3) |
+| critical path | u_planner/d_rp_reg[2] -> descriptor FIFO LUTRAM read (desc_v0[9]) -> u_coord/m22_l_reg/B[9]: 1 logic level, data path 4.542 ns (0.604 logic + 3.938 net), plus 3.740 ns DSP48E1 setup because the B input and multiplier are not registered |
 
-Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
+Worst setup slack of the paths ending in each module, whole engine vs the module's own run:
+
+| module | whole engine (ns) | standalone WNS (ns) |
+|---|---|---|
+| axil_regs | +3.729 | +3.948 |
+| ctrl_fsm | +3.246 | no standalone run |
+| block_planner | +2.338 | +2.753 |
+| coord_gen | **+1.634** | +3.817 |
+| prefetch_ctrl | +2.285 | +2.431 |
+| axi_rd_master | +2.358 | +4.730 |
+| line_buf | +2.580 | no register-to-register path |
+| pixel_fetch | +3.295 | +5.075 |
+| bilinear_interp | +2.559 | +4.252 |
+| out_fifo | +2.867 | +6.000 |
+| axi_wr_master | +2.725 | +2.824 |
+
+The whole-engine slack is lower where a path now crosses modules: in a module run those paths start or end at
+unconstrained ports. OOC limits: the clock has no clock tree (`HD.CLK_SRC` unset, Timing 38-242) and ports have no
+partition pins (Route 35-198), so skew, hold (+0.026 ns) and port paths are confirmed only by the full build of step
+4.1. Information only, with 0 ns I/O delays: the slowest input path is `aresetn` -> u_prefetch/buf_we_reg/R, which needs
+8.197 ns of the 10 ns; the AXI inputs need at most 4.819 ns and the AXI outputs at most 3.232 ns.
+
+## 16. Resources (MEASURED, step 3.8; XC7Z020: 53,200 LUT, 17,400 LUT usable as memory, 106,400 FF, 140 RAMB36, 220 DSP48E1)
+
+Whole engine, OOC post-route: **2,301 LUT (4.33 %)**, of which 2,050 logic and 251 memory (232 LUTRAM + 19 SRL, 1.44 %
+of the memory-capable LUTs); **3,475 FF (3.27 %)**; **8 RAMB36 (5.71 %)**; **17 DSP48E1 (7.73 %)**; 1,319 slices
+(9.92 %); 0 latches; 0 multi-driven nets.
+
+Per instance, next to the standalone OOC runs of steps 3.1-3.6c:
+
+| module (instance) | LUT | of which LUTRAM + SRL | FF | RAMB36 | DSP48E1 | standalone LUT | standalone LUTRAM + SRL | standalone FF | standalone RAMB36 / DSP |
+|---|---|---|---|---|---|---|---|---|---|
+| axil_regs (u_regs) | 397 | 0 | 596 | 0 | 0 | 357 | 0 | 595 | 0 / 0 |
+| ctrl_fsm (u_ctrl) | 72 | 0 | 157 | 0 | 0 | no run | no run | no run | no run |
+| block_planner (u_planner) | 562 | 64 | 812 | 0 | 0 | 569 | 80 | 826 | 0 / 0 |
+| coord_gen (u_coord) | 269 | 58 | 352 | 0 | 8 | 284 | 68 | 367 | 0 / 8 |
+| prefetch_ctrl (u_prefetch) | 486 | 24 | 859 | 0 | 2 | 447 | 22 | 882 | 0 / 2 |
+| axi_rd_master (u_rd) | 89 | 14 | 191 | 0 | 0 | 145 | 14 | 191 | 0 / 0 |
+| line_buf (u_buf) | 128 | 0 | 0 | 8 | 0 | 1 | 0 | 0 | 8 / 0 |
+| pixel_fetch (u_fetch) | 100 | 0 | 229 | 0 | 0 | 226 | 0 | 232 | 0 / 0 |
+| bilinear_interp (u_interp, see below) | 47 | 1 | 5 | 0 | 7 | 80 | 1 | 9 | 0 / 7 |
+| out_fifo (u_ofifo) | 130 | 86 | 78 | 0 | 0 | 114 | 86 | 78 | 0 / 0 |
+| axi_wr_master (u_wr) | 99 | 4 | 196 | 0 | 0 | 135 | 4 | 206 | 0 / 0 |
+| **sum of the rows** | 2,379 | 251 | 3,475 | 8 | 17 | 2,358 | 275 | 3,386 | 8 / 17 |
+
+- The LUT sum exceeds the 2,301 total because a LUT shared by two instances (LUT combining) is counted in both rows.
+- Vivado's hierarchical report has no row for u_interp, so that row is counted from its leaf cells, before LUT combining.
+- Rows differ from the module runs because synthesis optimises across module boundaries. The clearest case: the 128
+  LUT6 of the pixel byte muxes are named after u_buf in the whole engine (`u_buf/ip_r1[..]`), so line_buf + pixel_fetch
+  is 228 LUT against 227 standalone.
+
+Not included: AXI interconnect, protocol converters, the PS and the Processor System Reset IP of the block design.
+
+**Power (ESTIMATE, step 3.8).** `report_power`, default settings, vectorless, confidence Medium, engine only without the
+PS: 0.144 W total on-chip = 0.040 W dynamic + 0.104 W device static. No simulated switching activity is used.
 
 ## 17. Open questions (need a decision; defaults used in this spec)
 

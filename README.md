@@ -295,3 +295,21 @@ interrupt or polls STATUS, and compares the output in memory with the model. The
 |------|--------|
 | `data/vectors/patrm_top/cases.txt` | One case per line: `group op name W H L b11 b12 b13 b21 b22 b23 lat_min lat_max ar_bp r_gap aw_bp w_bp b_lat_min b_lat_max seed irq arg bytes_rd rd_bursts wr_bursts src_file exp_file`. group 0..7 = a..h of the step 3.7 prompt (e = the counter checks of every frame). op: 0 frame, 1 lock + W1C checks, 2 / 3 SLVERR on read / write burst `arg`, 4 `aresetn` `arg` cycles after START, 5 START while busy, 6 the rejected starts. |
 | `data/vectors/patrm_top/src_*.hex`, `exp_*.hex` | Source image and expected frame, 64-bit little-endian words (step 1.2 format). |
+
+## Step 3.8: whole-engine implementation at 100 MHz (vivado/ooc_patrm_top.tcl)
+
+```
+mkdir build/ooc/patrm_top   (first time only)
+cd build/ooc/patrm_top
+vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl           # out-of-context synthesis, place and route
+```
+The console ends with an `OOC SUMMARY patrm_top ...` line. Reports go to `results/ooc/`:
+
+| File | Content |
+|------|---------|
+| `patrm_top_summary.txt` | LUT / LUTRAM / FF / BRAM / DSP with % of the device, WNS / TNS / WHS, Fmax estimate, critical path, 10 worst paths, per-module table next to the module runs, power estimate, methodology and DRC rules, port paths |
+| `patrm_top_utilization_{synth,route}.rpt`, `patrm_top_utilization_hier_route.rpt` | Flat and hierarchical utilization (Vivado leaves `u_interp` out of the hierarchical table; the summary counts it from its cells) |
+| `patrm_top_timing_route.rpt`, `patrm_top_worst10_paths_route.rpt` | Timing summary and the 10 worst setup paths in full |
+| `patrm_top_methodology_route.rpt`, `patrm_top_drc_route.rpt` | `report_methodology`, `report_drc` |
+| `patrm_top_power_route.rpt` | `report_power`, default settings: a vectorless estimate |
+| `patrm_top_vs_paper.md` | Comparison table with the paper, written by hand from the summary and the step 3.7 speed table |
