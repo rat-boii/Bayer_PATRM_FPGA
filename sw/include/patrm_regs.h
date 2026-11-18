@@ -24,13 +24,14 @@
 #define PATRM_BUILD_TYPE_BAYER_A                  1U   /* Option A build */
 #define PATRM_BUILD_TYPE_BAYER_B                  2U   /* Option B build */
 
-/* ERR: STATUS.ERR_CODE values. If several checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN. */
+/* ERR: STATUS.ERR_CODE values. If several start checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN. BUS_ERROR is not a start check: it is set at the end of a job and replaces an earlier code. */
 #define PATRM_ERR_NONE                     0U   /* no error */
 #define PATRM_ERR_BAD_SIZE                 1U   /* WIDTH or HEIGHT is 0 or above MAX_SIZE (D11), or breaks D3 for the selected mode (gray: WIDTH % 8 != 0; Bayer: WIDTH % 16 != 0 or HEIGHT odd) */
 #define PATRM_ERR_BAD_MODE                 2U   /* CTRL.MODE = 3, or a mode whose bit is 0 in BUILD_ID.MODES */
 #define PATRM_ERR_BAD_ADDR                 3U   /* SRC_ADDR or DST_ADDR is not 4 KB aligned (bits 11:0 not zero) */
 #define PATRM_ERR_BAD_BLOCK_LEN            4U   /* BLOCK_LEN is 0 or above BUILD_ID.BLOCK_LEN_MAX (D13) */
 #define PATRM_ERR_START_BUSY               5U   /* CTRL.START written while STATUS.BUSY = 1; the running job continues unaffected */
+#define PATRM_ERR_BUS_ERROR                6U   /* the job ended, but at least one AXI read (RRESP) or write (BRESP) response was not OKAY; DONE and the interrupt are as normal, the output must not be trusted */
 
 /* 0x00 CTRL (RW): Control. Write MODE and IRQ_EN together with START = 1 as the last write of a job. */
 #define PATRM_CTRL_OFFSET                   0x00U
@@ -56,10 +57,10 @@
 #define PATRM_STATUS_DONE_MASK             0x00000002U   /* W1C: set when a job ends (same cycle BUSY falls, all output data accepted by DDR); write 1 to clear (also clears the interrupt) */
 #define PATRM_STATUS_ERROR_SHIFT           2U
 #define PATRM_STATUS_ERROR_WIDTH           1U
-#define PATRM_STATUS_ERROR_MASK            0x00000004U   /* W1C: set when a start is rejected; write 1 to clear (also clears ERR_CODE) */
+#define PATRM_STATUS_ERROR_MASK            0x00000004U   /* W1C: set when a start is rejected, or at the end of a job with an AXI error response (BUS_ERROR); write 1 to clear (also clears ERR_CODE) */
 #define PATRM_STATUS_ERR_CODE_SHIFT        4U
 #define PATRM_STATUS_ERR_CODE_WIDTH        4U
-#define PATRM_STATUS_ERR_CODE_MASK         0x000000F0U   /* RO: reason for the last rejected start, see ERR enum; 0 when ERROR = 0 */
+#define PATRM_STATUS_ERR_CODE_MASK         0x000000F0U   /* RO: reason for the last error, see ERR enum; 0 when ERROR = 0 */
 
 /* 0x08 SRC_ADDR (RW): DDR byte address of the source image (raw GRAY8 or raw RGGB mosaic, row-major, no header). Must be 4 KB aligned. */
 #define PATRM_SRC_ADDR_OFFSET               0x08U

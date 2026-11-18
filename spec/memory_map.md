@@ -50,7 +50,7 @@ Sizes are written W x H (D7).
 - Cleared by writing 1 to STATUS.DONE (W1C). The handler must do this before returning, otherwise the level
   interrupt fires again.
 - A rejected start (STATUS.ERROR) does not raise the interrupt; the driver sees it by reading STATUS right after
-  the start (section 4, step 8).
+  the start (section 4, step 8). A frame that ends with BUS_ERROR raises it as usual (DONE = 1).
 - Polling fallback: with CTRL.IRQ_EN = 0 the driver polls STATUS.DONE.
 
 ## 4. Start / done sequence (ARM driver, bare metal)
@@ -83,6 +83,8 @@ For every job:
    - polling: read STATUS until DONE = 1, then write STATUS = DONE.
    Use a timeout in both cases (proposal: 2 s; estimate, the slowest expected frame at 4096 x 4096 is well below
    this) and report a timeout with the STATUS value and the counters.
+   The STATUS value read at DONE may have ERROR = 1 with ERR_CODE = BUS_ERROR: the frame ended but an AXI response
+   was not OKAY. Report it, do not trust the output, and write STATUS = ERROR (W1C).
 10. `Xil_DCacheInvalidateRange(DST, W*H)`: drop stale cached copies of the output before the ARM reads it.
     DONE is set only after the last write response (BRESP) of the job, so all output data is in DDR.
 11. Read CYCLES, BYTES_RD, BYTES_WR, RD_STALL, WR_STALL (they hold their values until the next accepted start).

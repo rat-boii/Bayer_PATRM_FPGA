@@ -275,3 +275,23 @@ RD_STALL, cycles and the memmodel estimate.
 No behaviour change: `rtl/block_planner.v` gets the rule-(c) bound precomputed (monotonic columns along a row) and
 stage D split into D1 (reuse) and D2 (slots, FIFO writes). Same commands as step 3.6a / 3.6b. NSLOT = 16 data for Q2:
 `python scripts/sim.py --top tb_fetch_path -f tb/fetch_path.f --plusarg VEC_DIR=data/vectors --define TB_SLOT_BITS=4`.
+
+## Step 3.7: grayscale engine top level (rtl/ctrl_fsm.v, rtl/patrm_top.v)
+
+```
+python scripts/gen_patrm_top_vectors.py                                # images, model frames, memmodel counts, cases
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_DONE_EARLY  # must FAIL
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_BUSY_GAP    # must FAIL
+mkdir build/synth/patrm_top   (first time only)
+cd build/synth/patrm_top
+vivado -mode batch -source ../../../vivado/synth_patrm_top.tcl         # synthesis only; reports -> results/ooc/
+```
+`tb_patrm_top` acts like the ARM driver: it programs the registers over AXI-Lite, starts the engine, waits for the
+interrupt or polls STATUS, and compares the output in memory with the model. The log has one line per case, the
+`SPEED` lines of the table in spec/interface.md section 12, and the totals per group.
+
+| File | Format |
+|------|--------|
+| `data/vectors/patrm_top/cases.txt` | One case per line: `group op name W H L b11 b12 b13 b21 b22 b23 lat_min lat_max ar_bp r_gap aw_bp w_bp b_lat_min b_lat_max seed irq arg bytes_rd rd_bursts wr_bursts src_file exp_file`. group 0..7 = a..h of the step 3.7 prompt (e = the counter checks of every frame). op: 0 frame, 1 lock + W1C checks, 2 / 3 SLVERR on read / write burst `arg`, 4 `aresetn` `arg` cycles after START, 5 START while busy, 6 the rejected starts. |
+| `data/vectors/patrm_top/src_*.hex`, `exp_*.hex` | Source image and expected frame, 64-bit little-endian words (step 1.2 format). |

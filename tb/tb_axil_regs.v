@@ -7,9 +7,11 @@
 // Prints the number of checks per group and exactly one final line: "TEST PASS" or "TEST FAIL: <reason>".
 //
 // Groups: a reset values, b read/write/WSTRB/RO/unmapped, c START pulse + BUSY + lock, d error codes and priority,
-//         e DONE / W1C / interrupt, f counters, g worked-example job image, p protocol monitor (every cycle).
+//         e DONE / W1C / interrupt, f counters, g worked-example job image, p protocol monitor (every cycle),
+//         i (step 3.7) BUSY before the engine reacts, BUS_ERROR at the end of a job.
 // AXI-Lite master: random idle gaps, AW/W together, AW first or W first with a random gap, random BREADY/RREADY.
-// Engine stub (models ctrl_fsm): BUSY one cycle after start_accept, done_set in the last BUSY cycle, counters.
+// Engine stub (models ctrl_fsm): BUSY one cycle after start_accept (busy_lag more cycles in group i), done_set in
+// the last BUSY cycle, counters.
 `timescale 1ns/1ps
 module tb_axil_regs;
 
@@ -20,7 +22,7 @@ module tb_axil_regs;
     localparam [2:0] MODES   = 3'b001;
     localparam NSLOT         = 32;                       // word slots of the 7-bit address space
     localparam K_UNMAPPED = 0, K_CFG = 1, K_CTRL = 2, K_STATUS = 3, K_COUNTER = 4, K_BUILD_ID = 5;
-    localparam G_A = 0, G_B = 1, G_C = 2, G_D = 3, G_E = 4, G_F = 5, G_G = 6, G_P = 7;
+    localparam G_A = 0, G_B = 1, G_C = 2, G_D = 3, G_E = 4, G_F = 5, G_G = 6, G_P = 7, G_I = 8;
 
     localparam [31:0] C_START = 32'd1 << PATRM_CTRL_START_LSB;
     localparam [31:0] C_IRQ   = 32'd1 << PATRM_CTRL_IRQ_EN_LSB;
@@ -52,7 +54,7 @@ module tb_axil_regs;
     wire [31:0] cfg_b11, cfg_b12, cfg_b13, cfg_b21, cfg_b22, cfg_b23;
     wire [31:0] cfg_t_r_x, cfg_t_r_y, cfg_t_gr_x, cfg_t_gr_y, cfg_t_gb_x, cfg_t_gb_y, cfg_t_b_x, cfg_t_b_y;
     wire        start_accept, interrupt;
-    reg         busy = 0, done_set = 0;
+    reg         busy = 0, done_set = 0, bus_err = 0;
     reg  [31:0] cnt_cycles = 0, cnt_bytes_rd = 0, cnt_bytes_wr = 0, cnt_rd_stall = 0, cnt_wr_stall = 0;
 
     axil_regs #(.BLOCK_LEN_MAX(BLOCK_LEN_MAX), .MODES(MODES)) dut (
@@ -68,7 +70,7 @@ module tb_axil_regs;
         .cfg_t_r_x(cfg_t_r_x), .cfg_t_r_y(cfg_t_r_y), .cfg_t_gr_x(cfg_t_gr_x), .cfg_t_gr_y(cfg_t_gr_y),
         .cfg_t_gb_x(cfg_t_gb_x), .cfg_t_gb_y(cfg_t_gb_y), .cfg_t_b_x(cfg_t_b_x), .cfg_t_b_y(cfg_t_b_y),
         .cfg_block_len(cfg_block_len),
-        .start_accept(start_accept), .busy(busy), .done_set(done_set),
+        .start_accept(start_accept), .busy(busy), .done_set(done_set), .bus_err(bus_err),
         .cnt_cycles(cnt_cycles), .cnt_bytes_rd(cnt_bytes_rd), .cnt_bytes_wr(cnt_bytes_wr),
         .cnt_rd_stall(cnt_rd_stall), .cnt_wr_stall(cnt_wr_stall),
         .interrupt(interrupt)
@@ -82,7 +84,7 @@ module tb_axil_regs;
     function [31:0] s_kind;  input integer i; s_kind  = spec[2*NSLOT + i]; endfunction
 
     // ---------------- check bookkeeping ----------------
-    integer nchk [0:7];
+    integer nchk [0:8];
     integer nfail = 0;
     reg [8*200-1:0] first_fail;
     reg [8*200-1:0] msgbuf;
@@ -214,15 +216,28 @@ module tb_axil_regs;
     integer job_len  = 5;
     integer job_cnt  = 0;
     reg     stub_load = 0;
+    integer busy_lag = 0;                                // extra cycles before busy rises (group i)
+    integer lag_cnt  = 0;
+    reg     stub_done = 0;                               // group i: done_set while busy has not risen
     reg [31:0] ld_cycles, ld_bytes_rd, ld_bytes_wr, ld_rd_stall, ld_wr_stall;
 
     always @(posedge aclk) begin
         if (!aresetn) begin
-            busy <= 0; done_set <= 0; job_cnt <= 0;
+            busy <= 0; done_set <= 0; job_cnt <= 0; lag_cnt <= 0;
             cnt_cycles <= 0; cnt_bytes_rd <= 0; cnt_bytes_wr <= 0; cnt_rd_stall <= 0; cnt_wr_stall <= 0;
+        end else if (done_set && !busy) begin
+            done_set <= 0;
         end else if (start_accept && !busy) begin
-            busy <= 1; job_cnt <= 0;
+            if (busy_lag == 0) busy <= 1;
+            lag_cnt <= busy_lag; job_cnt <= 0;
             cnt_cycles <= 0; cnt_bytes_rd <= 0; cnt_bytes_wr <= 0; cnt_rd_stall <= 0; cnt_wr_stall <= 0;
+        end else if (lag_cnt != 0) begin
+            if (stub_done) begin
+                done_set <= 1; lag_cnt <= 0;
+            end else begin
+                lag_cnt <= lag_cnt - 1;
+                if (lag_cnt == 1) busy <= 1;
+            end
         end else if (busy) begin
             job_cnt      <= job_cnt + 1;
             cnt_cycles   <= cnt_cycles + 1;
@@ -407,7 +422,7 @@ module tb_axil_regs;
     reg [31:0] d, e, st;
 
     initial begin
-        for (i = 0; i < 8; i = i + 1) nchk[i] = 0;
+        for (i = 0; i < 9; i = i + 1) nchk[i] = 0;
         for (i = 0; i < 3; i = i + 1) n_order[i] = 0;
         for (i = 0; i < 3 * NSLOT; i = i + 1) spec[i] = 32'hx;
         for (i = 0; i < 64; i = i + 1) jobv[i] = 32'hx;
@@ -728,14 +743,128 @@ module tb_axil_regs;
         axil_write(PATRM_REG_STATUS, S_DONE, 4'hF);      // driver step 9
         chk(G_G, interrupt === 1'b0, "worked-example job: interrupt cleared");
 
+        // ===== i. step 3.7: BUSY before the engine reacts, BUS_ERROR =====
+        $display("i. busy pending / bus error");
+        axil_write(PATRM_REG_CTRL, 0, 4'hF);
+        clear_status;
+        good_cfg;
+        backpressure = 0;
+        hold_job = 1;
+        busy_lag = 40;                                   // the engine raises busy 40 cycles later than ctrl_fsm does
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        chk_eq(G_I, b_status & (S_BUSY | S_ERROR), S_BUSY, "BUSY at BVALID, engine not reacting yet");
+        chk(G_I, busy === 1'b0, "busy input still 0 after the START response");
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY, "first STATUS read after START: BUSY = 1 with busy input 0");
+        chk(G_I, busy === 1'b0, "busy input still 0 after the STATUS read");
+        axil_write(PATRM_REG_WIDTH, 8, 4'hF);
+        axil_read(PATRM_REG_WIDTH, rv);
+        chk_eq(G_I, rv, 640, "configuration locked while the start is pending");
+        p0 = start_pulses;
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY | S_ERROR | (PATRM_ERR_START_BUSY << PATRM_STATUS_ERR_CODE_LSB),
+               "START while the start is pending -> START_BUSY");
+        chk_eq(G_I, start_pulses - p0, 0, "no second start pulse while pending");
+        axil_write(PATRM_REG_STATUS, S_ERROR, 4'hF);
+        chk(G_I, busy === 1'b0, "busy input still 0 at the end of the pending checks");
+        while (busy !== 1'b1) @(posedge aclk);
+        repeat (3) @(posedge aclk);
+        #1;
+        chk(G_I, dut.start_pending === 1'b0, "start_pending cleared when busy rises");
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY, "BUSY = 1 from the busy input");
+        hold_job = 0;
+        wait_idle;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_DONE, "job with a late busy ends normally");
+        clear_status;
+        // done_set before busy ever rose: the pending flag must not stay set
+        busy_lag = 1000;
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY, "BUSY pending before done_set");
+        @(posedge aclk); #1 stub_done = 1;
+        while (done_set !== 1'b1) @(posedge aclk);
+        #1 stub_done = 0;
+        repeat (3) @(posedge aclk);
+        #1;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_DONE, "done_set clears the pending flag");
+        clear_status;
+        busy_lag = 0;
+        // BUS_ERROR: only at the end of a job, DONE and the interrupt as normal
+        bus_err = 1;
+        repeat (3) @(posedge aclk);
+        #1;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, 0, "bus_err without done_set does nothing");
+        hold_job = 1;
+        axil_write(PATRM_REG_CTRL, C_START | C_IRQ, 4'hF);
+        repeat (5) @(posedge aclk);
+        #1;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY, "no ERROR before the end of the job");
+        hold_job = 0;
+        wait_idle;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_DONE | S_ERROR | (PATRM_ERR_BUS_ERROR << PATRM_STATUS_ERR_CODE_LSB), "BUS_ERROR with DONE");
+        chk(G_I, interrupt === 1'b1, "interrupt fires with BUS_ERROR");
+        axil_write(PATRM_REG_STATUS, S_DONE, 4'hF);
+        chk(G_I, interrupt === 1'b0, "W1C DONE drops the interrupt");
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_ERROR | (PATRM_ERR_BUS_ERROR << PATRM_STATUS_ERR_CODE_LSB), "ERROR is sticky after W1C DONE");
+        axil_write(PATRM_REG_STATUS, S_ERROR, 4'hF);
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, 0, "W1C ERROR clears ERROR and ERR_CODE");
+        // an accepted start clears a BUS_ERROR left from the previous job
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        wait_idle;
+        bus_err = 0;
+        hold_job = 1;
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY, "accepted start clears DONE and BUS_ERROR");
+        // BUS_ERROR replaces a START_BUSY code from the same job
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_BUSY | S_ERROR | (PATRM_ERR_START_BUSY << PATRM_STATUS_ERR_CODE_LSB), "START_BUSY during the job");
+        bus_err = 1;
+        hold_job = 0;
+        wait_idle;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_DONE | S_ERROR | (PATRM_ERR_BUS_ERROR << PATRM_STATUS_ERR_CODE_LSB), "BUS_ERROR replaces START_BUSY");
+        clear_status;
+        // a W1C of ERROR and DONE in the done_set cycle loses against the new error and done
+        job_len = 12;
+        axil_write(PATRM_REG_CTRL, C_START, 4'hF);
+        #1;
+        while (!(busy === 1'b1 && job_cnt == job_len - 1)) begin @(posedge aclk); #1; end
+        @(posedge aclk); #1;                             // done_set = 1 in this cycle
+        chk(G_I, done_set === 1'b1, "W1C collision: done_set cycle reached");
+        awaddr = PATRM_REG_STATUS; wdata = S_DONE | S_ERROR; wstrb = 4'hF; awvalid = 1; wvalid = 1; bready = 1;
+        @(posedge aclk);
+        chk(G_I, awready === 1'b1, "W1C collision: write taken in the done_set cycle");
+        #1 awvalid = 0; wvalid = 0;
+        while (bvalid !== 1'b1) begin @(posedge aclk); #1; end
+        @(posedge aclk); #1 bready = 0;
+        wait_idle;
+        axil_read(PATRM_REG_STATUS, rv);
+        chk_eq(G_I, rv, S_DONE | S_ERROR | (PATRM_ERR_BUS_ERROR << PATRM_STATUS_ERR_CODE_LSB),
+               "done_set and BUS_ERROR win over a W1C in the same cycle");
+        clear_status;
+        bus_err = 0;
+        job_len = 5;
+        backpressure = 1;
+
         // ===== p. protocol monitor summary =====
         chk_eq(G_P, mon_viol, 0, "AXI-Lite protocol violations");
         chk_eq(G_P, irq_viol, 0, "cycles with interrupt != IRQ_EN & DONE");
         chk_eq(G_C, start_max, 1, "longest start pulse over the whole run");
         chk(G_P, n_order[0] > 0 && n_order[1] > 0 && n_order[2] > 0, "all three AW/W orders used");
 
-        $display("checks: a=%0d b=%0d c=%0d d=%0d e=%0d f=%0d g=%0d p=%0d (monitor %0d cycles); writes by order together/AW-first/W-first = %0d/%0d/%0d; start pulses %0d",
-                 nchk[0], nchk[1], nchk[2], nchk[3], nchk[4], nchk[5], nchk[6], nchk[7], mon_cycles,
+        $display("checks: a=%0d b=%0d c=%0d d=%0d e=%0d f=%0d g=%0d i=%0d p=%0d (monitor %0d cycles); writes by order together/AW-first/W-first = %0d/%0d/%0d; start pulses %0d",
+                 nchk[0], nchk[1], nchk[2], nchk[3], nchk[4], nchk[5], nchk[6], nchk[8], nchk[7], mon_cycles,
                  n_order[0], n_order[1], n_order[2], start_pulses);
         if (nfail == 0) $display("TEST PASS");
         else            $display("TEST FAIL: %0d failed checks, first: %0s", nfail, first_fail);

@@ -8,9 +8,12 @@
 // - Configuration registers are locked while STATUS.BUSY = 1 (CTRL.IRQ_EN stays writable).
 // - CTRL write with START = 1: the configuration is checked in cycle T (first failing check wins:
 //   START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN). The outcome is in STATUS at the end of T, before
-//   BVALID: either ERROR + ERR_CODE, or BUSY (start_accept = 1 in T+1, and STATUS.BUSY = busy | start_accept,
-//   so BUSY reads 1 from T+1 even though ctrl_fsm raises `busy` one cycle later).
+//   BVALID: either ERROR + ERR_CODE, or BUSY (start_accept = 1 in T+1). STATUS.BUSY = busy | start_pending:
+//   start_pending is set with start_accept and cleared when `busy` rises or at done_set, so BUSY reads 1 from T+1
+//   however late the engine reacts (step 3.7).
 // - STATUS.DONE is set by done_set (set wins over a W1C clear in the same cycle, so no done is lost).
+// - bus_err is sampled at done_set: 1 sets ERROR with ERR_CODE = BUS_ERROR (Q1, step 3.7), replacing an earlier code
+//   and winning over a W1C or a rejected start in the same cycle. DONE and the interrupt are not affected.
 // - interrupt = CTRL.IRQ_EN & STATUS.DONE, a register loaded from the next-state values, so it always equals
 //   the current register bits (no extra cycle of lag after a W1C).
 //
@@ -28,7 +31,7 @@ module axil_regs (
     cfg_b11, cfg_b12, cfg_b13, cfg_b21, cfg_b22, cfg_b23,
     cfg_t_r_x, cfg_t_r_y, cfg_t_gr_x, cfg_t_gr_y, cfg_t_gb_x, cfg_t_gb_y, cfg_t_b_x, cfg_t_b_y,
     cfg_block_len,
-    start_accept, busy, done_set,
+    start_accept, busy, done_set, bus_err,
     cnt_cycles, cnt_bytes_rd, cnt_bytes_wr, cnt_rd_stall, cnt_wr_stall,
     interrupt
 );
@@ -84,6 +87,7 @@ module axil_regs (
     output              start_accept;
     input               busy;
     input               done_set;
+    input               bus_err;                         // sampled at done_set: the job had an AXI error response
     input  [31:0]       cnt_cycles, cnt_bytes_rd, cnt_bytes_wr, cnt_rd_stall, cnt_wr_stall;
     output              interrupt;
 
@@ -97,6 +101,7 @@ module axil_regs (
     reg [31:0]          r_b11, r_b12, r_b13, r_b21, r_b22, r_b23;
     reg [31:0]          r_t_r_x, r_t_r_y, r_t_gr_x, r_t_gr_y, r_t_gb_x, r_t_gb_y, r_t_b_x, r_t_b_y;
     reg                 start_accept_r;
+    reg                 start_pending;                   // start accepted, engine has not raised busy yet
     reg                 irq_r;
     reg                 bvalid_r, rvalid_r;
     reg [DW-1:0]        rdata_r;
@@ -130,7 +135,12 @@ module axil_regs (
     endfunction
 
     // STATUS.BUSY as seen by software and by the lock / START_BUSY check
-    wire busy_vis = busy | start_accept_r;
+    wire busy_vis = busy | start_pending;
+`ifdef PATRM_FAULT_BUSY_GAP                              // fault injection for the testbenches only
+    wire status_busy = busy;
+`else
+    wire status_busy = busy_vis;
+`endif
 
     function wr_hit;                                     // write to register at byte offset `off`, unlocked
         input [AW-1:0] off;
@@ -182,6 +192,7 @@ module axil_regs (
     wire irq_en_nxt = (ctrl_wr && s_axil_wstrb[PATRM_CTRL_IRQ_EN_LSB/8]) ? s_axil_wdata[PATRM_CTRL_IRQ_EN_LSB]
                                                                           : ctrl_irq_en;
     wire done_nxt   = done_set | (st_done & ~done_w1c & ~start_ok);
+    wire bus_err_set = done_set & bus_err;
 
     // ---- register writes ----
     always @(posedge aclk) begin
@@ -211,6 +222,7 @@ module axil_regs (
             r_t_b_y        <= PATRM_T_B_Y_RESET;
             r_block_len    <= PATRM_BLOCK_LEN_RESET[SB-1:0];
             start_accept_r <= 1'b0;
+            start_pending  <= 1'b0;
             irq_r          <= 1'b0;
         end else begin
             // CTRL: IRQ_EN always, MODE only while idle
@@ -218,7 +230,7 @@ module axil_regs (
             if (ctrl_wr && mode_strb && !busy_vis)
                 ctrl_mode <= s_axil_wdata[PATRM_CTRL_MODE_LSB +: MODE_W];
 
-            // STATUS: W1C, start outcome, done (done_set wins)
+            // STATUS: W1C, start outcome, bus error at the end of a job (last = wins), done (done_set wins)
             if (error_w1c) begin
                 st_error    <= 1'b0;
                 st_err_code <= PATRM_ERR_NONE;
@@ -231,8 +243,14 @@ module axil_regs (
                 st_error    <= 1'b0;
                 st_err_code <= PATRM_ERR_NONE;
             end
+            if (bus_err_set) begin
+                st_error    <= 1'b1;
+                st_err_code <= PATRM_ERR_BUS_ERROR;
+            end
             st_done        <= done_nxt;
             start_accept_r <= start_ok;
+            if (start_ok)              start_pending <= 1'b1;
+            else if (busy | done_set)  start_pending <= 1'b0;
             irq_r          <= irq_en_nxt & done_nxt;
 
             // configuration registers (locked while busy)
@@ -270,7 +288,7 @@ module axil_regs (
     // ---- read data (registered in the AR handshake cycle) ----
     wire [DW-1:0] ctrl_word = ({{(DW-MODE_W){1'b0}}, ctrl_mode} << PATRM_CTRL_MODE_LSB) |
                               ({{(DW-1){1'b0}}, ctrl_irq_en}    << PATRM_CTRL_IRQ_EN_LSB);
-    wire [DW-1:0] status_word = ({{(DW-1){1'b0}}, busy_vis}       << PATRM_STATUS_BUSY_LSB) |
+    wire [DW-1:0] status_word = ({{(DW-1){1'b0}}, status_busy}    << PATRM_STATUS_BUSY_LSB) |
                                 ({{(DW-1){1'b0}}, st_done}        << PATRM_STATUS_DONE_LSB) |
                                 ({{(DW-1){1'b0}}, st_error}       << PATRM_STATUS_ERROR_LSB) |
                                 ({{(DW-ERR_W){1'b0}}, st_err_code} << PATRM_STATUS_ERR_CODE_LSB);

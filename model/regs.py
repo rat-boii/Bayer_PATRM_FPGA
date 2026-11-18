@@ -20,8 +20,8 @@ FRAC_BITS = 16   # Q15.16 fraction bits
 MODE = {'GRAY': 0, 'BAYER_A': 1, 'BAYER_B': 2}
 # BUILD_TYPE: BUILD_ID.BUILD_TYPE values
 BUILD_TYPE = {'GRAY': 0, 'BAYER_A': 1, 'BAYER_B': 2}
-# ERR: STATUS.ERR_CODE values. If several checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN.
-ERR = {'NONE': 0, 'BAD_SIZE': 1, 'BAD_MODE': 2, 'BAD_ADDR': 3, 'BAD_BLOCK_LEN': 4, 'START_BUSY': 5}
+# ERR: STATUS.ERR_CODE values. If several start checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN. BUS_ERROR is not a start check: it is set at the end of a job and replaces an earlier code.
+ERR = {'NONE': 0, 'BAD_SIZE': 1, 'BAD_MODE': 2, 'BAD_ADDR': 3, 'BAD_BLOCK_LEN': 4, 'START_BUSY': 5, 'BUS_ERROR': 6}
 
 # Registers in offset order. reset None = fixed per build (synthesis parameters).
 REGISTERS = [

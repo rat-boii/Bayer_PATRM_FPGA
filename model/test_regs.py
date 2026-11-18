@@ -116,7 +116,8 @@ def t3_c_header():
         with open(src, "w") as f:
             f.write('#include "patrm_regs.h"\n#include "patrm_regs.h"\n'
                     "_Static_assert(PATRM_BUILD_ID_OFFSET == 0x68U, \"offset\");\n"
-                    "_Static_assert((PATRM_STATUS_ERR_CODE_MASK >> PATRM_STATUS_ERR_CODE_SHIFT) >= PATRM_ERR_START_BUSY, \"err\");\n"
+                    "_Static_assert((PATRM_STATUS_ERR_CODE_MASK >> PATRM_STATUS_ERR_CODE_SHIFT) >= PATRM_ERR_BUS_ERROR, \"err\");\n"
+                    "_Static_assert(PATRM_ERR_BUS_ERROR == 6U, \"bus error code\");\n"
                     "_Static_assert(PATRM_B11_RESET == 0x00010000U, \"reset\");\n"
                     "int main(void) { return (int)PATRM_CTRL_START_MASK; }\n")
         r = subprocess.run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", "-fsyntax-only",
@@ -124,7 +125,7 @@ def t3_c_header():
         check(r.returncode == 0, f"C header does not compile: {r.stderr}")
     ver = subprocess.run([cc, "--version"], capture_output=True, text=True).stdout.splitlines()[0]
     print(f"[3] patrm_regs.h: {os.path.basename(cc)} -std=c99 -Wall -Wextra -Werror -fsyntax-only OK "
-          f"(included twice, 3 static asserts) [{ver}]")
+          f"(included twice, 4 static asserts) [{ver}]")
 
 
 def t4_verilog_header():
@@ -139,9 +140,10 @@ def t4_verilog_header():
                 "module regs_wrap_a(output [6:0] a, output [31:0] r);\n"
                 "`include \"patrm_regs.vh\"\n"
                 "assign a = PATRM_REG_BUILD_ID;\nassign r = PATRM_B11_RESET;\nendmodule\n"
-                "module regs_wrap_b(output [3:0] e, output [7:0] w);\n"
+                "module regs_wrap_b(output [3:0] e, output [3:0] be, output [7:0] w);\n"
                 "`include \"patrm_regs.vh\"\n"
-                "assign e = PATRM_ERR_START_BUSY;\nassign w = PATRM_STATUS_ERR_CODE_W;\nendmodule\n")
+                "assign e = PATRM_ERR_START_BUSY;\nassign be = PATRM_ERR_BUS_ERROR;\n"
+                "assign w = PATRM_STATUS_ERR_CODE_W;\nendmodule\n")
     r = subprocess.run([str(xvlog), "-i", os.path.join(ROOT, "rtl"), "regs_wrap.v"], cwd=work,
                        capture_output=True, text=True, shell=str(xvlog).lower().endswith(".bat"))
     log = r.stdout + r.stderr
@@ -155,6 +157,7 @@ def t4_verilog_header():
 def t5_py_import():
     from model import regs as R
     check(R.OFFSET["BUILD_ID"] == 0x68 and R.ERR["START_BUSY"] == 5 and R.MAX_SIZE == 4096, "regs.py content")
+    check(R.ERR["BUS_ERROR"] == 6, "regs.py: ERR.BUS_ERROR != 6")
     check(R.unpack("B12", R.pack("B12", VALUE=-39322))["VALUE"] == -39322, "signed round trip")
     try:
         R.pack("WIDTH", W=8192)

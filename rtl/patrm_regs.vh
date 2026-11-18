@@ -22,13 +22,14 @@ localparam [1:0] PATRM_BUILD_TYPE_GRAY = 2'd0;   // grayscale build
 localparam [1:0] PATRM_BUILD_TYPE_BAYER_A = 2'd1;   // Option A build
 localparam [1:0] PATRM_BUILD_TYPE_BAYER_B = 2'd2;   // Option B build
 
-// ERR: STATUS.ERR_CODE values. If several checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN.
+// ERR: STATUS.ERR_CODE values. If several start checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN. BUS_ERROR is not a start check: it is set at the end of a job and replaces an earlier code.
 localparam [3:0] PATRM_ERR_NONE = 4'd0;   // no error
 localparam [3:0] PATRM_ERR_BAD_SIZE = 4'd1;   // WIDTH or HEIGHT is 0 or above MAX_SIZE (D11), or breaks D3 for the selected mode (gray: WIDTH % 8 != 0; Bayer: WIDTH % 16 != 0 or HEIGHT odd)
 localparam [3:0] PATRM_ERR_BAD_MODE = 4'd2;   // CTRL.MODE = 3, or a mode whose bit is 0 in BUILD_ID.MODES
 localparam [3:0] PATRM_ERR_BAD_ADDR = 4'd3;   // SRC_ADDR or DST_ADDR is not 4 KB aligned (bits 11:0 not zero)
 localparam [3:0] PATRM_ERR_BAD_BLOCK_LEN = 4'd4;   // BLOCK_LEN is 0 or above BUILD_ID.BLOCK_LEN_MAX (D13)
 localparam [3:0] PATRM_ERR_START_BUSY = 4'd5;   // CTRL.START written while STATUS.BUSY = 1; the running job continues unaffected
+localparam [3:0] PATRM_ERR_BUS_ERROR = 4'd6;   // the job ended, but at least one AXI read (RRESP) or write (BRESP) response was not OKAY; DONE and the interrupt are as normal, the output must not be trusted
 
 // 0x00 CTRL (RW): Control. Write MODE and IRQ_EN together with START = 1 as the last write of a job.
 localparam [6:0] PATRM_REG_CTRL = 7'h00;
@@ -48,9 +49,9 @@ localparam integer PATRM_STATUS_BUSY_W = 1;   // RO: 1 from an accepted start un
 localparam integer PATRM_STATUS_DONE_LSB = 1;
 localparam integer PATRM_STATUS_DONE_W = 1;   // W1C: set when a job ends (same cycle BUSY falls, all output data accepted by DDR); write 1 to clear (also clears the interrupt)
 localparam integer PATRM_STATUS_ERROR_LSB = 2;
-localparam integer PATRM_STATUS_ERROR_W = 1;   // W1C: set when a start is rejected; write 1 to clear (also clears ERR_CODE)
+localparam integer PATRM_STATUS_ERROR_W = 1;   // W1C: set when a start is rejected, or at the end of a job with an AXI error response (BUS_ERROR); write 1 to clear (also clears ERR_CODE)
 localparam integer PATRM_STATUS_ERR_CODE_LSB = 4;
-localparam integer PATRM_STATUS_ERR_CODE_W = 4;   // RO: reason for the last rejected start, see ERR enum; 0 when ERROR = 0
+localparam integer PATRM_STATUS_ERR_CODE_W = 4;   // RO: reason for the last error, see ERR enum; 0 when ERROR = 0
 
 // 0x08 SRC_ADDR (RW): DDR byte address of the source image (raw GRAY8 or raw RGGB mosaic, row-major, no header). Must be 4 KB aligned.
 localparam [6:0] PATRM_REG_SRC_ADDR = 7'h08;

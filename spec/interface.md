@@ -85,6 +85,7 @@ the interrupt.
 | start_accept | out | 1 | one-cycle pulse, registered: a start passed all checks |
 | busy | in | 1 | from ctrl_fsm |
 | done_set | in | 1 | one-cycle pulse from ctrl_fsm: set STATUS.DONE |
+| bus_err | in | 1 | from ctrl_fsm, sampled at done_set: 1 sets STATUS.ERROR with ERR_CODE = BUS_ERROR (Q1, step 3.7) |
 | cnt_cycles, cnt_bytes_rd, cnt_bytes_wr, cnt_rd_stall, cnt_wr_stall | in | [32] u | counters from ctrl_fsm |
 | interrupt | out | 1 | CTRL.IRQ_EN & STATUS.DONE, registered, level (to IRQ_F2P[0]) |
 
@@ -100,6 +101,14 @@ BAD_SIZE (W = 0, W > 4096, H = 0, H > 4096, gray W[2:0] != 0, Bayer W[3:0] != 0 
 ERR_CODE are set at the end of T. On success `start_accept` = 1 in T+1 and DONE, ERROR, ERR_CODE are cleared at
 the end of T; ctrl_fsm sets BUSY at the end of T+1. The earliest following read is accepted in T+2 (the write
 response must complete first), so it always sees BUSY = 1 or ERROR = 1 (spec/memory_map.md section 2).
+
+**STATUS.BUSY (step 3.7).** BUSY = `busy` OR `start_pending`. `start_pending` is 1 from T+1 and is cleared when `busy`
+rises or at done_set, so BUSY reads 1 from the START write response onward however late the engine reacts; the
+configuration lock and the START_BUSY check use the same signal.
+
+**BUS_ERROR (Q1, step 3.7).** In the done_set cycle, `bus_err` = 1 sets ERROR and ERR_CODE = BUS_ERROR. It replaces an
+earlier code of the same job (for example START_BUSY) and wins over a W1C of ERROR in that cycle. DONE and the
+interrupt behave as in any other frame.
 
 **Latency.** Write: B one cycle after the handshake. Read: R one cycle after the AR handshake. At most one
 transaction every 2 cycles (AXI-Lite traffic is a few dozen accesses per frame).
@@ -125,6 +134,8 @@ transaction every 2 cycles (AXI-Lite traffic is a few dozen accesses per frame).
 | rd_beat | in | 1 | from axi_rd_master: one R beat accepted |
 | wr_beat | in | 1 | from axi_wr_master: one W beat accepted |
 | rd_stall, wr_stall | in | 1 | from pixel_fetch / bilinear_interp (section 13) |
+| rd_err, wr_err | in | 1 | from axi_rd_master / axi_wr_master: RRESP / BRESP != OKAY (Q1) |
+| bus_err | out | 1 | to axil_regs: an error response was seen in this frame, including the current cycle |
 | cnt_cycles, cnt_bytes_rd, cnt_bytes_wr, cnt_rd_stall, cnt_wr_stall | out | [32] u | to axil_regs |
 
 **States.** IDLE -> (start_accept) RUN -> (wr_frame_done) IDLE. In the cycle `wr_frame_done` = 1: `done_set` = 1
@@ -673,7 +684,7 @@ responses; after the last B of the frame pulses `wr_frame_done`.
 | m_axi_hp1_bresp | in | [2] | not OKAY: the frame still completes, `wr_err` = 1 for that response (Q1) |
 | m_axi_hp1_bvalid / bready | in / out | 1 | bready = 1 always |
 | wr_beat | out | 1 | to ctrl_fsm (BYTES_WR += 8); one cycle after the W handshake |
-| wr_frame_done | out | 1 | to ctrl_fsm; one cycle after the last B response of the frame |
+| wr_frame_done | out | 1 | to ctrl_fsm; 2 cycles after the last B response of the frame (as built) |
 | wr_err | out | 1 | one cycle per B response with BRESP != OKAY, one cycle after it. For Q1 (BUS_ERROR status, wired in step 3.7); not connected before that |
 
 **Handshake.** AW and W are independent; W beats of a burst follow in order after (or with) its AW.
@@ -708,22 +719,43 @@ inside the module (wq_count is a register in out_fifo).
 |---|---|---|---|
 | aclk | in | 1 | FCLK_CLK0, 100 MHz |
 | aresetn | in | 1 | peripheral_aresetn of the Processor System Reset IP |
-| s_axil_* | | | section 1, to M_AXI_GP0 through the AXI interconnect |
-| m_axi_hp0_* (read channels; write channels tied off) | | | section 10, to S_AXI_HP0 (64 bit) |
-| m_axi_hp1_* (write channels; read channels tied off) | | | section 11, to S_AXI_HP1 (64 bit) |
+| s_axi_* | | | AXI4-Lite slave, section 1 (`s_axil_*` of axil_regs), to M_AXI_GP0 through the AXI interconnect (decided 2026-11-18, step 3.7) |
+| m_axi_hp0_* (all five AXI3 channels; AR / R used) | | | section 10, to S_AXI_HP0 (64 bit). Unused outputs are constants: awvalid = wvalid = 0, bready = 1; unused inputs ignored |
+| m_axi_hp1_* (all five AXI3 channels; AW / W / B used) | | | section 11, to S_AXI_HP1 (64 bit). Unused outputs are constants: arvalid = 0, rready = 1; unused inputs ignored |
 | interrupt | out | 1 | to IRQ_F2P[0], level, active high |
+
+The ports carry `X_INTERFACE_INFO` attributes (Verilog-2001 `(* *)`), so the block design of step 4.1 sees the
+interfaces s_axi, m_axi_hp0, m_axi_hp1, the clock aclk, the reset aresetn and the level interrupt.
 
 **Handshake / latency / stall.** As the submodules. Frame latency is set by the data rate (estimates in
 `results/memmodel_step2_2.md`). **Reset.** Everything idle after `aresetn`; the engine starts only by a CTRL
 write. **Parameters.** Section 0.
 
+**Measured (step 3.7, tb_patrm_top with tb/axi_mem.v, 256x192, BLOCK_LEN 64, no back-pressure).** L = memory latency
+of the model, used for reads and for write responses; the real HP latency is unknown until step 4.3. Fetch path =
+tb_fetch_path group f at the same commit (frame_start to last output pixel, no write path). The difference is the
+write drain after the last pixel: 41 cycles at L = 20, 61 at L = 40, the same for every transform, and WR_STALL = 0.
+
+| transform | L = 20 CYCLES | pixels / clock | fetch path | L = 40 CYCLES | pixels / clock | fetch path |
+|---|---|---|---|---|---|---|
+| identity | 49,315 | 0.997 | 49,274 | 49,355 | 0.996 | 49,294 |
+| mirror_cols | 49,315 | 0.997 | not measured | 49,355 | 0.996 | not measured |
+| mirror_rows | 49,315 | 0.997 | not measured | 49,355 | 0.996 | not measured |
+| rot15 | 51,937 | 0.946 | 51,896 | 90,306 | 0.544 | 90,245 |
+| rot37 | 84,623 | 0.581 | 84,582 | 150,405 | 0.327 | 150,344 |
+| rot90 | 108,427 | 0.453 | 108,386 | 194,273 | 0.253 | 194,212 |
+
+**Synthesis only (step 3.7, OOC, `results/ooc/patrm_top_synth_summary.txt`; no placement or routing, timing is step
+3.8).** 2,376 LUT (260 as memory), 3,475 FF, 8 RAMB36, 17 DSP48E1, 0 latches, 0 multi-driven nets.
+
 ## 13. Counters: exact definitions
 
 All counters are cleared at the end of the cycle in which `start_accept` = 1 and count only while BUSY = 1.
 
-- **CYCLES** = number of clock cycles with BUSY = 1: from the cycle after `start_accept` (the first cycle BUSY
-  reads 1) up to and including the cycle in which the last write response of the frame is accepted (BUSY falls
-  at the end of that cycle and DONE is set).
+- **CYCLES** = number of clock cycles with `busy` = 1: from the cycle after `start_accept` up to and including the
+  `wr_frame_done` cycle (section 2: BUSY falls at the end of that cycle and DONE is set). As built, `wr_frame_done`
+  comes 2 cycles after the last write response is accepted (section 11), so those 2 cycles are included. With T = the
+  START write handshake and DONE first visible in cycle V: CYCLES = V - T - 2 (checked by tb_patrm_top).
 - **BYTES_RD** = 8 x number of R beats accepted on HP0 (rvalid & rready) in the frame.
 - **BYTES_WR** = 8 x number of W beats accepted on HP1 (wvalid & wready) in the frame, partial WSTRB included.
 - **WR_STALL** = number of BUSY cycles in which the interpolator output register holds a pixel that out_fifo does
@@ -782,11 +814,9 @@ Not included: AXI interconnect, protocol converters and the Processor System Res
 
 ## 17. Open questions (need a decision; defaults used in this spec)
 
-- **Q1 AXI error responses.** Approved in principle (2026-11-17): a frame with RRESP / BRESP != OKAY still
-  completes (DONE + interrupt as normal) and STATUS.ERROR is set with a new ERR_CODE 6 BUS_ERROR, sticky until
-  cleared. `spec/regs.json` changes once, in step 3.7, together with BRESP from step 3.5. Until then the data
-  path stays as above (data used as is); axi_rd_master outputs `rd_err` (step 3.4), axi_wr_master `wr_err`
-  (step 3.5).
+- **Q1 AXI error responses. Closed (step 3.7).** A frame with RRESP / BRESP != OKAY still completes (DONE + interrupt
+  as normal, data used as is) and STATUS.ERROR is set at the end of the frame with ERR_CODE 6 BUS_ERROR, sticky until
+  cleared by W1C or an accepted start (`spec/regs.json`, sections 1 and 2).
 - **Q2 NSLOT.** 32 (16 KB, 8 RAMB36) proposed; 16 halves the BRAM. Decide after the step 3.6 latency tests.
   Step 3.6b (built with 32): 8 RAMB36 measured; with no back-pressure no transform waited for a slot at L = 20 / 40
   (the rotations are limited by RD_OUTSTANDING = 8 short bursts). Step 3.6c data (tb_fetch_path with

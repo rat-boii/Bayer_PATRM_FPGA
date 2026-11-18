@@ -42,14 +42,15 @@
     },
     {
       "name": "ERR",
-      "description": "STATUS.ERR_CODE values. If several checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN.",
+      "description": "STATUS.ERR_CODE values. If several start checks fail, the code reported is the first in this order: START_BUSY, BAD_MODE, BAD_SIZE, BAD_ADDR, BAD_BLOCK_LEN. BUS_ERROR is not a start check: it is set at the end of a job and replaces an earlier code.",
       "values": [
         {"name": "NONE", "value": 0, "description": "no error"},
         {"name": "BAD_SIZE", "value": 1, "description": "WIDTH or HEIGHT is 0 or above MAX_SIZE (D11), or breaks D3 for the selected mode (gray: WIDTH % 8 != 0; Bayer: WIDTH % 16 != 0 or HEIGHT odd)"},
         {"name": "BAD_MODE", "value": 2, "description": "CTRL.MODE = 3, or a mode whose bit is 0 in BUILD_ID.MODES"},
         {"name": "BAD_ADDR", "value": 3, "description": "SRC_ADDR or DST_ADDR is not 4 KB aligned (bits 11:0 not zero)"},
         {"name": "BAD_BLOCK_LEN", "value": 4, "description": "BLOCK_LEN is 0 or above BUILD_ID.BLOCK_LEN_MAX (D13)"},
-        {"name": "START_BUSY", "value": 5, "description": "CTRL.START written while STATUS.BUSY = 1; the running job continues unaffected"}
+        {"name": "START_BUSY", "value": 5, "description": "CTRL.START written while STATUS.BUSY = 1; the running job continues unaffected"},
+        {"name": "BUS_ERROR", "value": 6, "description": "the job ended, but at least one AXI read (RRESP) or write (BRESP) response was not OKAY; DONE and the interrupt are as normal, the output must not be trusted"}
       ]
     }
   ],
@@ -69,8 +70,8 @@
       "fields": [
         {"name": "BUSY", "lsb": 0, "width": 1, "access": "RO", "reset": 0, "description": "1 from an accepted start until the last write response of the job has been received"},
         {"name": "DONE", "lsb": 1, "width": 1, "access": "W1C", "reset": 0, "description": "set when a job ends (same cycle BUSY falls, all output data accepted by DDR); write 1 to clear (also clears the interrupt)"},
-        {"name": "ERROR", "lsb": 2, "width": 1, "access": "W1C", "reset": 0, "description": "set when a start is rejected; write 1 to clear (also clears ERR_CODE)"},
-        {"name": "ERR_CODE", "lsb": 4, "width": 4, "access": "RO", "reset": 0, "enum": "ERR", "description": "reason for the last rejected start, see ERR enum; 0 when ERROR = 0"}
+        {"name": "ERROR", "lsb": 2, "width": 1, "access": "W1C", "reset": 0, "description": "set when a start is rejected, or at the end of a job with an AXI error response (BUS_ERROR); write 1 to clear (also clears ERR_CODE)"},
+        {"name": "ERR_CODE", "lsb": 4, "width": 4, "access": "RO", "reset": 0, "enum": "ERR", "description": "reason for the last error, see ERR enum; 0 when ERROR = 0"}
       ]
     },
     {
