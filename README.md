@@ -242,3 +242,30 @@ valid-pixel count inside the DUT; it runs two instances (SPAN_MAX 512 and 32). `
 |------|--------|
 | `data/vectors/block_planner/cases.txt` | One case per line: `group name W H L S b11 b12 b13 b21 b22 b23 nblk nfetch bp abort abort_at blocks_file`. group 0..5 = a..f of the step 3.6a prompt; S = SPAN_MAX of the DUT instance (512 or 32); bp = percent of cycles with `desc_ready` = 0 and, independently, `fetch_ready` = 0; abort: 0 = whole frame, 1 = `aresetn` after `abort_at` descriptors, 2 = next `frame_start` after `abort_at` descriptors. File names are relative to `data/vectors/`. |
 | `data/vectors/block_planner/sched_blocks_*.txt`, `sched_bursts_*.txt` | Step 2.2 formats. 208x120 (rows cross 4 KB pages) for every transform at both (L, S); BLOCK_LEN 1 / 7 / 63 / 64 and random lists; `c_span_exact`, `c_span_over`, `c_x0_lastpix`, `c_x0_and_len` (D16 edge cases found by search, see `scripts/gen_block_planner_vectors.py`). |
+
+## Step 3.6b: prefetch, line buffers and pixel fetch (rtl/prefetch_ctrl.v, rtl/line_buf.v, rtl/pixel_fetch.v)
+
+```
+python scripts/check_slot_words.py                                     # proof: a slot never needs > 64 words (option A)
+python scripts/gen_fetch_path_vectors.py                               # images, per-pixel dumps, frames, cases
+python scripts/sim.py --top tb_fetch_path -f tb/fetch_path.f --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_fetch_path -f tb/fetch_path.f --plusarg VEC_DIR=data/vectors --define ALT_SEED
+python scripts/sim.py --top tb_fetch_path -f tb/fetch_path.f --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_CLAMP       # must FAIL (group b)
+python scripts/sim.py --top tb_fetch_path -f tb/fetch_path.f --plusarg VEC_DIR=data/vectors --define PATRM_FAULT_SLOT_EARLY  # must FAIL (group d)
+mkdir build/ooc/fetch_path   (first time only)
+cd build/ooc/fetch_path
+vivado -mode batch -source ../../../vivado/ooc_fetch_path.tcl          # prefetch_ctrl, line_buf, pixel_fetch, joined
+```
+`prefetch_ctrl` turns fetch records into row read commands (a slot is written only after every block using it was
+read out) and writes the beats into `line_buf`; `line_buf` (8 RAMB36: even / odd word banks x two copies) gives
+`pixel_fetch` four 64-bit words per clock; `pixel_fetch` applies D1, waits for its block and picks r1..r4. Words are
+stored by source column (spec/interface.md 6.2, the step 3.6b spec fix). The testbench runs the whole read path
+(block_planner to bilinear_interp) against the model: per-pixel stream, output frame, every command and buffer
+write, slot reuse and aliasing, BYTES_RD vs memmodel, RD_STALL vs its own count. One line per case shows BYTES_RD,
+RD_STALL, cycles and the memmodel estimate.
+
+| File | Format |
+|------|--------|
+| `data/vectors/fetch_path/cases.txt` | One case per line: `group name W H L S b11 b12 b13 b21 b22 b23 lat_min lat_max ar_bp r_gap op_bp seed abort abort_at check bytes_rd est_cycles bursts src_file dump_file exp_file`. group 0 a, 1 b, 3 d, 5 f, 6 g (c = BYTES_RD and e = RD_STALL are checked in every case); lat / ar_bp / r_gap = tb/axi_mem.v knobs; op_bp = percent of cycles with op_ready = 0; abort 1 = `aresetn`, 2 = next `frame_start`, after `abort_at` pixels; check 1/2/3 = output must equal the input / mirrored columns / mirrored rows. |
+| `data/vectors/fetch_path/dump_*.hex` | One 104-bit hex word per output pixel, raster order: `{valid[8], x0[16], y0[16], xf[16], yf[16], r1, r2, r3, r4}` (x0, y0 two's complement; r = 0 for invalid pixels). |
+| `data/vectors/fetch_path/src_*.hex`, `exp_*.hex` | Source image and expected frame, 64-bit little-endian words (step 1.2 format). |

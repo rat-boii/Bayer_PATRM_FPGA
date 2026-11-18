@@ -1,0 +1,15 @@
+module        prefetch_ctrl (top prefetch_ctrl; OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route; NSLOT 32, SLOT_WORDS 64)
+vivado        2026.1
+LUT           447 (Slice LUTs: 425 logic + 22 memory)
+FF            882
+BRAM          0 RAMB36 + 0 RAMB18 (= 0.0 RAMB36 equivalent)
+DSP48E1       2
+latches       synth 0, route 0
+WNS (ns)      2.431
+WHS (ns)      0.026
+critical path is_sb_reg[2]/C -> last_user_reg[26][14]/CE
+              data path 7.280 ns, 6 logic levels
+stage         prefetch P1-P3 (p1_*, p2_*, p3_*): slack 3.310 ns, data path 6.190 ns, 9 levels, src_r_reg[5]/C -> p3_ab_reg/C[31]
+stage         prefetch IS (is_*): slack 4.048 ns, data path 5.663 ns, 5 levels, is_sb_reg[2]/C -> is_ab_reg[20]/CE
+stage         prefetch busy / last_user / counters: slack 2.431 ns, data path 7.280 ns, 6 levels, is_sb_reg[2]/C -> last_user_reg[26][14]/CE
+stage         prefetch line_buf write registers (buf_*): slack 6.850 ns, data path 3.128 ns, 3 levels, base_reg_0_31_0_5/RAMA/CLK -> buf_waddr_reg[4]/D

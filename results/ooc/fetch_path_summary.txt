@@ -1,0 +1,19 @@
+module        fetch_path (top ooc_fetch_path_wrap; OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route; NSLOT 32, SLOT_WORDS 64)
+vivado        2026.1
+LUT           667 (Slice LUTs: 645 logic + 22 memory)
+FF            1114
+BRAM          8 RAMB36 + 0 RAMB18 (= 8.0 RAMB36 equivalent)
+DSP48E1       2
+latches       synth 0, route 0
+WNS (ns)      2.313
+WHS (ns)      0.08
+critical path u_pc/is_nt_reg/C -> u_pc/p3_at_reg/CEP
+              data path 6.877 ns, 4 logic levels
+stage         prefetch P1-P3 (p1_*, p2_*, p3_*): slack 2.313 ns, data path 6.877 ns, 4 levels, u_pc/is_nt_reg/C -> u_pc/p3_at_reg/CEP
+stage         prefetch IS (is_*): slack 2.601 ns, data path 6.944 ns, 4 levels, u_pc/is_nt_reg/C -> u_pc/is_ab_reg[21]/CE
+stage         prefetch busy / last_user / counters: slack 2.523 ns, data path 7.188 ns, 5 levels, u_pc/is_nt_reg/C -> u_pc/last_user_reg[2][0]/CE
+stage         prefetch line_buf write registers (buf_*): slack 6.390 ns, data path 3.555 ns, 3 levels, u_pc/drop_reg[0]/C -> u_pc/buf_we_reg/D
+stage         pixel_fetch F1 (f1_*, k): slack 4.383 ns, data path 5.328 ns, 6 levels, u_pc/blocks_ready_reg[1]/C -> u_pf/f1_sb_reg[0]/CE
+stage         pixel_fetch F2 (f2_*): slack 5.924 ns, data path 3.563 ns, 1 levels, u_pf/ip_valid_reg/C -> u_pf/f2_xf_reg[11]/CE
+stage         pixel_fetch F3 (ip_*): slack 4.589 ns, data path 4.898 ns, 1 levels, u_pf/ip_valid_reg/C -> u_pf/ip_r4_reg[4]/CE
+stage         line_buf RAMs (mem_*): slack 3.368 ns, data path 6.105 ns, 6 levels, u_pf/f1_X_reg[0]/C -> u_lb/mem_bo_reg_0/ENBWREN

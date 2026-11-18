@@ -290,7 +290,7 @@ fully read out of line_buf. `last_user[slot]`: the last fetching block that uses
 | rd_data | in | [64] | beat, byte k = bits 8k+7:8k (address order) |
 | rd_slot, rd_word | in | [5] u, [6] u | where the beat goes |
 | rd_cmd_last | in | 1 | last beat of a row command |
-| buf_we, buf_wbank, buf_waddr, buf_wdata | out | 1, 1, [10] u, [64] | line_buf write (bank = word[0], addr = slot * 32 + word[5:1]) |
+| buf_we, buf_wbank, buf_waddr, buf_wdata | out | 1, 1, [10] u, [64] | line_buf write: slot word p = (s_col / 8 + rd_word) mod 64 (words by source column, section 6.2), bank = p[0], addr = slot * 32 + p[5:1] |
 | blocks_ready | out | [16] u | to pixel_fetch |
 | blk_done | in | 1 | pulse from pixel_fetch: one more fetching block read out |
 
@@ -299,6 +299,34 @@ fetch = 1 (top first): wait until `last_user[slot]` (before this update) < `bloc
 address (row * W: one DSP48E1, 13 x 13 bit, 2-cycle pipeline) and issue one command. A record whose rows are
 all reused issues nothing. `blocks_ready` increments when the last beat of the block's last command has been
 written (or immediately, in order, for a block with nothing to fetch).
+
+**Line_buf write address (spec fix, step 3.6b).** A beat is written to slot word p = (s_col / 8 + rd_word) mod 64,
+where s_col is the byte column of the command (kept per slot from the command handshake: a slot gets a new command
+only after every block using it was read out, so after all beats of the previous command). So word w of a source
+row always sits at slot word (w mod 64), whichever block fetched it. Why: a reused row (D14 P1) keeps the slot
+and the start column of the block that FETCHED it, while a later block that reuses it has its own, possibly larger,
+s_col (P1 only asks that the earlier range covers the new one). The step 2.2 text addressed the slot relative to
+the block's own s_col (word 0 = desc_s_col), which reads the wrong word for such a block; 72 of the 158 step 2.2 /
+3.6a schedules contain one (e.g. identity 64x64, BLOCK_LEN 63: block 0 fetches columns [0, 64), block 1 = column
+63 reuses it with s_col = 56). Addressing by source column needs no s_col downstream (desc_s_col / pix_s_col are
+not used by pixel_fetch). It is alias-free because a slot never holds more than 64 consecutive words: SPAN_MAX
+(D16 rule c) is measured on the 8-byte aligned range that is fetched, aligned_span <= 512 B = 64 words, and every
+reused range lies inside the range held (scripts/check_slot_words.py: maximum 64 words reached and not exceeded,
+0 reused rows outside the held range, over all schedules of step 3.6b incl. 4096 x 4096).
+
+**As built (step 3.6b, rtl/prefetch_ctrl.v).** Prep pipeline P1 (record), P2 (row_top * W), P3 (addresses), then
+the issue stage IS: record handshake in cycle t, first cmd_valid in t + 4 at the earliest (by construction; the spec
+estimate was 3). The bottom row's address is the top row's + W (row_bot = row_top + 1 whenever it is fetched), so
+fetch_row_bot is not used. "last_user[slot] < blocks_done" is kept as a busy bit per slot, set when a block that
+uses the slot leaves IS and cleared by the blk_done of the block equal to last_user[slot]: the same condition while
+fewer than 2^15 blocks are in flight (at most about 40 are), but it cannot wrap (a 16-bit modulo compare would see a
+slot unused for more than 2^15 blocks as busy, possible with long runs of reused rows at 4096 x 4096). A ready queue
+(16 entries, number of commands per record) turns completed commands into blocks_ready in order. Commands accepted
+by axi_rd_master before a frame_start in the middle of a frame still return beats: they are counted and their beats
+dropped (not written, not counted). OOC post-route at 100 MHz (`results/ooc/prefetch_ctrl_summary.txt`): 447 LUT
+(22 LUTRAM: base[] and the ready queue), 882 FF (512 of them last_user), 0 BRAM, 2 DSP48E1 (Vivado duplicates
+row_top * W to absorb the top and bottom address adds as DSP post-adders; 1 DSP + a fabric adder is the
+alternative), 0 latches, WNS +2.431 ns; critical path is_sb -> last_user write enable, 7.28 ns, 6 levels.
 
 **Handshake.** fetch: valid/ready. cmd: valid/ready. rd: valid only (prefetch_ctrl always accepts, the slot
 is reserved). **Latency.** Record to first command: 3 cycles (estimate of the RTL structure). Beat to line_buf
@@ -320,17 +348,22 @@ plus 1 word write (HP0 delivers at most one 64-bit beat per clock).
 
 ### 6.2 Organisation (chosen)
 
-- **Even / odd word banks.** Word w of a slot is stored in bank (w mod 2) at entry slot * 32 + (w >> 1).
-  Two consecutive words always lie in different banks, so "word w and word w+1" is one read per bank.
+- **Words by source column (spec fix, step 3.6b, option A).** Word w of a source row (bytes 8w .. 8w+7 of the
+  row) is stored at slot word p = w mod 64, whichever block fetched it; a reused row (D14) keeps the start column
+  of the block that fetched it, so slot words cannot be counted from the reusing block's own s_col (section 5).
+- **Even / odd word banks.** Slot word p is stored in bank (p mod 2) at entry slot * 32 + (p >> 1).
+  Two consecutive words always lie in different banks (64 is even, so also p = 63 and p + 1 = 0), so "word w and
+  word w+1" is one read per bank.
 - **Two copies.** Copy T serves row x0 (r1, r2), copy B serves row x1 (r3, r4). Every write goes to both
   copies of its bank.
 - So there are 4 memories (T-even, T-odd, B-even, B-odd), each NSLOT x 32 = 1024 entries x 64 bit, each in
   simple dual-port mode: port A writes (from prefetch_ctrl), port B reads (for pixel_fetch). 4 reads + 1
   write per clock, every memory port used at most once per clock.
-- Read address for one row: even bank entry = slot * 32 + ((w0 + 1) >> 1), odd bank entry = slot * 32 + (w0 >> 1),
-  with w0 = word of y0; the byte mux then picks r1 = byte (y0 mod 8) of word w0 and r2 = byte (y1 mod 8) of
-  word w1 (w1 = w0 or w0 + 1). y1 never leaves the slot because rule (c) and the y1 clamp keep it inside the
-  block's range.
+- Read address for one row: w0 = (y0 >> 3) mod 64, even bank entry = slot * 32 + (((w0 + 1) mod 64) >> 1), odd
+  bank entry = slot * 32 + (w0 >> 1); the byte mux then picks r1 = byte (y0 mod 8) of word w0 and r2 = byte
+  (y1 mod 8) of word w1 = (y1 >> 3) mod 64 (w1 = w0 or w0 + 1 mod 64). The (w0 + 1) mod 64 keeps the even read
+  inside the slot; when its word is not needed (w1 = w0) the value is unused. y1 is always held: the block's
+  range is taken over y1 = min(y0 + 1, W - 1) (memmodel chi), and rule (c) keeps it within 64 words.
 - **Why the reads never collide with the writes.** prefetch_ctrl writes a slot only after every block that
   used it has been read out (`last_user < blocks_done`); pixel_fetch reads only slots of blocks counted in
   `blocks_ready`. A slot is never read and written in the same cycle, so the RAM write mode does not matter.
@@ -366,13 +399,25 @@ step 4.3 measures RD_STALL on the board).
 timing, then pixel_fetch adds one stage). **Reset.** No reset on contents. **Stall.** `re` = 0 holds the
 output registers.
 
+**As built (step 3.6b, rtl/line_buf.v, measured).** Inferred block RAM (no vendor IP), 4 memories x 1024 x 64 bit,
+one write and one read port each: 8 RAMB36, 1 LUT, 0 FF (`results/ooc/line_buf_summary.txt`). Compared with the
+step 1.4 estimate (gray worst case 160 B footprint, 320 B ping-pong per block pair at BLOCK_LEN 64, scale0p8): the
+buffer is 32 slots x 512 B = 16 KB per copy because (1) a slot must hold SPAN_MAX = 512 B (D16 allows it: scale 0.1
+reaches 64 words, scripts/check_slot_words.py), (2) NSLOT = 32 keeps about 16 blocks in flight to hide the read
+latency (Q2), (3) 4 reads per clock need 4 memories (2 banks x 2 copies). Even a 320 B buffer would take 4 RAMB18
+(= 2 RAMB36) for the 4 read ports; NSLOT = 16 would take 4 RAMB36. In tb_fetch_path without back-pressure no
+transform ever waited for a slot (slot wait 0 in group f), so NSLOT = 32 is not the limit at L = 20 / 40; whether 16
+is enough is not measured (Q2 stays open).
+
 ## 7. pixel_fetch
 
 **Purpose.** For each pixel from coord_gen: D1 validity, integer/fraction split, waits until the pixel's block
 is in line_buf, reads the four neighbours, passes (xf, yf, r1..r4, valid) to the interpolator.
 
-**Pipeline.** F1: valid (D1, signed compares), x0/y0/xf/yf, y1 = min(y0 + 1, W - 1), word offsets
-w0 = (y0 - s_col) >> 3, w1 = (y1 - s_col) >> 3, bank addresses (section 6.2), block-ready check.
+**Pipeline.** F1: valid (D1, signed compares), x0/y0/xf/yf, y1 = min(y0 + 1, W - 1), slot words
+w0 = (y0 >> 3) mod 64, w1 = (y1 >> 3) mod 64 (words by source column, section 6.2; spec fix in step 3.6b: the
+step 2.2 offsets (y0 - s_col) >> 3 read the wrong word in a block that reuses a row fetched with a smaller
+s_col), bank addresses (section 6.2), block-ready check. pix_s_col is not used.
 F2: line_buf read (1 cycle). F3: byte muxes -> r1..r4 (r3 = r1's column in row slot_bot, etc.), register.
 Invalid pixels skip the RAM read and give r1..r4 = 0 (the interpolator forces D = 0 anyway; the zeros keep
 X values out of simulation).
@@ -400,6 +445,31 @@ blocks) until k < blocks_ready; pixels of blocks without valid pixels never wait
 
 **Latency.** 3 cycles (F1, F2, F3). **Throughput.** 1 pixel per clock when the block is ready.
 **Reset.** Empty, fetching-block counter 0. **Stall.** Waits for data (RD_STALL) or for the interpolator (ce).
+
+**As built (step 3.6b, rtl/pixel_fetch.v, measured).** F1 is the input register; while it waits for its block F2
+gets a bubble (F2 / F3 still advance on ce). buf_re = F1 -> F2 transfer of a D1-valid pixel; blk_done is registered,
+one cycle after the last pixel of a fetching block moved F1 -> F2. OOC post-route at 100 MHz
+(`results/ooc/pixel_fetch_summary.txt`): 226 LUT, 232 FF, 0 BRAM, 0 DSP, 0 latches, WNS +5.075 ns; critical path
+k -> block-ready compare -> F1 load enable, 4.64 ns. Joined with prefetch_ctrl and line_buf
+(`vivado/ooc_fetch_path_wrap.v`, `results/ooc/fetch_path_summary.txt`): 667 LUT, 1114 FF, 8 RAMB36, 2 DSP48E1,
+WNS +2.313 ns (prefetch_ctrl is_nt -> P3 enable); paths into the RAMs +3.368 ns, RAM -> byte muxes -> F3 at least
++4.589 ns slack.
+
+**Measured speed (step 3.6b, tb_fetch_path group f: block_planner -> ... -> bilinear_interp, 256x192, BLOCK_LEN 64,
+SPAN_MAX 512, no back-pressure; L = memory latency of tb/axi_mem.v, the real HP0 latency is unknown until 4.3).**
+Cycles from frame_start to the last output pixel; estimate = memmodel max(W x H, beats + 2 x bursts).
+
+| transform | L = 20 | L = 40 | memmodel estimate | step 3.4 (axi_rd_master alone, same schedule) | limit |
+|---|---|---|---|---|---|
+| identity | 49,273 | 49,293 | 49,152 | not measured | pixel rate (planner / coord_gen 1 pixel per clock) |
+| rot15 | 51,895 | 90,244 | 60,797 | not measured | L = 20 pixel rate, L = 40 memory (8 bursts in flight) |
+| rot37 | 84,581 | 150,343 | 93,013 | 78,642 (0.466 beats / clock) / 149,023 | memory latency (8 short bursts in flight) |
+| rot90 | 108,385 | 194,211 | 115,200 | not measured | memory latency (1-beat bursts) |
+
+Prefetch never waited for a slot in these runs (slot wait 0) and the planner is not the limit (identity reaches
+W x H + 121 cycles); for the rotations axi_rd_master holds RD_OUTSTANDING bursts most of the frame (cmd_ready = 0:
+48,375 of 84,581 cycles for rot37 at L = 20). The memmodel OVERHEAD = 2 estimate is pessimistic at L = 20 and
+optimistic at L = 40 for short bursts, as step 3.4 found.
 
 ## 8. bilinear_interp (D10, option A2)
 
@@ -644,7 +714,9 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 - **WR_STALL** = number of BUSY cycles in which the interpolator output register holds a pixel that out_fifo does
   not accept (`op_valid & !op_ready`). In these cycles the whole pixel pipeline is frozen.
 - **RD_STALL** = number of BUSY cycles in which pixel_fetch stage F1 holds a pixel whose block is not yet in
-  line_buf (`k >= blocks_ready`) and the pipeline is not frozen by WR_STALL in the same cycle.
+  line_buf (`k >= blocks_ready`) and the pipeline is not frozen by WR_STALL in the same cycle. As built (decided
+  2026-11-18, step 3.6b): `rd_stall = F1 waiting && ip_ready`; ip_ready (= bilinear_interp ce) is 0 exactly in
+  the WR_STALL cycles, so the two never count the same cycle.
 - RD_STALL and WR_STALL never count the same cycle. Cycles where the pipeline simply has no pixel (frame start,
   the planner or coord_gen behind, the drain after the last pixel) count in neither.
 
@@ -666,8 +738,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | block_planner | MEASURED (step 3.6a): stage C rule decision blk_whi -> min/max -> span compare -> block state, 9.41 ns, slack +0.461 ns | scan (A) and D1 compares (B) are separate stages; along a row y0 is monotonic, so min/max can be replaced by "first" and "current" if needed |
 | block_planner | MEASURED (step 3.6a): stage D close d_x0last -> row / range compares -> reuse -> slot muxes -> fetch FIFO write, 9.29 ns, WNS +0.373 ns (module critical path) | own stage D; a register between the reuse decision and the FIFO write is the fallback |
 | coord_gen | MEASURED (step 3.2): start-FIFO not-empty -> stepper load / add, 6.2 ns (WNS +3.817 ns); S3 3-input add 5.4 ns | 3 stages S1-S3 (DSP P register, 32-bit add, 3-input add); stepper is one 32-bit add |
-| prefetch_ctrl | row * W + s_col + SRC_ADDR | DSP48E1 with M and P registers, then one 32-bit add |
-| pixel_fetch | BRAM clock-to-out + 8:1 byte mux | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
+| prefetch_ctrl | MEASURED (step 3.6b): is_sb -> last_user write enable 7.28 ns, WNS +2.431 ns; row * W + s_col + SRC_ADDR is in the DSPs (C + A*B, P register) | P1 / P2 / P3 prep pipeline; DSP with A/B, M and P registers |
+| pixel_fetch | MEASURED (step 3.6b): k -> block-ready compare -> F1 load 4.64 ns, WNS +5.075 ns; with line_buf (wrapper): WNS +2.313 ns (in prefetch_ctrl), RAM -> byte mux -> F3 slack >= +4.589 ns | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
 | bilinear_interp | stage 2: 3-input 16-bit add + 17-bit subtract | DSP M/P registers in stages 1 and 3; stage 4 adder tree 24 bit (two levels) |
 | axi_rd_master | MEASURED (step 3.4): s_active -> ar_word 4.76 ns, WNS +4.730 ns; port path cmd_addr -> burst length -> s_active 5.93 ns | registered AR outputs; 4 KB room of the command in progress computed one cycle ahead |
 | axi_wr_master | MEASURED (step 3.5): pending_w -> words-available compare -> AW enable 6.68 ns, WNS +2.824 ns | registered outputs; length computed one cycle ahead |
@@ -682,14 +754,14 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 | ctrl_fsm | 200 | 200 | 0 | 0 |
 | block_planner (incl. desc / fetch FIFOs; MEASURED, step 3.6a, OOC post-route) | 591 (80 LUTRAM) | 703 | 0 | 0 |
 | coord_gen (MEASURED, step 3.2, OOC post-route) | 284 (68 LUTRAM) | 367 | 0 | 8 |
-| prefetch_ctrl | 300 | 400 | 0 | 1 |
-| line_buf | 50 | 0 | 8 | 0 |
-| pixel_fetch | 200 | 300 | 0 | 0 |
+| prefetch_ctrl (MEASURED, step 3.6b, OOC post-route) | 447 (22 LUTRAM) | 882 | 0 | 2 |
+| line_buf (MEASURED, step 3.6b, OOC post-route) | 1 | 0 | 8 | 0 |
+| pixel_fetch (MEASURED, step 3.6b, OOC post-route) | 226 | 232 | 0 | 0 |
 | bilinear_interp | 100 | 250 | 0 | 7 |
 | out_fifo (MEASURED, step 3.5, OOC post-route) | 114 (86 LUTRAM) | 78 | 0 | 0 |
 | axi_rd_master (MEASURED, step 3.4, OOC post-route) | 145 (14 LUTRAM) | 191 | 0 | 0 |
 | axi_wr_master (MEASURED, step 3.5, OOC post-route) | 135 (4 LUTRAM) | 206 | 0 | 0 |
-| **total (ESTIMATE; block_planner, coord_gen, out_fifo, axi_rd_master, axi_wr_master rows measured)** | **about 2,600 (5 %)** | **about 3,400 (3 %)** | **8 (6 %)** | **16 (7 %)** |
+| **total (ESTIMATE: sum of the rows; rows marked MEASURED are OOC numbers, the others the step 2.2 estimates)** | **about 2,600 (5 %)** | **about 3,800 (4 %)** | **8 (6 %)** | **17 (8 %)** |
 
 Not included: AXI interconnect, protocol converters and the Processor System Reset IP of the block design.
 
@@ -701,6 +773,8 @@ Not included: AXI interconnect, protocol converters and the Processor System Res
   path stays as above (data used as is); axi_rd_master outputs `rd_err` (step 3.4), axi_wr_master `wr_err`
   (step 3.5).
 - **Q2 NSLOT.** 32 (16 KB, 8 RAMB36) proposed; 16 halves the BRAM. Decide after the step 3.6 latency tests.
+  Step 3.6b (built with 32): 8 RAMB36 measured; with no back-pressure no transform waited for a slot at L = 20 / 40
+  (the rotations are limited by RD_OUTSTANDING = 8 short bursts). NSLOT = 16 was not simulated; still open.
 - **Q3 Outstanding reads. Closed (2026-11-17).** UG585 (Zynq-7000 TRM), AXI_HP Interfaces, Features: read
   acceptance 14 to 70 commands, write acceptance 8 to 32 commands, both depending on the burst length.
   RD_OUTSTANDING = 8 is within the read minimum; axi_wr_master (step 3.5) uses at most 8 outstanding writes.
