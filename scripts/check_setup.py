@@ -40,7 +40,7 @@ VIVADO_TIMEOUT_S = 900
 VEC_DIR = Path(manifest.DATA_DIR) / "vectors"
 # Generated vectors that data/manifest.json does not list.
 UNLISTED_VECTORS = ("axil_regs_spec.hex", "axil_regs_job.hex")
-CASE_DIRS = ("coord_gen", "axi_rd", "out_path", "block_planner", "fetch_path", "patrm_top")
+CASE_DIRS = ("coord_gen", "axi_rd", "out_path", "block_planner", "fetch_path", "patrm_top", "system")
 
 IMPORT_NAMES = {"pillow": "PIL"}
 COMPARE = {"==": operator.eq, "!=": operator.ne, ">=": operator.ge, "<=": operator.le,

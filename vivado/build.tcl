@@ -5,6 +5,7 @@
 #   vivado -mode batch -source ../../vivado/build.tcl                      normal build, name patrm_gray
 #   vivado -mode batch -source ../../vivado/build.tcl -tclargs ila=1       debug build with a 5-probe native ILA, patrm_gray_ila
 #   vivado -mode batch -source ../../vivado/build.tcl -tclargs bd_only=1   stop after validate_bd_design
+#   sim=1 is set by vivado/sim_system.tcl (step 4.1b): same block design in its own project, patrm_gray_sim, then stop
 #
 # Output in results/hw/ (the .xsa, .bit and .ltx files are not tracked by git):
 #   <name>.xsa, <name>.bit, ps7_init.tcl, address_map.txt, summary.txt, timing_summary.rpt, clock_interaction.rpt,
@@ -26,14 +27,15 @@ set buf_size   0x01000000
 set rtl_names  {axil_regs ctrl_fsm block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
                 bilinear_interp out_fifo axi_wr_master patrm_top}
 
-array set opt {ila 0 bd_only 0}
+array set opt {ila 0 bd_only 0 sim 0}
 # vivado.bat on Windows splits "ila=1" at the "=", so the script receives "ila" "1"; both forms are accepted
 set args_text [regsub -all {=} [join $argv " "] " "]
 foreach {k v} $args_text {
-    if {![info exists opt($k)] || ($v ne "0" && $v ne "1")} { error "unknown argument '$k $v' (use ila=0|1, bd_only=0|1)" }
+    if {![info exists opt($k)] || ($v ne "0" && $v ne "1")} { error "unknown argument '$k $v' (use ila=0|1, bd_only=0|1, sim=0|1)" }
     set opt($k) $v
 }
-set name   [expr {$opt(ila) ? "patrm_gray_ila" : "patrm_gray"}]
+if {$opt(ila) && $opt(sim)} { error "sim=1 simulates the design without the ILA; do not combine it with ila=1" }
+set name   [expr {$opt(ila) ? "patrm_gray_ila" : ($opt(sim) ? "patrm_gray_sim" : "patrm_gray")}]
 set prj    [file join $repo build vivado $name]
 set out    [file join $repo results hw]
 file mkdir $out
@@ -216,7 +218,7 @@ if {![string is double -strict $act] || abs($act - $fclk_mhz) > 0.5} {
     error "CHECK FAILED FCLK_CLK0: the PS7 settings give $act MHz, wanted $fclk_mhz MHz"
 }
 
-if {!$opt(ila)} {
+if {!$opt(ila) && !$opt(sim)} {
     set f [open [file join $out address_map.txt] w]
     puts $f "address map of the block design (step 4.1, build $name); master address space, segment, base, last address, size"
     foreach m [lsort -index 0 $map] {
@@ -225,7 +227,7 @@ if {!$opt(ila)} {
     }
     close $f
 }
-if {$opt(bd_only)} { note "bd_only: stopping after validate_bd_design"; return }
+if {$opt(bd_only) || $opt(sim)} { note "stopping after validate_bd_design (bd_only=$opt(bd_only), sim=$opt(sim))"; return }
 
 # ---------------- 5. synthesis, implementation, bitstream ----------------
 set bd_file [get_files system.bd]

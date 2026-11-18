@@ -90,6 +90,7 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
    python scripts/gen_block_planner_vectors.py
    python scripts/gen_fetch_path_vectors.py
    python scripts/gen_patrm_top_vectors.py
+   python scripts/gen_system_vectors.py
    ```
 
    Do not run `model.gen_transforms` or `scripts/gen_regs.py` here. Their outputs are committed.
@@ -430,6 +431,38 @@ check that a known signal (for example `hp0_arvalid`) behaves as expected before
 
 `--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
 even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
+
+## Step 4.1b: full-system simulation with the Zynq VIP (no board)
+
+```
+python scripts/gen_system_vectors.py                               # cases, images, model frames, register lists
+python scripts/sim_system.py                                       # block design -> compile -> elaborate -> run
+python scripts/sim_system.py --reuse                               # after a testbench or RTL change
+python scripts/sim_system.py --reuse --define PATRM_FAULT_W1       # must FAIL (fault injection, simulation only)
+python scripts/regress.py                                          # whole regression, includes this simulation
+```
+
+`vivado/sim_system.tcl` builds the block design of `vivado/build.tcl` (`sim=1`: same settings, no ILA, own project
+`build/vivado/patrm_gray_sim`) and generates the xsim scripts. `tb/tb_system.v` is plain Verilog and acts like the ARM
+through the `processing_system7_vip` API tasks: it loads the image into the VIP DDR, programs the registers over GP0,
+waits for IRQ_F2P[0], reads the counters, clears DONE and compares the output in the VIP DDR with the model. A full run
+took 225 s on this laptop (Vivado 53 s, compile and elaborate 59 s, simulation 112 s).
+
+| Case | Output | CYCLES | BYTES_RD (= memmodel) | BYTES_WR | Simulated START to interrupt |
+|------|--------|-------:|----------------------:|---------:|-----------------------------:|
+| identity 64x64 | byte-exact | 4,522 | 4,096 | 4,096 | 45.24 us |
+| rot15 64x64 | byte-exact | 43,664 | 18,064 | 4,096 | 436.66 us |
+| rot37 128x96 | byte-exact | 213,665 | 72,992 | 12,288 | 2,136.67 us |
+| mirror_cols 64x64 | byte-exact | 4,519 | 4,096 | 4,096 | 45.21 us |
+| WIDTH = 60 (rejected) | nothing written | - | - | - | ERR_CODE 1, no interrupt |
+
+These cycle counts use the VIP's memory timing, so they are not a measurement of the real DDR on the board.
+
+**VIP write lag.** In this simulation the VIP's DDR model commits an HP write burst only when the next HP write request
+arrives, so the last burst of a frame stays pending and would land during the next frame. The AXI traffic from the
+engine is correct (W data equals the model, every burst gets an OKAY response). After each frame the testbench therefore
+runs an 8 x 1 job into a scratch buffer at 0x1C00_0000, and only then compares the frame in the VIP DDR. This is a
+property of the simulation model, so the driver and the board need no such job.
 
 ## First lab session
 
