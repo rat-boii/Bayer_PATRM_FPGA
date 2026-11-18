@@ -40,6 +40,9 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
    searches `\AMD`, `\AMDDesignTools` and `\Xilinx` on C:, D: and E:. To run the tools by hand, add
    `<install>\Vivado\bin` and `<install>\Vitis\bin` to PATH.
 
+   Vitis compiles the ARM software with `arm-none-eabi-gcc`, which is not in the Vitis folder. Install the Arm GNU
+   Toolchain for arm-none-eabi (version 14.2.Rel1 here) and put its `bin` folder on PATH.
+
 4. **Licence.** Vivado 2026.1 does not start without a valid licence file. Open the Vivado License Manager
    (`<install>\Vivado\bin\vlm.bat`) and load your licence. If a file from another laptop is rejected, get one for this
    laptop.
@@ -429,6 +432,7 @@ check that a known signal (for example `hp0_arvalid`) behaves as expected before
 | `xsdb scripts/board/put_image.tcl [--dry-run] <file> <address>` | Raw file -> DDR, prints s/MB |
 | `xsdb scripts/board/get_image.tcl [--dry-run] <address> <bytes> <file>` | DDR -> raw file, prints s/MB |
 | `python scripts/board/run_frame.py <image> <transform> <W> <H> [--dry-run] [--bit f] [--init f] [--no-program] [--timeout s]` | One frame with XSDB only (no ARM program), compared with the model (step 4.2a) |
+| `python scripts/board/run_job.py <image> <transform> <W> <H> [--load] [--n N] [--poll] [--dry-run] [--timeout-ms t] [--bit f] [--init f] [--elf f]` | One job through the ARM application, compared with the model, with timings (step 4.2) |
 
 `--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
 even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
@@ -464,6 +468,26 @@ arrives, so the last burst of a frame stays pending and would land during the ne
 engine is correct (W data equals the model, every burst gets an OKAY response). After each frame the testbench therefore
 runs an 8 x 1 job into a scratch buffer at 0x1C00_0000, and only then compares the frame in the VIP DDR. This is a
 property of the simulation model, so the driver and the board need no such job.
+
+## Step 4.2: ARM driver and test application
+
+```
+vitis -s sw/patrm_app/build_vitis.py                               # ends with PATRM_APP BUILD OK, writes results/hw/patrm_app.elf
+python -m model.test_job_layout                                    # record round trips, C layout against Python
+python scripts/board/run_job.py mixed identity 64 64 --load --dry-run   # every XSDB command, no board
+```
+
+`sw/patrm_drv` is the driver (spec/memory_map.md section 4), and `sw/patrm_app` is a program that waits for job
+descriptors from the PC, runs each one N times, writes the result record and prints one `RESULT ...` line on the UART.
+The application keeps running between jobs, so only the first job needs `--load`. Our C files are compiled with
+`-Wall -Wextra -Werror -O2`. The build fails on any warning in its log, except that the linker's "LOAD segment with RWX
+permissions" message is switched off: it comes from AMD's linker script and means nothing on bare metal.
+
+The interrupt is programmed with trigger value `0x1` (active-high level, `XScuGic_SetPriorityTriggerType`), because the
+engine holds its output high until DONE is cleared. The handler clears DONE before it returns.
+
+Nothing in this step has run on hardware. In particular, `run_job.py` reads and writes DDR through the XSDB APU target while
+the ARM runs. That path can only be confirmed on the board.
 
 ## First lab session
 
@@ -546,3 +570,49 @@ Run the steps in this order.
       # Vivado Hardware Manager: open the target, load patrm_gray_ila.ltx, source scripts/board/ila_probes.tcl, arm
       python scripts/board/run_frame.py mixed identity 64 64 --no-program
       ```
+8. **Frames through the ARM driver (step 4.2).** Do this after step 7 passes, with the UART terminal open. Build the ELF
+   first if `results/hw/patrm_app.elf` is missing: `vitis -s sw/patrm_app/build_vitis.py`. The first command programs the
+   board and starts the application. The others reuse the running application.
+   ```
+   python scripts/board/run_job.py mixed identity 64 64 --load
+   python scripts/board/run_job.py mixed mirror_cols 64 64
+   python scripts/board/run_job.py mixed rot15 128 96
+   python scripts/board/run_job.py photo rot15 480 272
+   python scripts/board/run_job.py photo rot37 480 272
+   ```
+   After `--load` the UART must show `PATRM test application`, then `BUILD_ID 0x00401001, init OK, global timer ... Hz`,
+   then `READY`. Each job adds one `RESULT seq=...` line.
+
+   **A pass** ends with `JOB PASS` and exit code 0. BYTES_RD and BYTES_WR are those of the table in step 7, and the checks
+   are the same: `differing rows 0`, `differing bytes 0`, `LAST ROW (row H-1): MATCHES the model`, `0 of 4096 guard bytes
+   changed`. In addition, `result code 0 (OK)` and `wait mode interrupt`.
+
+   **Timing, N = 10.** Run the same five cases again:
+   ```
+   python scripts/board/run_job.py mixed identity 64 64 --n 10
+   python scripts/board/run_job.py mixed mirror_cols 64 64 --n 10
+   python scripts/board/run_job.py mixed rot15 128 96 --n 10
+   python scripts/board/run_job.py photo rot15 480 272 --n 10
+   python scripts/board/run_job.py photo rot37 480 272 --n 10
+   ```
+   Note the engine and end-to-end times (min, avg, max), Mpix/s and fps. Engine time runs from the START write to DONE
+   being seen, so it should be close to `CYCLES` at 100 MHz. End-to-end time adds the cache work and register setup.
+
+   **If the interrupt never arrives** (`result code 12 (NO_INTERRUPT)` or `11 (TIMEOUT)`), check in this order:
+   1. **Is STATUS.DONE set?** `NO_INTERRUPT` means yes: the frame finished and only the interrupt is missing. `TIMEOUT`
+      means no: the engine did not finish, so this is not an interrupt problem. Go back to the checks of step 7.
+   2. **Is IRQ_EN set?** The UART line `NO INTERRUPT: STATUS=... CTRL=... IRQ_EN=...` must show `IRQ_EN=1`. CTRL bit 3 is
+      this bit. `wait mode interrupt` in the run_job output confirms that the job asked for it.
+   3. **GIC ID 61.** The same UART line shows the GIC state, read while DONE was still set. It must show `enabled=1` and
+      `trigger=1` (level). `pending=0` means the signal never reached the GIC: check `IRQ_F2P[0]` in the block design and
+      that the bitstream matches it. `pending=1` means the GIC has it but the ARM did not take it: check that ARM interrupts
+      are enabled and the handler is connected.
+   4. **Does polling work?** Run `python scripts/board/run_job.py mixed identity 64 64 --poll`. If that passes, the engine,
+      DDR and caches are fine and the fault is limited to the interrupt path.
+
+   **Other failures.**
+   - `no result record`, with `READY` on the UART: the application runs but XSDB cannot read its record through the APU
+     target. This access path could not be tested without a board.
+   - `no result record`, with nothing on the UART: the application did not start. Check the `--load` output and step 3.
+   - `no result for job N`: the application did not answer. The UART shows how far it got.
+   - `still working on job N`: an earlier job has not finished. Use `--load` to start again.

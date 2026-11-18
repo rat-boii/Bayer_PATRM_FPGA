@@ -1,0 +1,168 @@
+"""Run one grayscale job through the ARM test application and compare the output with the model (step 4.2).
+
+    python scripts/board/run_job.py <image> <transform> <W> <H> [options]
+    python scripts/board/run_job.py mixed identity 64 64 --load     program the board, start the application, run the job
+    python scripts/board/run_job.py photo rot15 480 272             the application is already running
+    python scripts/board/run_job.py photo rot15 480 272 --n 10      ten frames, for timing
+    python scripts/board/run_job.py mixed identity 64 64 --poll     the application polls STATUS, no interrupt
+    python scripts/board/run_job.py mixed rot15 128 96 --dry-run    prints every XSDB command, needs no board
+
+<image> and <transform> as in run_frame.py. The source goes to 0x1000_0000 and the output area (0x1800_0000) is filled with
+0xA5 first. run_job_xsdb.tcl writes the job descriptor, polls the result record until its sequence number matches, and
+reads the result and the output. With N > 1 the output compared is that of the last frame. The run folder is
+build/board/job_<image>_<transform>_<W>x<H>/.
+
+xsdb can exit with code 0 after a failure, so only its "run_job: DONE" line counts, and any "BOARD ERROR" is a failure.
+The last line is JOB PASS, JOB FAIL: <reasons> or JOB ERROR: <reason>. Exit code 0 / 1 / 2 in that order.
+"""
+import argparse
+import math
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import run_frame as RF                       # noqa: E402
+from run_frame import FrameError, hex32, HW_DIR, MM, R, J   # noqa: E402
+
+XSDB_TCL = HERE / "run_job_xsdb.tcl"
+APP_WAIT_S = 15                              # application start, or an answer from one already running
+RESULT_MARGIN_S = 10                         # on top of N x the frame timeout
+
+
+def write_job_tcl(f):
+    src = f["src_bytes"]
+    words = " ".join(hex32(w) for w in J.record_words(f["descriptor"]))
+    lines = [
+        ("bit", "{" + Path(f["bit"]).as_posix() + "}"), ("init", "{" + Path(f["init"]).as_posix() + "}"),
+        ("elf", "{" + Path(f["elf"]).as_posix() + "}"), ("src_file", "{" + f["src_file"].as_posix() + "}"),
+        ("out_file", "{" + f["out_file"].as_posix() + "}"), ("result_file", "{" + f["result_file"].as_posix() + "}"),
+        ("w", f["W"]), ("h", f["H"]), ("repeat", f["repeat"]), ("timeout_s", f["timeout"]), ("app_wait_s", APP_WAIT_S),
+        ("src_addr", hex32(J.SRC_DEFAULT)), ("src_words", len(src) // 4), ("dst_addr", hex32(J.DST_DEFAULT)),
+        ("src_first", hex32(int.from_bytes(src[:4], "little"))),
+        ("src_last_addr", hex32(J.SRC_DEFAULT + len(src) - 4)),
+        ("src_last", hex32(int.from_bytes(src[-4:], "little"))),
+        ("fill_word", hex32(RF.FILL_BYTE * 0x0101_0101)), ("out_words", f["out_bytes"] // 4),
+        ("out_last_addr", hex32(J.DST_DEFAULT + f["out_bytes"] - 4)),
+        ("job_addr", hex32(J.JOB_ADDR)), ("job_words", J.JOB_SIZE // 4), ("job_magic", hex32(J.JOB_MAGIC)),
+        ("result_addr", hex32(J.RESULT_ADDR)), ("result_words", J.RESULT_SIZE // 4),
+        ("result_magic", hex32(J.RESULT_MAGIC)), ("layout", J.LAYOUT_VERSION), ("desc_words", "{" + words + "}"),
+    ]
+    f["job_file"].write_text("".join(f"set job({k}) {v}\n" for k, v in lines), newline="\n")
+
+
+def prepare(a):
+    a.timeout = math.ceil(a.n * a.timeout_ms / 1000) + RESULT_MARGIN_S
+    f = RF.load_frame(a, irq_en=0 if a.poll else 1, prefix="job")
+    f.update(repeat=a.n, irq=not a.poll, elf=a.elf, result_file=f["run_dir"] / "result.bin",
+             descriptor=J.encode_job(1, a.W, a.H, "gray", f["b"], RF.BLOCK_LEN, repeat=a.n, timeout_ms=a.timeout_ms,
+                                     irq=not a.poll, block_len_max=MM.BLOCK_LEN_MAX))
+    write_job_tcl(f)
+    return f
+
+
+def us(ns):
+    return ns / 1000
+
+
+def report(f, seq):
+    """Print the result; returns the list of failure reasons."""
+    path = f["result_file"]
+    if not path.is_file():
+        raise FrameError(f"result file {path} is missing")
+    r = J.decode_result(path.read_bytes())
+    W, H, n = f["W"], f["H"], f["repeat"]
+    fails = []
+    print("\n--- result")
+    print(f"sequence       job {seq}, result {r['seq']}")
+    if r["seq"] != seq:
+        fails.append(f"result is for job {r['seq']}, not {seq}")
+    print(f"result code    {r['rc']} ({r['rc_name']})")
+    print(f"wait mode      {'interrupt' if r['flags'] & J.JOB_FLAG_IRQ_EN else 'polling'}")
+    if r["flags"] != J.decode_job(f["descriptor"])["flags"]:
+        fails.append(f"result flags 0x{r['flags']:X} differ from the job's")
+    print(f"BUILD_ID       0x{r['build_id']:08X}")
+    if r["build_id"] != RF.BUILD_ID_EXPECTED:
+        fails.append(f"BUILD_ID is not 0x{RF.BUILD_ID_EXPECTED:08X}")
+    print(f"STATUS at DONE {RF.status_text(r['status'])}")
+    print(f"frames         {r['runs']} of {n} completed")
+    print(f"interrupts     {r['irq_count']} handled since the application started, {r['irq_spurious']} without DONE")
+    if r["rc"] != J.RC["OK"]:
+        print(f"CYCLES         {r['cycles']}, RD_STALL {r['rd_stall']}, WR_STALL {r['wr_stall']} (at the failure)")
+        fails.append(f"the application reports {r['rc_name']} after {r['runs']} of {n} frames")
+        return fails                                # the output of a failed job says nothing
+    st = R.unpack("STATUS", r["status"])
+    if not st["DONE"] or st["BUSY"] or st["ERROR"]:
+        fails.append("STATUS at the end of the frame is not DONE alone")
+    if r["runs"] != n:
+        fails.append(f"{r['runs']} of {n} frames completed")
+    if f["irq"] and r["irq_count"] < n:
+        fails.append(f"{r['irq_count']} interrupts handled, the job needs {n}")
+
+    print(f"CYCLES         {r['cycles']}  ({1e6 * r['cycles'] / RF.PL_CLOCK_HZ:.1f} us at 100 MHz); "
+          f"over N = {r['runs']}: min {r['cycles_min']}, avg {r['cycles_avg']}, max {r['cycles_max']}")
+    RF.check_bytes(f, r["bytes_rd"], r["bytes_wr"], fails)
+    print(f"RD_STALL       {r['rd_stall']}")
+    print(f"WR_STALL       {r['wr_stall']}")
+    RF.check_output(f, fails)
+
+    print(f"timer          {r['timer_hz']} Hz")
+    for name, key in (("engine time", "engine"), ("end-to-end", "total")):
+        print(f"{name:<14} min {us(r[key + '_ns_min']):.3f} us, avg {us(r[key + '_ns_avg']):.3f} us, "
+              f"max {us(r[key + '_ns_max']):.3f} us")
+    if r["engine_ns_avg"] and r["total_ns_avg"]:
+        engine_s, total_s = r["engine_ns_avg"] / 1e9, r["total_ns_avg"] / 1e9
+        print(f"throughput     {W * H / engine_s / 1e6:.2f} Mpix/s (engine time, average)")
+        print(f"frame rate     {1 / engine_s:.1f} fps from engine time, {1 / total_s:.1f} fps end to end")
+    else:
+        fails.append("the application reported a time of 0")
+    return fails
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("image")
+    ap.add_argument("transform")
+    ap.add_argument("W", type=int)
+    ap.add_argument("H", type=int)
+    ap.add_argument("--n", type=int, default=1, help="frames to run (N > 1 for timing)")
+    ap.add_argument("--poll", action="store_true", help="the application polls STATUS (IRQ_EN = 0)")
+    ap.add_argument("--load", action="store_true", help="program the bitstream, set up the PS, load and start the ELF")
+    ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
+    ap.add_argument("--timeout-ms", type=int, default=J.JOB_TIMEOUT_MS_DEFAULT, help="DONE timeout per frame, on the ARM")
+    ap.add_argument("--bit", default=str(HW_DIR / "patrm_gray.bit"), help="bitstream for --load")
+    ap.add_argument("--init", default=str(HW_DIR / "ps7_init.tcl"), help="ps7_init script for --load")
+    ap.add_argument("--elf", default=str(HW_DIR / "patrm_app.elf"), help="application for --load")
+    a = ap.parse_args(argv)
+    try:
+        f = prepare(a)
+        print(f"run_job: image {f['image']}")
+        print(f"run_job: transform {a.transform}, {a.W} x {a.H}, b = {f['b']}")
+        print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {'polling' if a.poll else 'interrupt'}, "
+              f"predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {a.W * a.H}")
+        f["out_file"].unlink(missing_ok=True)
+        f["result_file"].unlink(missing_ok=True)
+        start = time.time()
+        flags = (["--dry-run"] if a.dry_run else []) + (["--load"] if a.load else [])
+        values = RF.parse_xsdb(RF.run_xsdb(f, flags, XSDB_TCL), a.dry_run, tag="run_job")
+        if a.dry_run:
+            print("JOB DRY RUN OK: nothing was done on a board")
+            return RF.EXIT_PASS
+        if "SEQ" not in values:
+            raise FrameError("XSDB output has no value for SEQ")
+        fails = report(f, values["SEQ"])
+        print(f"run time       {time.time() - start:.0f} s")
+    except (FrameError, J.JobError, ValueError, OSError) as e:
+        print(f"JOB ERROR: {e}")
+        return RF.EXIT_ERROR
+    if fails:
+        print("JOB FAIL: " + "; ".join(fails))
+        return RF.EXIT_FAIL
+    print("JOB PASS")
+    return RF.EXIT_PASS
+
+
+if __name__ == "__main__":
+    sys.exit(main())

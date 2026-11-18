@@ -19,12 +19,13 @@ import importlib  # noqa: E402
 import importlib.metadata  # noqa: E402
 import operator  # noqa: E402
 import re  # noqa: E402
+import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from amd_tools import REPO_ROOT, WANTED_VERSION, find_tool  # noqa: E402
+from amd_tools import REPO_ROOT, WANTED_VERSION, find_arm_gcc, find_tool  # noqa: E402
 from check_no_sv import check as check_no_sv  # noqa: E402
 
 sys.path.insert(0, str(REPO_ROOT))
@@ -182,6 +183,18 @@ def check_amd_tools():
     return True, f"{WANTED_VERSION} at {install_dir('vivado').parent}", ""
 
 
+def check_arm_compiler():
+    gcc = find_arm_gcc()
+    if gcc is None:
+        return False, "arm-none-eabi-gcc not found on PATH or in the Arm GNU Toolchain default folders", \
+            "install the Arm GNU Toolchain for arm-none-eabi and add its bin folder to PATH " \
+            "(README, New laptop setup, step 3)"
+    if shutil.which("arm-none-eabi-gcc") is None:
+        return False, f"{gcc} is installed but not on PATH, so Vitis cannot find it", \
+            f"add {gcc.parent} to PATH (README, New laptop setup, step 3)"
+    return True, str(gcc), ""
+
+
 def check_licence():
     p = run_vivado_probe()
     fix = "run vlm (Vivado License Manager, in <install>\\Vivado\\bin), load a valid licence file, " \
@@ -275,6 +288,7 @@ ITEMS = [
     ("repo path", check_repo_path),
     ("python packages", check_python_packages),
     ("vivado/vitis", check_amd_tools),
+    ("arm compiler", check_arm_compiler),
     ("licence", check_licence),
     ("board files", check_board_files),
     ("vitis qemu folders", check_qemu_folders),

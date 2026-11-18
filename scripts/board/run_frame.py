@@ -42,7 +42,7 @@ XSDB_TCL = Path(__file__).resolve().parent / "run_frame_xsdb.tcl"
 GEN_DIR = ROOT / "data" / "gen"
 RUN_ROOT = ROOT / "build" / "board"
 HW_DIR = ROOT / "results" / "hw"
-REG_BASE = 0x43C0_0000                       # spec/memory_map.md section 2
+REG_BASE = J.REG_BASE                        # spec/memory_map.md section 2
 BUILD_ID_EXPECTED = 0x0040_1001
 BLOCK_LEN = 64                               # driver default (D15)
 FILL_BYTE = 0xA5
@@ -117,7 +117,8 @@ def write_job_tcl(path, f):
     path.write_text("".join(f"set job({k}) {v}\n" for k, v in lines), newline="\n")
 
 
-def prepare(a):
+def load_frame(a, irq_en=0, prefix="frame"):
+    """Everything both runners need for one frame: source, transform, register values, model output, run folder."""
     W, H = a.W, a.H
     J.check_regs_current()
     image_path, image_name = find_image(a.image, W, H)
@@ -126,31 +127,35 @@ def prepare(a):
     if len(src_bytes) != W * H:
         raise FrameError(f"{image_path} has {len(src_bytes)} bytes, expected W x H = {W * H}")
     b = tuple(int(c) for c in MM._b_for(tf, W, H))
-    writes, _ = J.register_image(W, H, "gray", b, BLOCK_LEN, irq_en=0, block_len_max=MM.BLOCK_LEN_MAX)
+    writes, _ = J.register_image(W, H, "gray", b, BLOCK_LEN, irq_en=irq_en, block_len_max=MM.BLOCK_LEN_MAX)
     if writes[-1][1] != "CTRL":
         raise FrameError("model/job.py: CTRL must be the last register written")
     src = np.frombuffer(src_bytes, dtype=np.uint8).reshape(H, W)
     expected = P.warp_gray(src, W, H, b)
 
-    run_dir = RUN_ROOT / f"frame_{image_name}_{tf['name']}_{W}x{H}"
+    run_dir = RUN_ROOT / f"{prefix}_{image_name}_{tf['name']}_{W}x{H}"
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "source.raw").write_bytes(src_bytes)
     (run_dir / "expected.raw").write_bytes(expected.tobytes())
-    f = dict(W=W, H=H, b=b, writes=writes, src_bytes=src_bytes, expected=expected, image=image_path,
-             run_dir=run_dir, src_file=run_dir / "source.raw", out_file=run_dir / "readback.bin",
-             out_bytes=W * H + GUARD_BYTES, bit=a.bit, init=a.init, timeout=a.timeout,
-             bytes_rd=predict_bytes_rd(W, H, b), job_file=run_dir / "job.tcl")
+    return dict(W=W, H=H, b=b, writes=writes, src_bytes=src_bytes, expected=expected, image=image_path,
+                run_dir=run_dir, src_file=run_dir / "source.raw", out_file=run_dir / "readback.bin",
+                out_bytes=W * H + GUARD_BYTES, bit=a.bit, init=a.init, timeout=a.timeout,
+                bytes_rd=predict_bytes_rd(W, H, b), job_file=run_dir / "job.tcl")
+
+
+def prepare(a):
+    f = load_frame(a)
     write_job_tcl(f["job_file"], f)
     return f
 
 
-def run_xsdb(f, dry_run, no_program):
-    """Run XSDB, show its output, keep it in xsdb.log. Returns the output lines; a hung XSDB is stopped."""
+def run_xsdb(f, flags, tcl=None):
+    """Run an XSDB script with the given flags and the job file. Shows the output and keeps it in xsdb.log.
+    Returns the output lines; a hung XSDB is stopped."""
     xsdb = require_tool("xsdb")
     cmd = ["cmd", "/c", str(xsdb)] if xsdb.suffix.lower() in (".bat", ".cmd") else [str(xsdb)]
-    cmd.append(XSDB_TCL.as_posix())
-    cmd += ["--dry-run"] if dry_run else []
-    cmd += ["--no-program"] if no_program else []
+    cmd.append(Path(tcl or XSDB_TCL).as_posix())
+    cmd += flags
     cmd.append(f["job_file"].as_posix())
     # generous upper bound for bitstream, JTAG transfers and the frame; the Tcl script has its own frame timeout
     limit_s = 600 + f["timeout"] + 120 * 2 * f["out_bytes"] / 1048576
@@ -177,12 +182,12 @@ def run_xsdb(f, dry_run, no_program):
     return lines
 
 
-def parse_xsdb(lines, dry_run):
+def parse_xsdb(lines, dry_run, tag="run_frame"):
     """Values printed by the Tcl script. Raises FrameError unless the run reached its success line."""
     errors = [ln.strip() for ln in lines if "BOARD ERROR" in ln]
     if errors:
         raise FrameError(errors[0])
-    want = "run_frame: DRY RUN OK, nothing was done" if dry_run else "run_frame: DONE"
+    want = f"{tag}: DRY RUN OK, nothing was done" if dry_run else f"{tag}: DONE"
     if not any(ln.strip() == want for ln in lines):
         tail = next((ln.strip() for ln in reversed(lines) if ln.strip()), "no output")
         raise FrameError(f"XSDB ended without '{want}'; last line: {tail}")
@@ -216,39 +221,25 @@ def status_text(value):
             f"ERR_CODE={s['ERR_CODE']} ({name})")
 
 
-def report(f, v):
-    """Print the result; returns the list of failure reasons."""
+def check_bytes(f, bytes_rd, bytes_wr, fails):
+    """BYTES_RD against the memory model and BYTES_WR against W x H."""
+    for name, got_v, ref, what in (("BYTES_RD", bytes_rd, f["bytes_rd"], "memmodel"),
+                                   ("BYTES_WR", bytes_wr, f["W"] * f["H"], "W x H")):
+        same = got_v == ref
+        print(f"{name:<14} {got_v}  ({what} {ref}: {'same' if same else 'DIFFERENT'})")
+        if not same:
+            fails.append(f"{name} {got_v} != {what} {ref}")
+
+
+def check_output(f, fails):
+    """Compare the read-back output with the model row by row, including the last row and the guard bytes."""
     W, H = f["W"], f["H"]
-    fails = []
-    missing = [n for n in ("BUILD_ID", "STATUS_AT_DONE", "STATUS_AFTER_CLEAR") + COUNTERS if n not in v]
-    if missing:
-        raise FrameError("XSDB output has no value for " + ", ".join(missing))
     if not f["out_file"].is_file() or f["out_file"].stat().st_size != f["out_bytes"]:
         raise FrameError(f"read-back file {f['out_file']} is missing or does not have {f['out_bytes']} bytes")
     data = np.frombuffer(f["out_file"].read_bytes(), dtype=np.uint8)
     got = data[:W * H].reshape(H, W)
     guard = data[W * H:]
     (f["run_dir"] / "output.raw").write_bytes(got.tobytes())
-
-    print("\n--- result")
-    print(f"BUILD_ID       0x{v['BUILD_ID']:08X}")
-    print(f"STATUS at DONE {status_text(v['STATUS_AT_DONE'])}")
-    print(f"STATUS cleared {status_text(v['STATUS_AFTER_CLEAR'])}")
-    st = R.unpack("STATUS", v["STATUS_AT_DONE"])
-    if not st["DONE"] or st["BUSY"] or st["ERROR"]:
-        fails.append("STATUS at the end of the frame is not DONE alone")
-    if R.unpack("STATUS", v["STATUS_AFTER_CLEAR"])["DONE"]:
-        fails.append("DONE did not clear")
-
-    print(f"CYCLES         {v['CYCLES']}  ({1e3 * v['CYCLES'] / PL_CLOCK_HZ:.3f} ms at 100 MHz)")
-    for name, got_v, ref, what in (("BYTES_RD", v["BYTES_RD"], f["bytes_rd"], "memmodel"),
-                                   ("BYTES_WR", v["BYTES_WR"], W * H, "W x H")):
-        same = got_v == ref
-        print(f"{name:<14} {got_v}  ({what} {ref}: {'same' if same else 'DIFFERENT'})")
-        if not same:
-            fails.append(f"{name} {got_v} != {what} {ref}")
-    print(f"RD_STALL       {v['RD_STALL']}")
-    print(f"WR_STALL       {v['WR_STALL']}")
 
     c = compare_frame(got, f["expected"])
     print(f"differing rows {c['rows']} of {H}")
@@ -270,6 +261,33 @@ def report(f, v):
     if changed:
         fails.append(f"{changed} bytes after the output image changed")
     print(f"files          {f['run_dir']}")
+
+
+def report(f, v):
+    """Print the result; returns the list of failure reasons."""
+    fails = []
+    missing = [n for n in ("BUILD_ID", "STATUS_AT_DONE", "STATUS_AFTER_CLEAR") + COUNTERS if n not in v]
+    if missing:
+        raise FrameError("XSDB output has no value for " + ", ".join(missing))
+    if not f["out_file"].is_file() or f["out_file"].stat().st_size != f["out_bytes"]:
+        raise FrameError(f"read-back file {f['out_file']} is missing or does not have {f['out_bytes']} bytes")
+
+    print("\n--- result")
+    print(f"BUILD_ID       0x{v['BUILD_ID']:08X}")
+    print(f"STATUS at DONE {status_text(v['STATUS_AT_DONE'])}")
+    print(f"STATUS cleared {status_text(v['STATUS_AFTER_CLEAR'])}")
+    st = R.unpack("STATUS", v["STATUS_AT_DONE"])
+    if not st["DONE"] or st["BUSY"] or st["ERROR"]:
+        fails.append("STATUS at the end of the frame is not DONE alone")
+    if R.unpack("STATUS", v["STATUS_AFTER_CLEAR"])["DONE"]:
+        fails.append("DONE did not clear")
+
+    print(f"CYCLES         {v['CYCLES']}  ({1e3 * v['CYCLES'] / PL_CLOCK_HZ:.3f} ms at 100 MHz)")
+    check_bytes(f, v["BYTES_RD"], v["BYTES_WR"], fails)
+    print(f"RD_STALL       {v['RD_STALL']}")
+    print(f"WR_STALL       {v['WR_STALL']}")
+
+    check_output(f, fails)
     return fails
 
 
@@ -292,7 +310,8 @@ def main(argv=None):
         print(f"run_frame: BLOCK_LEN {BLOCK_LEN}, IRQ_EN 0, predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {a.W * a.H}")
         f["out_file"].unlink(missing_ok=True)
         start = time.time()
-        values = parse_xsdb(run_xsdb(f, a.dry_run, a.no_program), a.dry_run)
+        flags = (["--dry-run"] if a.dry_run else []) + (["--no-program"] if a.no_program else [])
+        values = parse_xsdb(run_xsdb(f, flags), a.dry_run)
         if a.dry_run:
             print("FRAME DRY RUN OK: nothing was done on a board")
             return EXIT_PASS

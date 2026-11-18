@@ -16,7 +16,7 @@ Sizes are written W x H (D7).
 
 - 16 MB = largest image, 4096 x 4096 x 1 byte (D11). An image occupies W x H bytes, row-major, no header
   (GRAY8, or the raw RGGB mosaic in Bayer modes). The output has the same size and layout as the source.
-- The descriptor and result layouts are defined in step 4.2 (driver). The addresses above are fixed now.
+- The descriptor and result layouts are in section 5 (step 4.2).
 - Step 0.3 (JTAG round trip) uses the same source and output addresses.
 
 ### Alignment and placement rules
@@ -91,3 +91,56 @@ For every job:
     DONE is set only after the last write response (BRESP) of the job, so all output data is in DDR.
 11. Read CYCLES, BYTES_RD, BYTES_WR, RD_STALL, WR_STALL (they hold their values until the next accepted start).
 12. Write the result record (status, counters) to the job result area for the host.
+
+## 5. Job descriptor and result record (step 4.2)
+
+One layout, in `model/job.py` (`JOB_FIELDS`, `RESULT_FIELDS`) and `sw/include/patrm_job.h`. `model/test_job_layout.py`
+compiles every offset, size, type and constant of the Python tables against the C header with the ARM compiler. All
+fields are 32-bit little-endian, and both records are whole 32-byte cache lines. Nothing else shares those lines.
+
+Job descriptor, 96 bytes at 0x1F00_0000:
+
+| offset | field | meaning |
+|---:|---|---|
+| 0x00 | magic | 0x424F4A50 ("PJOB" in memory) |
+| 0x04 | seq | job number, not 0, different from the previous job |
+| 0x08 | layout | 1 |
+| 0x0C | mode | MODE value. The step 4.2 driver accepts GRAY only |
+| 0x10 | flags | bit 0: wait for the interrupt (else poll STATUS). bit 1: the ARM wrote the source, flush it |
+| 0x14, 0x18 | width, height | W, H |
+| 0x1C | block_len | BLOCK_LEN |
+| 0x20, 0x24 | src_addr, dst_addr | buffers |
+| 0x28 | repeat | N, frames to run, 1..10000 |
+| 0x2C | timeout_ms | DONE timeout per frame, 1..60000 (default 2000) |
+| 0x30 | b[6] | b11 b12 b13 b21 b22 b23, signed Q15.16 |
+| 0x48 | reserved[6] | 0 |
+
+Result record, 128 bytes at 0x1F00_1000:
+
+| offset | field | meaning |
+|---:|---|---|
+| 0x00 | magic | 0x53455250 ("PRES" in memory) |
+| 0x04 | seq | seq of the job; 0 = application started, no job yet |
+| 0x08 | layout | 1 |
+| 0x0C | rc | result code, `patrm_rc_t` in `sw/include/patrm_defs.h`, 0 = OK |
+| 0x10 | status | STATUS at the end of the last frame, before it was cleared |
+| 0x14 | runs | frames completed without error |
+| 0x18 | flags | flags of the job |
+| 0x1C - 0x2C | cycles, bytes_rd, bytes_wr, rd_stall, wr_stall | counters of the last frame |
+| 0x30 - 0x38 | cycles_min, _avg, _max | CYCLES over the completed frames |
+| 0x3C - 0x44 | engine_ns_min, _avg, _max | CTRL write with START to DONE seen (handler entry, or the poll) |
+| 0x48 - 0x50 | total_ns_min, _avg, _max | start of `patrm_run` to the output being ready for the ARM (includes cache work) |
+| 0x54 | timer_hz | global timer frequency |
+| 0x58 | build_id | BUILD_ID |
+| 0x5C, 0x60 | irq_count, irq_spurious | interrupts handled since the application started; those with DONE not set |
+| 0x64 | reserved[7] | 0 |
+
+Times come from the Cortex-A9 global timer. They are stored in nanoseconds, because a 64 x 64 frame takes only tens of
+microseconds, and printed in microseconds on the UART and by `run_job.py`. A stored time saturates at 4.29 s.
+
+Order of writes, so that neither side can see a half-written record:
+- PC: descriptor magic = 0, then the body, then seq, then magic. It does this only when the last result seq equals the
+  descriptor seq (the application is idle). The new seq is the result seq + 1, skipping 0.
+- ARM: at start it clears the descriptor magic and publishes a result record with seq = 0. For each job it invalidates
+  the descriptor before every read and acts on a matching magic with a new seq. It writes the result with the old seq and
+  flushes it, then writes the new seq and flushes again. The PC reads the record only after it sees the new seq.

@@ -86,3 +86,18 @@ def require_tool(name):
             f"'{name}' not found on PATH or in the usual AMD install folders. "
             f"Run scripts/check_env.py for details.")
     return path
+
+
+def find_arm_gcc():
+    """The bare-metal ARM compiler that Vitis uses for the Cortex-A9. It is not inside the Vitis folder: PATH first,
+    then the default folders of the Arm GNU Toolchain installer. Returns a Path or None."""
+    found = shutil.which("arm-none-eabi-gcc")
+    if found:
+        return Path(found)
+    for variable in ("ProgramFiles(x86)", "ProgramFiles"):
+        base = os.environ.get(variable)
+        if base:
+            hits = sorted(Path(base).glob("Arm GNU Toolchain arm-none-eabi/*/bin/arm-none-eabi-gcc.exe"))
+            if hits:
+                return hits[-1]
+    return None

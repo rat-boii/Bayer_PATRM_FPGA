@@ -21,7 +21,11 @@ GENERATORS = [("gen_images", ["-m", "model.gen_images"]),
               ("gen_vectors", ["-m", "model.gen_vectors"])] + [
     (f"gen_{n}", [f"scripts/gen_{n}_vectors.py"])
     for n in ("axil", "coord_gen", "axi_rd", "out_path", "block_planner", "fetch_path", "patrm_top", "system")]
-MODEL_TESTS = ("test_patrm", "test_step1_2", "test_bayer", "test_memmodel", "test_interface", "test_regs")
+MODEL_TESTS = ("test_patrm", "test_step1_2", "test_bayer", "test_memmodel", "test_interface", "test_regs",
+               "test_job_layout")
+# board runners without a board: arguments, model data and the XSDB scripts up to "nothing was done"
+DRY_RUNS = [("dry_run_frame", ["scripts/board/run_frame.py", "mixed", "identity", "64", "64", "--dry-run"]),
+            ("dry_run_job", ["scripts/board/run_job.py", "mixed", "identity", "64", "64", "--dry-run"])]
 AXIL = ["--top", "tb_axil_regs", "-f", "tb/axil_regs.f", "--incdir", "rtl"]
 TOP = ["--top", "tb_patrm_top", "-f", "tb/patrm_top.f", "--incdir", "rtl"] + VEC
 BENCHES = [("tb_axil_regs", AXIL),
@@ -61,6 +65,7 @@ def main():
     start = time.time()
     results = [run(n, a) for n, a in GENERATORS]
     results += [run(f"model_{t}", ["-m", f"model.{t}"]) for t in MODEL_TESTS]
+    results += [run(n, a) for n, a in DRY_RUNS]
     results.append(run("check_no_sv", ["scripts/check_no_sv.py", "--syntax"]))
     results += [run(n, ["scripts/sim.py"] + a) for n, a in BENCHES]
     results += [run(n, ["scripts/sim.py"] + a, must_fail=True) for n, a in FAULTS]
