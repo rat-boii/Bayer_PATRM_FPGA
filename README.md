@@ -72,6 +72,13 @@ Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-s
   Pending for D18: decode the DDR chip marking on the lab board with Micron's FBGA decoder.
 - Zynq-7000 VIP is available in Vivado 2026.1: `processing_system7_vip` 1.0 and
   `processing_system7` 5.5 (used by the full-system simulation in step 4.1b).
+- Vitis platform creation needs `<install>\Vitis\data\emulation\platforms\zynq\sw\a9_linux\qemu` and `a9_standalone\qemu`.
+  Our install has no `emulation\platforms` folder, so platform creation failed with "Application error processing RPC".
+  Two empty folders are enough. Create them once, in an Administrator PowerShell (2026-11-18, second laptop):
+
+  ```
+  New-Item -ItemType Directory -Force "<install>\Vitis\data\emulation\platforms\zynq\sw\a9_linux\qemu","<install>\Vitis\data\emulation\platforms\zynq\sw\a9_standalone\qemu"
+  ```
 
 ## Test images and vectors (step 1.2)
 
@@ -313,3 +320,105 @@ The console ends with an `OOC SUMMARY patrm_top ...` line. Reports go to `result
 | `patrm_top_methodology_route.rpt`, `patrm_top_drc_route.rpt` | `report_methodology`, `report_drc` |
 | `patrm_top_power_route.rpt` | `report_power`, default settings: a vectorless estimate |
 | `patrm_top_vs_paper.md` | Comparison table with the paper, written by hand from the summary and the step 3.7 speed table |
+
+## Step 4.1: block design, bitstream, XSA and bring-up software
+
+```
+mkdir build/vivado   (first time only)
+cd build/vivado
+vivado -mode batch -source ../../vivado/build.tcl                  # normal build, name patrm_gray
+vivado -mode batch -source ../../vivado/build.tcl -tclargs ila=1   # debug build, name patrm_gray_ila
+cd ../..
+vitis -s sw/bringup/build_vitis.py                                 # platform + bring-up ELF from patrm_gray.xsa
+```
+`vivado/build.tcl` makes the whole project from nothing and stops with `CHECK FAILED ...` if a check fails. The last
+console line of a good run is `BUILD: all checks passed`. `-tclargs bd_only=1` stops after `validate_bd_design`.
+`vitis -s` can exit with code 0 after a failure, so the ELF build succeeded only if it prints `BRINGUP BUILD OK`.
+
+Validate is **not fully clean**: it reports 0 errors and 4 known critical warnings, PSU-1..4 (negative
+`DQS_TO_CLK_DELAY_0..3`). They come from the Digilent preset itself, and the team accepted them on 2026-11-18. The
+script accepts only these four with exactly the preset's values. Any other critical warning stops the build. The first
+real test of the DDR settings is the round trip in "First lab session".
+
+Output in `results/hw/` (`.bit`, `.xsa`, `.ltx` and `.elf` are not tracked by git):
+
+| File | Content |
+|------|---------|
+| `patrm_gray.bit`, `patrm_gray.xsa`, `ps7_init.tcl`, `bringup.elf` | What the board scripts load |
+| `summary.txt` | Checks, WNS / WHS, `aresetn` path, clock interaction, utilization by block next to step 3.8, power estimate, PS7 settings |
+| `address_map.txt` | Address map of the block design |
+| `timing_summary.rpt`, `worst10_paths.rpt`, `clock_interaction.rpt`, `utilization.rpt`, `utilization_hier.rpt`, `power.rpt`, `methodology.rpt`, `drc.rpt` | Full Vivado reports of the normal build |
+| `patrm_gray_ila.bit`, `.xsa`, `.ltx`, `patrm_gray_ila_summary.txt` | Debug build only. No reported number comes from it (D9) |
+
+### Debug build (ila=1)
+
+The Vivado BASIC licence refuses the System ILA IP and `create_debug_core`, but accepts the plain ILA IP with 5 probes.
+So the debug build has one native ILA, `u_ila_0`, in the top level: 5 bus probes, clock FCLK_CLK0, depth 4096 samples,
+26 RAMB36. `rtl/` is not changed. Two files generated under `build/vivado/` (`patrm_ila_top.v`, `system_wrapper_ila.v`)
+bring the signals out to it. The normal build uses neither of them.
+
+| Probe | Bits | Field (bit range) |
+|-------|------|-------------------|
+| `probe0` HP0 read address | 38 | `hp0_araddr` [31:0], `hp0_arlen` [35:32], `hp0_arready` [36], `hp0_arvalid` [37] |
+| `probe1` HP0 read data | 69 | `hp0_rdata` [63:0], `hp0_rresp` [65:64], `hp0_rlast` [66], `hp0_rready` [67], `hp0_rvalid` [68] |
+| `probe2` HP1 write address | 38 | `hp1_awaddr` [31:0], `hp1_awlen` [35:32], `hp1_awready` [36], `hp1_awvalid` [37] |
+| `probe3` HP1 write data, response | 79 | `hp1_bresp` [1:0], `hp1_bready` [2], `hp1_bvalid` [3], `hp1_wdata` [67:4], `hp1_wstrb` [75:68], `hp1_wlast` [76], `hp1_wready` [77], `hp1_wvalid` [78] |
+| `probe4` interrupt, GP0 AXI-Lite | 8 | `gp0_rvalid` [0], `gp0_arvalid` [1], `gp0_bvalid` [2], `gp0_wready` [3], `gp0_wvalid` [4], `gp0_awready` [5], `gp0_awvalid` [6], `interrupt` [7] |
+
+`vivado/ila_map.tcl` is the single source of this map. In the hardware manager, program `patrm_gray_ila.bit` with
+`patrm_gray_ila.ltx`, then split the buses into named signals from the Tcl console:
+```
+source scripts/board/ila_probes.tcl
+```
+This script has only been run without hardware, where it prints its 29 `create_hw_probe` commands. On the first capture,
+check that a known signal (for example `hp0_arvalid`) behaves as expected before trusting the split.
+
+### Board scripts (XSDB)
+
+| Command | Does |
+|---------|------|
+| `xsdb scripts/board/load_run.tcl [--dry-run] [--bit f] [--init f] [--elf f] [--no-run]` | Program the bitstream, initialise the PS and DDR, load and run the ELF |
+| `xsdb scripts/board/put_image.tcl [--dry-run] <file> <address>` | Raw file -> DDR, prints s/MB |
+| `xsdb scripts/board/get_image.tcl [--dry-run] <address> <bytes> <file>` | DDR -> raw file, prints s/MB |
+
+`--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
+even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
+
+## First lab session
+
+Nothing below has been run on hardware yet. Use Git Bash in the repository root, with `<install>\Vivado\bin` on PATH.
+Run the steps in this order.
+
+1. **Board.** Set the boot-mode jumpers JP7 - JP11 to JTAG (all to GND; check against the ZedBoard hardware guide).
+   Connect USB to PROG (J17) and UART (J14), then power on.
+2. **Console.** Open the USB-UART port in a terminal at 115200 8N1.
+3. **Hello and BUILD_ID.**
+   ```
+   xsdb scripts/board/load_run.tcl
+   ```
+   The XSDB output ends with `load_run: DONE`. The UART must show `hello ...`, the PS IDCODE, PS_VERSION and MIDR, then:
+   ```
+   BUILD_ID    0x00401001 (expected 0x00401001)
+     VERSION 1, BUILD_TYPE 0, MODES 1, BLOCK_LEN_MAX 64
+   STATUS      0x00000000 (expected 0x00000000)
+   BRINGUP PASS
+   ```
+4. **DDR round trip, 1 MB.** Note the s/MB values that `put_image` and `get_image` print.
+   ```
+   mkdir -p build/board
+   python -c "import os; open('build/board/rt_1M.bin','wb').write(os.urandom(1048576))"
+   xsdb scripts/board/put_image.tcl build/board/rt_1M.bin 0x10000000
+   xsdb scripts/board/get_image.tcl 0x10000000 1048576 build/board/rt_1M.back
+   cmp build/board/rt_1M.bin build/board/rt_1M.back && echo SAME
+   ```
+5. **DDR round trip, 5 MB.**
+   ```
+   python -c "import os; open('build/board/rt_5M.bin','wb').write(os.urandom(5242880))"
+   xsdb scripts/board/put_image.tcl build/board/rt_5M.bin 0x10000000
+   xsdb scripts/board/get_image.tcl 0x10000000 5242880 build/board/rt_5M.back
+   cmp build/board/rt_5M.bin build/board/rt_5M.back && echo SAME
+   ```
+   Both must print `SAME`. If bytes differ, check the DDR part (next step) first.
+6. **DDR chip marking (D18).** Read the marking printed on a DDR3 chip on the board and decode it with Micron's FBGA
+   marking decoder. `MT41J128M16HA-15E` confirms D18. `MT41K128M16JT-125` means D18 is reverted: stop and rebuild with
+   that part before trusting any DDR result.

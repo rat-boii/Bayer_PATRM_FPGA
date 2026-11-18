@@ -41,6 +41,9 @@ data/**/*.bin
 data/**/*.npy
 data/large/
 results/**/*.bit
+results/**/*.xsa
+results/**/*.ltx
+results/**/*.elf
 results/**/*.dcp
 results/**/*.raw
 results/**/*.bin

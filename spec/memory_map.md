@@ -30,9 +30,11 @@ Sizes are written W x H (D7).
 
 ## 2. Engine registers (AXI-Lite slave on M_AXI_GP0)
 
-- Base address: **0x43C0_0000 (placeholder)**. The final value is assigned by the block design in step 4.1 and
-  then written here and in the driver's `xparameters.h` usage. Address window 64 KB; registers use 0x00 - 0x6B
-  (7 address bits), everything else in the window reads 0.
+- Base address: **0x43C0_0000**, window 64 KB (0x43C0_0000 - 0x43C0_FFFF), assigned and checked by
+  `vivado/build.tcl` (step 4.1; generated list: `results/hw/address_map.txt`). Both HP ports see DDR
+  0x0000_0000 - 0x1FFF_FFFF, which includes the source (0x1000_0000) and output (0x1800_0000) buffers.
+- Registers use 0x00 - 0x6B. The engine receives only address bits 6:0, so 0x6C - 0x7F read 0 and the 128-byte
+  block repeats through the 64 KB window (0x80 is the same register as 0x00). Software uses 0x00 - 0x6B only.
 - Map: `python scripts/gen_regs.py --table`. Registers 0x00 - 0x50 are configuration, 0x54 - 0x64 counters,
   0x68 BUILD_ID.
 - Configuration registers are ignored while STATUS.BUSY = 1 (except CTRL.IRQ_EN), so a job's settings cannot change
