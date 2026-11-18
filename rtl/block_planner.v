@@ -1,4 +1,4 @@
-// block_planner: block and fetch schedule of the grayscale engine (spec/interface.md section 3, step 3.6a).
+// block_planner: block and fetch schedule of the grayscale engine (spec/interface.md section 3, step 3.6a; timing step 3.6c).
 //
 // Scans the output frame row by row, one pixel per clock, with its own add-only coordinates (X(0,0) = b13,
 // Y(0,0) = b23, +(b12, b22) per output column, +(b11, b21) per output row, 32-bit wrapping, D4), cuts the
@@ -10,8 +10,10 @@
 // Pipeline (all stages advance together on ce = both FIFOs have room for one more record):
 //   A  scan: (u, v) counters and the add-only X, Y; after the last pixel one "flush" token closes the last block
 //   B  per pixel: D1 valid, x0, x0 == H-1, word columns wlo = y0 >> 3, whi = y1 >> 3 (y1 = min(y0 + 1, W - 1))
+//      and the rule (c) bound of a block that would start with this pixel (step 3.6c)
 //   C  rule decision (D16 a, b, c in this order) and block state; registers the block that the pixel closes
-//   D  rows, reuse (P1), slots, then both FIFO writes in the same cycle
+//   D1 rows, range and row compares against the previous fetching block, reuse decision (P1)   (step 3.6c)
+//   D2 slots (ring), then both FIFO writes in the same cycle                                   (step 3.6c)
 // A block is closed by the first pixel of the next block (or by the flush token), so at most one block closes
 // per cycle and 1-pixel blocks still run at one descriptor per clock.
 // Blocks without valid pixels (nrows = 0) drive 0 on the slot and s_col fields (the model writes -1 = none);
@@ -19,6 +21,12 @@
 //
 // Column ranges are kept in 8-byte words: floor8(min y0) = 8 * wlo, ceil8(max y1 + 1) = 8 * (whi + 1), so the
 // aligned span is 8 * (whi - wlo + 1) and rule (c) is (whi - wlo + 1) > SPAN_MAX / 8.
+// Step 3.6c (timing, same block lists): a block never leaves its output row, and along a row Y steps by b22, so
+// y0, y1, wlo and whi of the valid pixels are monotonic (no wrap: D4 keeps |Y| < 2^30). For b22 >= 0 the block's
+// minimum is its FIRST valid pixel's wlo and the maximum the CURRENT pixel's whi; for b22 < 0 the reverse. So the
+// min / max compares are gone and rule (c) is one compare with a bound fixed at the block's first valid pixel:
+//   b22 >= 0: whi > wlo_first + SPAN_WORDS - 1        b22 < 0: wlo < whi_first - (SPAN_WORDS - 1)
+// Rule (b) uses a flag blk_full = (blk_n == BLOCK_LEN) computed one pixel ahead.
 // No multipliers (0 DSP48E1): the planner's coordinates are additions only; coord_gen recomputes each block start
 // with its own multiply-add (fixed convention), so the coordinates exist twice by design (spec section 3).
 //
@@ -83,6 +91,7 @@ module block_planner #(
     reg  [31:0]          k_b12, k_b22, k_b11, k_b21;
     reg  [SIZE_BITS-1:0] k_wm1, k_hm1, k_len;
     reg  [31:0]          k_xmax, k_ymax;                   // (H-1) << 16, (W-1) << 16
+    reg                  k_neg, k_len1;                    // b22 < 0; BLOCK_LEN == 1
 
     // ------------------------------------------------------------------ stage A: scan
     reg                  a_run, a_flush;
@@ -101,12 +110,14 @@ module block_planner #(
             a_X <= 0; a_Y <= 0; a_rX <= 0; a_rY <= 0;
             b_tok <= 1'b0; b_flush <= 1'b0; b_rowstart <= 1'b0; b_u <= 0; b_v <= 0; b_X <= 0; b_Y <= 0;
             k_b11 <= 0; k_b12 <= 0; k_b21 <= 0; k_b22 <= 0; k_wm1 <= 0; k_hm1 <= 0; k_len <= 0;
-            k_xmax <= 0; k_ymax <= 0;
+            k_xmax <= 0; k_ymax <= 0; k_neg <= 1'b0; k_len1 <= 1'b0;
         end else if (frame_start) begin
             k_b11 <= cfg_b11; k_b12 <= cfg_b12; k_b21 <= cfg_b21; k_b22 <= cfg_b22;
             k_wm1 <= cfg_width - 1'b1;
             k_hm1 <= cfg_height - 1'b1;
             k_len <= cfg_block_len;
+            k_neg <= cfg_b22[31];
+            k_len1 <= (cfg_block_len[CNT_BITS-1:0] == 1);
             k_xmax <= {{(16 - SIZE_BITS){1'b0}}, cfg_height - 1'b1, 16'd0};
             k_ymax <= {{(16 - SIZE_BITS){1'b0}}, cfg_width - 1'b1, 16'd0};
             a_run <= 1'b1; a_flush <= 1'b0; a_u <= 0; a_v <= 0;
@@ -147,11 +158,14 @@ module block_planner #(
     reg                  c_tok, c_flush, c_rowstart, c_pv, c_x0last;
     reg  [SIZE_BITS-1:0] c_u, c_v, c_x0;
     reg  [WB-1:0]        c_wlo, c_whi;
+    reg  signed [WB+1:0] c_bnd;                            // rule (c) bound if a block starts at this pixel
+    wire signed [WB+1:0] bv_bnd = k_neg ? $signed({2'b00, bv_y1[SIZE_BITS-1:3]}) - (SPAN_WORDS - 1)
+                                        : $signed({2'b00, bv_y0[SIZE_BITS-1:3]}) + (SPAN_WORDS - 1);
 
     always @(posedge aclk) begin
         if (!aresetn || frame_start) begin
             c_tok <= 1'b0; c_flush <= 1'b0; c_rowstart <= 1'b0; c_pv <= 1'b0; c_x0last <= 1'b0;
-            c_u <= 0; c_v <= 0; c_x0 <= 0; c_wlo <= 0; c_whi <= 0;
+            c_u <= 0; c_v <= 0; c_x0 <= 0; c_wlo <= 0; c_whi <= 0; c_bnd <= 0;
         end else if (ce) begin
             c_tok <= b_tok; c_flush <= b_flush; c_rowstart <= b_rowstart;
             c_u <= b_u; c_v <= b_v;
@@ -160,47 +174,49 @@ module block_planner #(
             c_x0last <= (bv_x0 == k_hm1);
             c_wlo <= bv_y0[SIZE_BITS-1:3];
             c_whi <= bv_y1[SIZE_BITS-1:3];
+            c_bnd <= bv_bnd;
         end
     end
 
     // ------------------------------------------------------------------ stage C: D16 rules, block state
-    reg                  blk_open, blk_hasv, blk_x0last;
+    reg                  blk_open, blk_hasv, blk_x0last, blk_full;
     reg  [SIZE_BITS-1:0] blk_u, blk_v0, blk_x0;
     reg  [CNT_BITS-1:0]  blk_n, blk_nvalid;
     reg  [WB-1:0]        blk_wlo, blk_whi;
+    reg  signed [WB+1:0] blk_bnd;                           // rule (c) bound of the block (its first valid pixel)
     reg                  row_hasv;                          // the output row already had a valid pixel
     reg  [SIZE_BITS-1:0] row_key;                           // x0 of the most recent valid pixel of the row
 
-    wire [WB-1:0]        m_lo = (c_wlo < blk_wlo) ? c_wlo : blk_wlo;
-    wire [WB-1:0]        m_hi = (c_whi > blk_whi) ? c_whi : blk_whi;
-    wire [SPW_B-1:0]     m_span = {1'b0, m_hi} - {1'b0, m_lo} + 1'b1;          // words
     wire rule_a = c_pv && row_hasv && (c_x0 != row_key);
-    wire rule_b = (blk_n == k_len[CNT_BITS-1:0]);
-    wire rule_c = c_pv && blk_hasv && (m_span > SPAN_WORDS);
+    wire rule_b = blk_full;                                 // blk_n == BLOCK_LEN
+    wire rule_c = c_pv && blk_hasv && (k_neg ? ($signed({2'b00, c_wlo}) < blk_bnd)
+                                             : ($signed({2'b00, c_whi}) > blk_bnd));
     wire c_new  = c_rowstart || !blk_open || rule_a || rule_b || rule_c;      // pixel starts a new block
     wire [1:0] c_reason = c_rowstart ? 2'd0 : rule_a ? 2'd1 : rule_b ? 2'd2 : 2'd3;
     wire c_close = c_tok && blk_open && (c_flush || c_new);
+    wire n_full  = (blk_n + 1'b1 == k_len[CNT_BITS-1:0]);   // blk_full if the block goes on
 
-    // closed block (stage D input)
-    reg                  d_v, d_hasv, d_x0last, d_last;
-    reg  [SIZE_BITS-1:0] d_u, d_v0, d_x0;
-    reg  [CNT_BITS-1:0]  d_n, d_nvalid;
-    reg  [1:0]           d_reason;                          // 0 row end, 1 x0, 2 BLOCK_LEN, 3 SPAN_MAX
-    reg  [WB-1:0]        d_wlo, d_whi;
+    // closed block (stage D1 input)
+    reg                  j_v, j_hasv, j_x0last, j_last;
+    reg  [SIZE_BITS-1:0] j_u, j_v0, j_x0;
+    reg  [CNT_BITS-1:0]  j_n, j_nvalid;
+    reg  [1:0]           j_reason;                          // 0 row end, 1 x0, 2 BLOCK_LEN, 3 SPAN_MAX
+    reg  [WB-1:0]        j_wlo, j_whi;
 
     always @(posedge aclk) begin
         if (!aresetn || frame_start) begin
-            blk_open <= 1'b0; blk_hasv <= 1'b0; blk_x0last <= 1'b0; blk_u <= 0; blk_v0 <= 0; blk_x0 <= 0;
-            blk_n <= 0; blk_nvalid <= 0; blk_wlo <= 0; blk_whi <= 0; row_hasv <= 1'b0; row_key <= 0;
-            d_v <= 1'b0; d_hasv <= 1'b0; d_x0last <= 1'b0; d_last <= 1'b0; d_u <= 0; d_v0 <= 0; d_x0 <= 0;
-            d_n <= 0; d_nvalid <= 0; d_reason <= 0; d_wlo <= 0; d_whi <= 0;
+            blk_open <= 1'b0; blk_hasv <= 1'b0; blk_x0last <= 1'b0; blk_full <= 1'b0; blk_u <= 0; blk_v0 <= 0;
+            blk_x0 <= 0; blk_n <= 0; blk_nvalid <= 0; blk_wlo <= 0; blk_whi <= 0; blk_bnd <= 0;
+            row_hasv <= 1'b0; row_key <= 0;
+            j_v <= 1'b0; j_hasv <= 1'b0; j_x0last <= 1'b0; j_last <= 1'b0; j_u <= 0; j_v0 <= 0; j_x0 <= 0;
+            j_n <= 0; j_nvalid <= 0; j_reason <= 0; j_wlo <= 0; j_whi <= 0;
         end else if (ce) begin
-            d_v <= c_close;
+            j_v <= c_close;
             if (c_close) begin
-                d_hasv <= blk_hasv; d_x0last <= blk_x0last; d_u <= blk_u; d_v0 <= blk_v0; d_x0 <= blk_x0;
-                d_n <= blk_n; d_nvalid <= blk_nvalid; d_wlo <= blk_wlo; d_whi <= blk_whi;
-                d_last <= c_flush;
-                d_reason <= c_flush ? 2'd0 : c_reason;
+                j_hasv <= blk_hasv; j_x0last <= blk_x0last; j_u <= blk_u; j_v0 <= blk_v0; j_x0 <= blk_x0;
+                j_n <= blk_n; j_nvalid <= blk_nvalid; j_wlo <= blk_wlo; j_whi <= blk_whi;
+                j_last <= c_flush;
+                j_reason <= c_flush ? 2'd0 : c_reason;
             end
             if (c_tok) begin
                 if (c_flush) begin
@@ -215,18 +231,22 @@ module block_planner #(
                         row_key  <= c_x0;
                     end
                     if (c_new) begin
-                        blk_open <= 1'b1; blk_u <= c_u; blk_v0 <= c_v; blk_n <= 1;
+                        blk_open <= 1'b1; blk_u <= c_u; blk_v0 <= c_v; blk_n <= 1; blk_full <= k_len1;
                         blk_hasv <= c_pv; blk_nvalid <= c_pv ? 1 : 0;
                         blk_x0 <= c_x0; blk_x0last <= c_x0last; blk_wlo <= c_wlo; blk_whi <= c_whi;
+                        blk_bnd <= c_bnd;
                     end else begin
                         blk_n <= blk_n + 1'b1;
+                        blk_full <= n_full;
                         if (c_pv) begin
                             blk_nvalid <= blk_nvalid + 1'b1;
                             blk_hasv <= 1'b1;
-                            if (blk_hasv) begin
-                                blk_wlo <= m_lo; blk_whi <= m_hi;     // x0 unchanged (rule a)
+                            if (blk_hasv) begin                   // x0 unchanged (rule a); monotonic columns
+                                if (k_neg) blk_wlo <= c_wlo;      // new minimum
+                                else       blk_whi <= c_whi;      // new maximum
                             end else begin
                                 blk_x0 <= c_x0; blk_x0last <= c_x0last; blk_wlo <= c_wlo; blk_whi <= c_whi;
+                                blk_bnd <= c_bnd;
                             end
                         end
                     end
@@ -235,30 +255,62 @@ module block_planner #(
         end
     end
 
-    // ------------------------------------------------------------------ stage D: rows, reuse (D14 P1), slots
-    reg                  pv_has, pv_two;                    // previous block WITH valid pixels
-    reg  [SIZE_BITS-1:0] pv_top;
+    // ------------------------------------------------------------------ stage D1: rows, reuse (D14 P1)
+    reg                  pv_has, pv_two;                    // previous block WITH valid pixels (rows, range)
+    reg  [SIZE_BITS-1:0] pv_top, pv_bot;                    // pv_bot = pv_top + 1
     reg  [WB-1:0]        pv_wlo, pv_whi;
-    reg  [SLOT_BITS-1:0] pv_st, pv_sb, ptr;
 
-    wire                 r_two  = !d_x0last;                 // rows x0 and x0 + 1 (else only x0 = H-1)
-    wire [SIZE_BITS-1:0] r_top  = d_x0;
-    wire [SIZE_BITS-1:0] r_bot  = r_two ? d_x0 + 1'b1 : d_x0;
-    wire                 range_ok = pv_has && (pv_wlo <= d_wlo) && (pv_whi >= d_whi);
-    wire [SIZE_BITS-1:0] pv_bot = pv_top + 1'b1;
-    wire                 t_in0  = (r_top == pv_top), t_in1 = pv_two && (r_top == pv_bot);
-    wire                 b_in0  = (r_bot == pv_top), b_in1 = pv_two && (r_bot == pv_bot);
-    wire                 reuse_t = range_ok && (t_in0 || t_in1);
-    wire                 reuse_b = r_two && range_ok && (b_in0 || b_in1);
-    wire [SLOT_BITS-1:0] rs_t   = t_in0 ? pv_st : pv_sb;
-    wire [SLOT_BITS-1:0] rs_b   = b_in0 ? pv_st : pv_sb;
+    wire                 j_two    = !j_x0last;               // rows x0 and x0 + 1 (else only x0 = H-1)
+    wire [SIZE_BITS-1:0] j_bot    = j_two ? j_x0 + 1'b1 : j_x0;
+    wire                 range_ok = pv_has && (pv_wlo <= j_wlo) && (pv_whi >= j_whi);
+    wire                 t_in0    = (j_x0 == pv_top);
+    wire                 t_in1    = pv_two && (j_x0 == pv_bot);
+    wire                 b_in0    = (j_bot == pv_top);
+    wire                 b_in1    = pv_two && (j_bot == pv_bot);
+
+    // stage D2 input
+    reg                  d_v, d_hasv, d_two, d_last, d_rt, d_rb, d_t0, d_b0;
+    reg  [SIZE_BITS-1:0] d_u, d_v0, d_x0, d_bot;
+    reg  [CNT_BITS-1:0]  d_n, d_nvalid;
+    reg  [1:0]           d_reason;
+    reg  [WB-1:0]        d_wlo, d_whi;
+
+    always @(posedge aclk) begin
+        if (!aresetn || frame_start) begin
+            pv_has <= 1'b0; pv_two <= 1'b0; pv_top <= 0; pv_bot <= 0; pv_wlo <= 0; pv_whi <= 0;
+            d_v <= 1'b0; d_hasv <= 1'b0; d_two <= 1'b0; d_last <= 1'b0; d_rt <= 1'b0; d_rb <= 1'b0;
+            d_t0 <= 1'b0; d_b0 <= 1'b0; d_u <= 0; d_v0 <= 0; d_x0 <= 0; d_bot <= 0; d_n <= 0; d_nvalid <= 0;
+            d_reason <= 0; d_wlo <= 0; d_whi <= 0;
+        end else if (ce) begin
+            d_v <= j_v;
+            if (j_v) begin
+                d_hasv <= j_hasv; d_two <= j_two; d_last <= j_last; d_u <= j_u; d_v0 <= j_v0; d_x0 <= j_x0;
+                d_bot <= j_bot; d_n <= j_n; d_nvalid <= j_nvalid; d_reason <= j_reason; d_wlo <= j_wlo;
+                d_whi <= j_whi;
+                d_rt <= range_ok && (t_in0 || t_in1);
+                d_rb <= j_two && range_ok && (b_in0 || b_in1);
+                d_t0 <= t_in0;
+                d_b0 <= b_in0;
+                if (j_hasv) begin                               // this block is the next one's "previous"
+                    pv_has <= 1'b1; pv_two <= j_two; pv_top <= j_x0; pv_bot <= j_x0 + 1'b1;
+                    pv_wlo <= j_wlo; pv_whi <= j_whi;
+                end
+            end
+        end
+    end
+
+    // ------------------------------------------------------------------ stage D2: slots (ring), FIFO writes
+    reg  [SLOT_BITS-1:0] pv_st, pv_sb, ptr;                 // slots of the previous fetching block; ring pointer
+
+    wire [SLOT_BITS-1:0] rs_t   = d_t0 ? pv_st : pv_sb;
+    wire [SLOT_BITS-1:0] rs_b   = d_b0 ? pv_st : pv_sb;
     // ring: a fetched row takes the pointer slot, skipping a slot this block already uses; pointer + 1 each
-    wire [SLOT_BITS-1:0] p_t    = (reuse_b && ptr == rs_b) ? ptr + 1'b1 : ptr;
-    wire [SLOT_BITS-1:0] s_top  = reuse_t ? rs_t : p_t;
-    wire [SLOT_BITS-1:0] ptr1   = reuse_t ? ptr : p_t + 1'b1;
+    wire [SLOT_BITS-1:0] p_t    = (d_rb && ptr == rs_b) ? ptr + 1'b1 : ptr;
+    wire [SLOT_BITS-1:0] s_top  = d_rt ? rs_t : p_t;
+    wire [SLOT_BITS-1:0] ptr1   = d_rt ? ptr : p_t + 1'b1;
     wire [SLOT_BITS-1:0] p_b    = (ptr1 == s_top) ? ptr1 + 1'b1 : ptr1;
-    wire [SLOT_BITS-1:0] s_bot  = !r_two ? s_top : reuse_b ? rs_b : p_b;
-    wire [SLOT_BITS-1:0] ptr2   = (r_two && !reuse_b) ? p_b + 1'b1 : ptr1;
+    wire [SLOT_BITS-1:0] s_bot  = !d_two ? s_top : d_rb ? rs_b : p_b;
+    wire [SLOT_BITS-1:0] ptr2   = (d_two && !d_rb) ? p_b + 1'b1 : ptr1;
     wire [CNT_BITS-1:0]  r_words = d_whi - d_wlo + 1'b1;
     wire [SIZE_BITS-1:0] r_scol = {d_wlo, 3'b000};
 
@@ -267,22 +319,20 @@ module block_planner #(
 
     always @(posedge aclk) begin
         if (!aresetn || frame_start) begin
-            pv_has <= 1'b0; pv_two <= 1'b0; pv_top <= 0; pv_wlo <= 0; pv_whi <= 0; pv_st <= 0; pv_sb <= 0;
-            ptr <= 0;
+            pv_st <= 0; pv_sb <= 0; ptr <= 0;
         end else if (f_push) begin
-            pv_has <= 1'b1; pv_two <= r_two; pv_top <= r_top; pv_wlo <= d_wlo; pv_whi <= d_whi;
             pv_st <= s_top; pv_sb <= s_bot;
             ptr <= ptr2;
         end
     end
 
     wire [DESC_W-1:0] d_din = {d_u, d_v0, d_n,
-                               d_hasv ? (r_two ? 2'd2 : 2'd1) : 2'd0,
+                               d_hasv ? (d_two ? 2'd2 : 2'd1) : 2'd0,
                                d_hasv ? s_top : {SLOT_BITS{1'b0}},
                                d_hasv ? s_bot : {SLOT_BITS{1'b0}},
                                d_hasv ? r_scol : {SIZE_BITS{1'b0}},
                                d_last};
-    wire [FETCH_W-1:0] f_din = {r_top, r_bot, s_top, s_bot, !reuse_t, r_two && !reuse_b, r_scol, r_words};
+    wire [FETCH_W-1:0] f_din = {d_x0, d_bot, s_top, s_bot, !d_rt, d_two && !d_rb, r_scol, r_words};
 
     // ------------------------------------------------------------------ FIFOs (distributed RAM)
     reg  [DESC_W-1:0]  d_mem [0:DESC_DEPTH-1];

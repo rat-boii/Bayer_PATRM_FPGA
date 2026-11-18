@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2026.1 (win64) Build 6511674 Tue Jun 16 11:02:23 MDT 2026
-| Date         : Wed Nov 18 10:03:08 2026
+| Date         : Wed Nov 18 10:20:50 2026
 | Host         : Retro_big_bro running 64-bit major release  (build 9200)
 | Command      : report_utilization -file D:/MASTERS/RC_project/results/ooc/fetch_path_utilization_route.rpt
 | Design       : ooc_fetch_path_wrap

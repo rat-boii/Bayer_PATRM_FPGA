@@ -218,6 +218,21 @@ WNS +0.373 ns. Critical path: closed block (d_x0last) -> row compares -> reuse -
 data, 9.29 ns, 11 logic levels; stage C (rule decision) is close behind (slack +0.461 ns). Both are the first
 candidates to pipeline if step 3.8 loses slack in the full design.
 
+**Step 3.6c (timing only, same block lists, measured).** Five stages: A, B, C, D1 (row and range compares against
+the previous fetching block, reuse decision, registered), D2 (slot ring, both FIFO writes). Stage C without min /
+max: a block stays in one output row and along a row Y steps by b22, so y0, y1, wlo, whi of the valid pixels are
+monotonic (D4: |Y| < 2^30, no wrap). For b22 >= 0 the block range is [wlo of the first valid pixel, whi of the
+current one], for b22 < 0 the reverse; rule (c) is one compare with a bound computed in stage B (first wlo +
+SPAN_MAX/8 - 1, or first whi - (SPAN_MAX/8 - 1)). Rule (b) is a flag blk_n == BLOCK_LEN computed one pixel ahead.
+The reuse decision needs only the previous fetching block's rows and range (kept at D1); only the slots (ring
+pointer, previous block's slots) stay a one-block-per-cycle loop, in D2. A descriptor now leaves 1 cycle later:
+rot90 64x64 4096 descriptors in 4102 cycles = W x H + 6 (still 1 descriptor per clock); FIFO depths unchanged.
+tb_block_planner: the same 542,485 descriptors and 533,408 fetch records, 0 mismatches (both seeds).
+OOC post-route at 100 MHz: 569 LUT (80 LUTRAM), 826 FF (before 591 / 703), 0 BRAM, 0 DSP48E1, 0 latches,
+WNS +2.753 ns (before +0.373 ns). Critical path: d_b0 (D2) -> reused-slot select -> ring compares -> slot -> desc
+FIFO write data, 6.80 ns, 6 levels; stage C alone +3.073 ns (row_key -> rule a -> new block -> blk_n), D2 slot
+registers +3.364 ns.
+
 ## 4. coord_gen
 
 **Purpose.** Produces the exact (X, Y) of every output pixel in frame order for the interpolation, from the
@@ -735,8 +750,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 
 | module | likely critical path | how it is pipelined |
 |---|---|---|
-| block_planner | MEASURED (step 3.6a): stage C rule decision blk_whi -> min/max -> span compare -> block state, 9.41 ns, slack +0.461 ns | scan (A) and D1 compares (B) are separate stages; along a row y0 is monotonic, so min/max can be replaced by "first" and "current" if needed |
-| block_planner | MEASURED (step 3.6a): stage D close d_x0last -> row / range compares -> reuse -> slot muxes -> fetch FIFO write, 9.29 ns, WNS +0.373 ns (module critical path) | own stage D; a register between the reuse decision and the FIFO write is the fallback |
+| block_planner | MEASURED (step 3.6c): stage C row_key -> rule a -> new block -> blk_n, 6.41 ns, slack +3.073 ns (step 3.6a: 9.41 ns, +0.461 ns) | min / max replaced by "first" and "current" (monotonic along a row); rule (c) bound precomputed in B; rule (b) flag one pixel ahead |
+| block_planner | MEASURED (step 3.6c): D2 d_b0 -> slot muxes -> desc FIFO write, 6.80 ns, WNS +2.753 ns (module critical path; step 3.6a: 9.29 ns, +0.373 ns) | D split: D1 reuse decision registered, D2 slot ring + FIFO writes |
 | coord_gen | MEASURED (step 3.2): start-FIFO not-empty -> stepper load / add, 6.2 ns (WNS +3.817 ns); S3 3-input add 5.4 ns | 3 stages S1-S3 (DSP P register, 32-bit add, 3-input add); stepper is one 32-bit add |
 | prefetch_ctrl | MEASURED (step 3.6b): is_sb -> last_user write enable 7.28 ns, WNS +2.431 ns; row * W + s_col + SRC_ADDR is in the DSPs (C + A*B, P register) | P1 / P2 / P3 prep pipeline; DSP with A/B, M and P registers |
 | pixel_fetch | MEASURED (step 3.6b): k -> block-ready compare -> F1 load 4.64 ns, WNS +5.075 ns; with line_buf (wrapper): WNS +2.313 ns (in prefetch_ctrl), RAM -> byte mux -> F3 slack >= +4.589 ns | read in F2, mux in F3 (registered); BRAM output register available as a fallback |
@@ -752,7 +767,7 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 |---|---|---|---|---|
 | axil_regs | 400 | 700 | 0 | 0 |
 | ctrl_fsm | 200 | 200 | 0 | 0 |
-| block_planner (incl. desc / fetch FIFOs; MEASURED, step 3.6a, OOC post-route) | 591 (80 LUTRAM) | 703 | 0 | 0 |
+| block_planner (incl. desc / fetch FIFOs; MEASURED, step 3.6c, OOC post-route) | 569 (80 LUTRAM) | 826 | 0 | 0 |
 | coord_gen (MEASURED, step 3.2, OOC post-route) | 284 (68 LUTRAM) | 367 | 0 | 8 |
 | prefetch_ctrl (MEASURED, step 3.6b, OOC post-route) | 447 (22 LUTRAM) | 882 | 0 | 2 |
 | line_buf (MEASURED, step 3.6b, OOC post-route) | 1 | 0 | 8 | 0 |
@@ -774,7 +789,13 @@ Not included: AXI interconnect, protocol converters and the Processor System Res
   (step 3.5).
 - **Q2 NSLOT.** 32 (16 KB, 8 RAMB36) proposed; 16 halves the BRAM. Decide after the step 3.6 latency tests.
   Step 3.6b (built with 32): 8 RAMB36 measured; with no back-pressure no transform waited for a slot at L = 20 / 40
-  (the rotations are limited by RD_OUTSTANDING = 8 short bursts). NSLOT = 16 was not simulated; still open.
+  (the rotations are limited by RD_OUTSTANDING = 8 short bursts). Step 3.6c data (tb_fetch_path with
+  --define TB_SLOT_BITS=4, all groups TEST PASS): line_buf with 16 slots = 4 RAMB36 (OOC). Group f (no
+  back-pressure, 256x192), cycles NSLOT 32 -> 16: L = 20 identity 49,274 -> 49,274, rot15 51,896 -> 52,041
+  (+0.3 %), rot37 84,582 -> 86,667 (+2.5 %), rot90 108,386 -> 111,420 (+2.8 %); L = 40 rot15 90,245 -> 91,785
+  (+1.7 %), rot37 150,344 -> 152,791 (+1.6 %), rot90 194,212 -> 194,235 (0 %). Slot-wait cycles 0 -> 3,279..5,616
+  for the rotations. Group d (random memory and back-pressure): cycles within -0.4 % .. +1.5 %. Still open: user
+  decides; build value stays 32.
 - **Q3 Outstanding reads. Closed (2026-11-17).** UG585 (Zynq-7000 TRM), AXI_HP Interfaces, Features: read
   acceptance 14 to 70 commands, write acceptance 8 to 32 commands, both depending on the burst length.
   RD_OUTSTANDING = 8 is within the read minimum; axi_wr_master (step 3.5) uses at most 8 outstanding writes.

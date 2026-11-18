@@ -1,17 +1,17 @@
 module        block_planner (OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route; SPAN_MAX 512, DESC_DEPTH 16, FETCH_DEPTH 16)
 vivado        2026.1
-LUT           591 (Slice LUTs: 511 logic + 80 memory; 661 LUT cells before LUT combining)
-FF            703
+LUT           569 (Slice LUTs: 489 logic + 80 memory; 655 LUT cells before LUT combining)
+FF            826
 BRAM (RAMB*)  0
 DSP48E1       0
 latches       synth 0, route 0
-WNS (ns)      0.373
+WNS (ns)      2.753
 WHS (ns)      0.028
-critical path d_x0last_reg/C -> f_mem_reg_0_15_18_23/RAMC_D1/I
-              data path 9.294 ns, 11 logic levels
-stage         A scan (a_X, a_Y, a_rX, a_rY, a_u, a_v): slack 4.115 ns, data path 5.424 ns, 3 levels, f_cnt_reg[0]/C -> a_rY_reg[16]/CE
-stage         B (c_*: D1 valid, x0, word columns): slack 5.675 ns, data path 4.036 ns, 2 levels, f_cnt_reg[0]/C -> c_x0_reg[0]/CE
-stage         C rule decision (blk_*, row_*, d_*): slack 0.461 ns, data path 9.408 ns, 10 levels, blk_whi_reg[2]/C -> blk_wlo_reg[4]/D
-stage         D reuse / slots (pv_*, ptr): slack 0.649 ns, data path 9.200 ns, 11 levels, d_x0last_reg/C -> pv_sb_reg[1]/D
-stage         FIFO memories (d_mem, f_mem): slack 0.373 ns, data path 9.294 ns, 11 levels, d_x0last_reg/C -> f_mem_reg_0_15_18_23/RAMC_D1/I
-stage         FIFO pointers / counts: slack 3.497 ns, data path 6.042 ns, 4 levels, f_cnt_reg[0]/C -> f_wp_reg[0]/CE
+critical path d_b0_reg/C -> d_mem_reg_0_15_18_23/RAMA/I
+              data path 6.800 ns, 6 logic levels
+stage         A scan (a_X, a_Y, a_rX, a_rY, a_u, a_v): slack 3.638 ns, data path 5.901 ns, 3 levels, f_cnt_reg[0]/C -> a_rY_reg[12]/CE
+stage         B (c_*: D1 valid, x0, word columns): slack 4.832 ns, data path 4.915 ns, 2 levels, f_cnt_reg[0]/C -> c_x0_reg[0]/CE
+stage         C rule decision (blk_*, row_*, d_*): slack 2.753 ns, data path 6.800 ns, 6 levels, d_b0_reg/C -> d_mem_reg_0_15_18_23/RAMA/I
+stage         D reuse / slots (pv_*, ptr): slack 3.364 ns, data path 6.521 ns, 6 levels, d_b0_reg/C -> pv_sb_reg[3]/D
+stage         FIFO memories (d_mem, f_mem): slack 2.753 ns, data path 6.800 ns, 6 levels, d_b0_reg/C -> d_mem_reg_0_15_18_23/RAMA/I
+stage         FIFO pointers / counts: slack 3.800 ns, data path 6.147 ns, 6 levels, f_cnt_reg[0]/C -> f_cnt_reg[4]/D

@@ -28,18 +28,23 @@
 //                  k >= blocks_ready and bilinear_interp has no WR_STALL), every cycle (group e)
 //   AXI            tb/axi_mem.v protocol checker: 0 violations
 // Groups (scripts/gen_fetch_path_vectors.py): a 0, b 1, d 3, f 5, g 6; c and e are the BYTES_RD / RD_STALL checks
-// of every case. Prints one line per case and exactly one final line: "TEST PASS" or "TEST FAIL: <reason>".
+// of every case. Option: --define TB_SLOT_BITS=4 runs everything with NSLOT = 16 (default 32).
+// Prints one line per case and exactly one final line: "TEST PASS" or "TEST FAIL: <reason>".
 `timescale 1ns/1ps
 module tb_fetch_path;
 
     localparam CLK_HALF  = 5;                            // 100 MHz
     localparam SIZE_BITS = 13;
     localparam CNT_BITS  = 7;
-    localparam SLOT_BITS = 5;
+`ifdef TB_SLOT_BITS
+    localparam SLOT_BITS = `TB_SLOT_BITS;              // --define TB_SLOT_BITS=4: NSLOT = 16 (Q2 data, step 3.6c)
+`else
+    localparam SLOT_BITS = 5;                            // NSLOT = 32 (build value)
+`endif
     localparam WORD_BITS = 6;
-    localparam NSLOT     = 32;
+    localparam NSLOT     = 1 << SLOT_BITS;
     localparam SW        = 64;                           // slot words
-    localparam AW        = 10;
+    localparam AW        = SLOT_BITS + 5;                // line_buf entry address: slot, word[5:1]
     localparam [31:0] SRC = 32'h1000_0000;
     localparam MEM_WORDS = 8192;                          // 64 KB source window
     localparam MAXP      = 256 * 192;
@@ -78,7 +83,7 @@ module tb_fetch_path;
     wire [SLOT_BITS-1:0] a_dst, a_dsb, a_fst, a_fsb, b_dst, b_dsb, b_fst, b_fsb;
     wire                 a_dl, a_ft, a_fb, b_dl, b_ft, b_fb;
 
-    block_planner #(.SPAN_MAX(512)) u_pa (
+    block_planner #(.SLOT_BITS(SLOT_BITS), .SPAN_MAX(512)) u_pa (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
@@ -87,7 +92,7 @@ module tb_fetch_path;
         .fetch_valid(a_fv), .fetch_ready(fetch_ready && !sel32), .fetch_row_top(a_frt), .fetch_row_bot(a_frb),
         .fetch_slot_top(a_fst), .fetch_slot_bot(a_fsb), .fetch_top(a_ft), .fetch_bot(a_fb), .fetch_s_col(a_fsc),
         .fetch_words(a_fw));
-    block_planner #(.SPAN_MAX(32)) u_pb (
+    block_planner #(.SLOT_BITS(SLOT_BITS), .SPAN_MAX(32)) u_pb (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
@@ -122,7 +127,7 @@ module tb_fetch_path;
     wire [1:0]           pix_nrows;
     wire [SLOT_BITS-1:0] pix_st, pix_sb;
     wire [SIZE_BITS-1:0] pix_sc;
-    coord_gen u_cg (
+    coord_gen #(.SLOT_BITS(SLOT_BITS)) u_cg (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
         .desc_valid(dv), .desc_ready(desc_ready), .desc_u(du), .desc_v0(dv0), .desc_n(dn), .desc_nrows(dnr),
@@ -146,7 +151,7 @@ module tb_fetch_path;
     wire [15:0]          blocks_ready;
     wire                 blk_done;
 
-    prefetch_ctrl u_pc (
+    prefetch_ctrl #(.SLOT_BITS(SLOT_BITS)) u_pc (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_src_addr(cfg_src), .cfg_width(cfg_width),
         .fetch_valid(fv), .fetch_ready(fetch_ready), .fetch_row_top(frt), .fetch_row_bot(frb),
         .fetch_slot_top(fst), .fetch_slot_bot(fsb), .fetch_top(ft), .fetch_bot(fb), .fetch_s_col(fsc),
@@ -163,7 +168,7 @@ module tb_fetch_path;
     wire [1:0]  arburst, arlock, rresp;
     wire        arvalid, arready, rlast, rvalid, rready;
     wire [63:0] rdata;
-    axi_rd_master u_rd (
+    axi_rd_master #(.SLOT_W(SLOT_BITS)) u_rd (
         .aclk(aclk), .aresetn(aresetn),
         .cmd_valid(cmd_valid), .cmd_ready(cmd_ready), .cmd_addr(cmd_addr), .cmd_words(cmd_words), .cmd_slot(cmd_slot),
         .m_axi_hp0_arid(arid), .m_axi_hp0_araddr(araddr), .m_axi_hp0_arlen(arlen), .m_axi_hp0_arsize(arsize),
@@ -187,7 +192,7 @@ module tb_fetch_path;
         .s_wready(wready_nc), .s_bid(bid_nc), .s_bresp(bresp_nc), .s_bvalid(bvalid_nc), .s_bready(1'b1));
 
     // ---------------- line_buf, pixel_fetch, bilinear_interp ----------------
-    line_buf u_lb (
+    line_buf #(.NSLOT(NSLOT), .AW(AW)) u_lb (
         .aclk(aclk), .we(buf_we), .wbank(buf_wbank), .waddr(buf_waddr), .wdata(buf_wdata),
         .re(buf_re), .raddr_te(raddr_te), .raddr_to(raddr_to), .raddr_be(raddr_be), .raddr_bo(raddr_bo),
         .rdata_te(rdata_te), .rdata_to(rdata_to), .rdata_be(rdata_be), .rdata_bo(rdata_bo));
@@ -195,7 +200,7 @@ module tb_fetch_path;
     wire        ip_valid, ip_ready, ip_ok, ip_last, rd_stall;
     wire [15:0] ip_xf, ip_yf;
     wire [7:0]  ip_r1, ip_r2, ip_r3, ip_r4;
-    pixel_fetch u_pf (
+    pixel_fetch #(.SLOT_BITS(SLOT_BITS)) u_pf (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_width(cfg_width), .cfg_height(cfg_height),
         .pix_valid(pix_valid), .pix_ready(pix_ready), .pix_X(pix_X), .pix_Y(pix_Y), .pix_first(pix_first),
         .pix_last(pix_last), .pix_nrows(pix_nrows), .pix_slot_top(pix_st), .pix_slot_bot(pix_sb),
