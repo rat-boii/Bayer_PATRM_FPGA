@@ -11,6 +11,98 @@ algorithm running on the ARM Cortex-A9.
 Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-step plan is in
 [docs/implementation-plan.md](docs/implementation-plan.md).
 
+## New laptop setup (do once per laptop)
+
+Windows, native (not WSL). Do these steps in order. Step 9 checks the result and prints the fix for anything missing.
+`<install>` is the folder that holds `Vivado` and `Vitis`: `D:\AMD\2026.1` on the first laptop and
+`C:\AMDDesignTools\2026.1` on the second.
+
+1. **Clone into a path without spaces.** This needs Git for Windows. Run every command in this README from the repo
+   root unless it says otherwise.
+
+   ```
+   git clone https://github.com/rat-boii/Bayer_PATRM_FPGA.git C:\work\Bayer_PATRM_FPGA
+   cd C:\work\Bayer_PATRM_FPGA
+   ```
+
+2. **Python 3.11 or newer, and the packages.**
+
+   ```
+   python -m pip install --user -r requirements.txt
+   ```
+
+   `requirements.txt` accepts numpy 2.4.6 up to any 2.5.x (2.5 needs Python 3.12 or newer, so pip picks the version
+   that fits your Python) and exactly Pillow 13.0.0. If `python` opens the Microsoft Store, turn off the
+   `python.exe`/`python3.exe` App execution aliases (Settings > Apps > Advanced app settings), or use `py -3` instead
+   of `python` in every command.
+
+3. **Vivado and Vitis 2026.1.** Install both. Our scripts find them without PATH changes: `scripts/amd_tools.py`
+   searches `\AMD`, `\AMDDesignTools` and `\Xilinx` on C:, D: and E:. To run the tools by hand, add
+   `<install>\Vivado\bin` and `<install>\Vitis\bin` to PATH.
+
+4. **Licence.** Vivado 2026.1 does not start without a valid licence file. Open the Vivado License Manager
+   (`<install>\Vivado\bin\vlm.bat`) and load your licence. If a file from another laptop is rejected, get one for this
+   laptop.
+
+5. **ZedBoard board files (Digilent zedboard 1.3).**
+   1. Download GitHub repository `Digilent/vivado-boards` (Code > Download ZIP, or
+      `git clone https://github.com/Digilent/vivado-boards.git`).
+   2. Close Vivado. Copy the `zedboard` folder from `new/board_files/` in that download into
+      `<install>\Vivado\data\boards\board_files\`. The result must be
+      `<install>\Vivado\data\boards\board_files\zedboard\1.3\board.xml`, next to `preset.xml`, `part0_pins.xml` and
+      `zed_board.jpg`.
+   3. Fallback, if the Vivado folder cannot be written: keep the `board_files` folder elsewhere (for example
+      `C:\boards\board_files`) and add this line to `%APPDATA%\Xilinx\Vivado\Vivado_init.tcl`, creating the file if
+      needed:
+
+      ```
+      set_param board.repoPaths [list C:/boards/board_files]
+      ```
+
+   Vivado shows the board as "ZedBoard", vendor digilentinc.com, with board part
+   `digilentinc.com:zedboard:part0:1.1` (the part version is 1.1 although the folder is 1.3). Never use the ZC702 board
+   or preset (same chip, different DDR and pins). The 1.3 preset sets the Rev D DDR part (MT41K128M16 JT-125). Our lab
+   board is Rev C, so every block design overrides it to MT41J128M16 HA-15E after `apply_bd_automation` (D18 in
+   CLAUDE.md).
+
+6. **Two empty Vitis qemu folders.** Vitis platform creation needs them, and our install does not have the
+   `emulation\platforms` folder, so without them it fails with "Application error processing RPC". Run once in an
+   Administrator PowerShell, with your `<install>` filled in:
+
+   ```
+   New-Item -ItemType Directory -Force "<install>\Vitis\data\emulation\platforms\zynq\sw\a9_linux\qemu","<install>\Vitis\data\emulation\platforms\zynq\sw\a9_standalone\qemu"
+   ```
+
+7. **Digilent cable drivers (for the lab).** They let the laptop reach the board over USB-JTAG. If the AMD installer
+   did not add them, run this as Administrator with the board unplugged:
+   `<install>\Vivado\data\xicom\cable_drivers\nt64\digilent\install_digilent.exe`. Step 9 cannot test the drivers. Their
+   first real test is step 3 of [First lab session](#first-lab-session).
+
+8. **Regenerate the test images and vectors.** They are git-ignored. This took about 45 s on the second laptop.
+
+   ```
+   python -m model.gen_images
+   python -m model.gen_vectors
+   python scripts/gen_axil_vectors.py
+   python scripts/gen_coord_gen_vectors.py
+   python scripts/gen_axi_rd_vectors.py
+   python scripts/gen_out_path_vectors.py
+   python scripts/gen_block_planner_vectors.py
+   python scripts/gen_fetch_path_vectors.py
+   python scripts/gen_patrm_top_vectors.py
+   ```
+
+   Do not run `model.gen_transforms` or `scripts/gen_regs.py` here. Their outputs are committed.
+
+9. **Check the laptop.** Takes about a minute, because it starts Vivado once.
+
+   ```
+   python scripts/check_setup.py
+   ```
+
+   Every line must say `PASS` and the exit code must be 0. Each `FAIL` is followed by its fix. The script installs
+   nothing and writes nothing to the repo.
+
 ## Layout
 
 | Folder     | Contents |
@@ -27,67 +119,22 @@ Project rules and fixed conventions are in [CLAUDE.md](CLAUDE.md). The step-by-s
 | `docs/`    | Plan, proposal, specs |
 | `build/`   | All tool output (git-ignored, safe to delete) |
 
-## Setup (Windows, native)
-
-1. **Vivado/Vitis 2026.1** with a valid license. Installed in `D:\AMD\2026.1` on the first laptop and in
-   `C:\AMDDesignTools\2026.1` on the second. Our scripts find the tools even when they are not on PATH
-   (`scripts/amd_tools.py` searches `\AMD`, `\AMDDesignTools` and `\Xilinx` on C:, D:, E:). To run them by
-   hand, add `<install>\Vivado\bin` and `<install>\Vitis\bin` to PATH.
-2. **Git for Windows** (`C:\Program Files\Git\cmd`).
-3. **Python 3.10 or newer** (we use 3.14). Install the packages:
-
-   ```
-   python -m pip install --user -r requirements.txt
-   ```
-
-   If `python` opens the Microsoft Store, the Store alias comes first in PATH. Turn off the
-   `python.exe`/`python3.exe` App execution aliases (Settings > Apps > Advanced app settings),
-   or use `py -3` instead of `python` in every command below.
-4. **ZedBoard board files** (needed from step 0.2a / 4.1; there is no install script yet). Manual steps used
-   on the second laptop (2026-11-18):
-   1. Download the Digilent board files: GitHub repository `Digilent/vivado-boards` (Code > Download ZIP,
-      or `git clone https://github.com/Digilent/vivado-boards.git`).
-   2. Close Vivado. Copy the `zedboard` folder from `new/board_files/` in that download into
-      `<install>\Vivado\data\boards\board_files\`. Result on our laptop:
-      `C:\AMDDesignTools\2026.1\Vivado\data\boards\board_files\zedboard\1.3\board.xml`
-      (with `preset.xml`, `part0_pins.xml`, `zed_board.jpg`). Use version 1.3.
-   3. Fallback, if the Vivado install folder cannot be written: keep the `board_files` folder anywhere
-      (for example `C:\boards\board_files`) and add this line to
-      `%APPDATA%\Xilinx\Vivado\Vivado_init.tcl` (create the file if it does not exist):
-
-      ```
-      set_param board.repoPaths [list C:/boards/board_files]
-      ```
-   4. Check (from `build/`): `vivado -mode batch -source ../vivado/check_part.tcl` must print
-      `BOARD FOUND: digilentinc.com:zedboard:part0:1.1` (Vivado shows it as "ZedBoard", vendor
-      digilentinc.com; the board part version is 1.1 although the folder is 1.3).
-
-   Never use the ZC702 board or preset (same chip, different DDR and pins). The 1.3 preset sets the Rev D DDR
-   part (MT41K128M16 JT-125); our lab board is Rev C, so every block design overrides it to
-   MT41J128M16 HA-15E after `apply_bd_automation` (D18 in CLAUDE.md).
-
 ## Known setup items
 
-- ZedBoard board files (Digilent zedboard 1.3) installed on the second laptop on 2026-11-18 (Setup item 4).
-  Pending for D18: decode the DDR chip marking on the lab board with Micron's FBGA decoder.
+- Board files, the Vitis qemu folders and the other per-laptop items are in
+  [New laptop setup](#new-laptop-setup-do-once-per-laptop).
+- Pending for D18: decode the DDR chip marking on the lab board with Micron's FBGA decoder.
 - Zynq-7000 VIP is available in Vivado 2026.1: `processing_system7_vip` 1.0 and
   `processing_system7` 5.5 (used by the full-system simulation in step 4.1b).
-- Vitis platform creation needs `<install>\Vitis\data\emulation\platforms\zynq\sw\a9_linux\qemu` and `a9_standalone\qemu`.
-  Our install has no `emulation\platforms` folder, so platform creation failed with "Application error processing RPC".
-  Two empty folders are enough. Create them once, in an Administrator PowerShell (2026-11-18, second laptop):
-
-  ```
-  New-Item -ItemType Directory -Force "<install>\Vitis\data\emulation\platforms\zynq\sw\a9_linux\qemu","<install>\Vitis\data\emulation\platforms\zynq\sw\a9_standalone\qemu"
-  ```
 
 ## Test images and vectors (step 1.2)
 
-Regenerate everything from the repo root (about 10 s; deterministic, no random state outside fixed seeds):
+To regenerate all images and vectors, use step 8 of [New laptop setup](#new-laptop-setup-do-once-per-laptop). The output
+is deterministic, with no random state outside fixed seeds: `gen_images` writes `data/gen/` and `gen_vectors` writes
+`data/vectors/`, both git-ignored. The other step 1.2 commands:
 
 ```
-python -m model.gen_images        # -> data/gen/       (git-ignored)
 python -m model.gen_transforms    # -> model/transforms.json (committed; only needed if transforms change)
-python -m model.gen_vectors       # -> data/vectors/   (git-ignored)
 python -m model.contact_sheet     # -> results/contact_sheet_step1_2.png
 python -m model.test_step1_2      # checks; last line TEST PASS / TEST FAIL: <reason>
 ```

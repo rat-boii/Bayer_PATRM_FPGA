@@ -23,6 +23,7 @@ working stage beats a half-working extra one. Software is only for control, test
 - Label estimates as estimates. Do not invent numbers (timing, resources, speed); measure them or say they are unknown.
 - After a step passes: `git add` + commit with message "step <ID>: <summary>" and tag `step-<ID>`.
 - Before modifying or moving files that already exist, list what you will change.
+- On a laptop you have not used before, or after a fresh clone, run python scripts/check_setup.py first and follow its fixes before any step. Board and Vitis setup is per laptop; see README 'New laptop setup'.
 
 ## Environment (decided 2026-11-06)
 - Windows, native (NOT WSL; WSL has no Vivado). Vivado/Vitis 2026.1. Simulator: xsim. HDL: Verilog-2001.

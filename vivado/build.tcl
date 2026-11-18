@@ -45,7 +45,7 @@ proc n_msg {sev} { return [get_msg_config -count -severity $sev] }
 set found [get_board_parts -quiet *zed*]
 note "board parts matching *zed*: $found"
 if {[lsearch -exact $found $board_part] < 0} {
-    error "CHECK FAILED board part: $board_part is not installed. Install the Digilent ZedBoard board files: README.md, Setup item 4."
+    error "CHECK FAILED board part: $board_part is not installed. Install the Digilent ZedBoard board files: README.md, New laptop setup, step 5."
 }
 note "CHECK OK board part $board_part"
 

@@ -52,14 +52,14 @@ def first_line_with(text, words):
 
 def check_python():
     v = sys.version_info
-    ok = v >= (3, 10)
+    ok = v >= (3, 11)
     note = ""
     on_path = shutil.which("python")
     if on_path and "WindowsApps" in on_path:
         note = ("'python' on PATH is the Microsoft Store stub (" + on_path + "). Disable the python.exe/"
                 "python3.exe App execution aliases, or move " + str(Path(sys.executable).parent) +
                 " before WindowsApps in PATH, or use 'py -3'.")
-    report("python", ok, f"{v.major}.{v.minor}.{v.micro} (need >= 3.10)", sys.executable, note)
+    report("python", ok, f"{v.major}.{v.minor}.{v.micro} (need >= 3.11)", sys.executable, note)
 
 
 def check_module(name, import_name):
