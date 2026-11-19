@@ -127,7 +127,7 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
 
 - Board files, the Vitis qemu folders and the other per-laptop items are in
   [New laptop setup](#new-laptop-setup-do-once-per-laptop).
-- Pending for D18: decode the DDR chip marking on the lab board with Micron's FBGA decoder.
+- D18 confirmed 2026-11-19: DDR FBGA code D9LGQ = MT41J128M16HA-15E:D (Micron FBGA decoder).
 - Zynq-7000 VIP is available in Vivado 2026.1: `processing_system7_vip` 1.0 and
   `processing_system7` 5.5 (used by the full-system simulation in step 4.1b).
 
@@ -495,6 +495,7 @@ Nothing below has been run on hardware yet. Use Git Bash in the repository root,
 Run the steps in this order.
 
 1. **Board.** Set the boot-mode jumpers JP7 - JP11 to JTAG (all to GND; check against the ZedBoard hardware guide).
+   Checked from a photo on 2026-11-19: all five on GND (shunt on the GND + signal pins, 3V3 pin bare).
    Connect USB to PROG (J17) and UART (J14), then power on.
 2. **Console.** Open the USB-UART port in a terminal at 115200 8N1.
 3. **Hello and BUILD_ID.**
@@ -524,7 +525,7 @@ Run the steps in this order.
    cmp build/board/rt_5M.bin build/board/rt_5M.back && echo SAME
    ```
    Both must print `SAME`. If bytes differ, check the DDR part (next step) first.
-6. **DDR chip marking (D18).** Read the marking printed on a DDR3 chip on the board and decode it with Micron's FBGA
+6. **DDR chip marking (D18).** DONE 2026-11-19: D9LGQ = MT41J128M16HA-15E:D, D18 confirmed. Read the marking printed on a DDR3 chip on the board and decode it with Micron's FBGA
    marking decoder. `MT41J128M16HA-15E` confirms D18. `MT41K128M16JT-125` means D18 is reverted: stop and rebuild with
    that part before trusting any DDR result.
 7. **Frames with XSDB only (step 4.2a).** No ARM program is involved. Each run programs the bitstream, initialises the
