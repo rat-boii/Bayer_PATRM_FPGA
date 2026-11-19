@@ -624,8 +624,9 @@ The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are
 shared in [results/hw/rev D](results/hw/rev%20D/README.md), together with build
 reports, checksums, reproduction instructions and hardware-test screenshots.
 Use the explicit Rev D file paths in that README; the default build and load
-configuration remains Rev C. The local `results/hw/` parent reports reflect a
-Vivado 2025.2 rebuild; the earlier 2026.1 reports remain in Git history.
+configuration remains Rev C. The `results/hw/` parent reports retain the
+team's original Vivado 2026.1 Rev C reference results. The temporary Rev D
+Vivado 2025.2 reports are kept only in `results/hw/rev D/`.
 
 On 19 November 2026, Rev D bring-up passed and ten successive JTAG DDR tests
 each matched 48/48 words with fresh data in the same 192-byte region, without

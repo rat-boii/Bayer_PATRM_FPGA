@@ -1,14 +1,14 @@
-Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
----------------------------------------------------------------------------------------------------------------------------------------------
-| Tool Version : Vivado v.2025.2 (win64) Build 6299465 Fri Nov 14 19:35:11 GMT 2025
-| Date         : Thu Nov 19 17:45:56 2026
-| Host         : LAPTOP-QA0271O4 running 64-bit major release  (build 9200)
-| Command      : report_utilization -hierarchical -file C:/Windows/System32/Bayer_PATRM_FPGA/results/hw/utilization_hier.rpt
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+----------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2026.1 (win64) Build 6511674 Tue Jun 16 11:02:23 MDT 2026
+| Date         : Wed Nov 18 17:30:51 2026
+| Host         : DESKTOP-7C4TCLC running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -file F:/BITS_Pilani/SEM_1/Reconfigurable_Computing/Project/results/hw/utilization_hier.rpt
 | Design       : system_wrapper
 | Device       : xc7z020clg484-1
 | Speed File   : -1
 | Design State : Routed
----------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------
 
 Utilization Design Information
 
@@ -24,32 +24,32 @@ Table of Contents
 +--------------------------------------------------+---------------------------------------------------------------------------------------------+------------+------------+---------+------+------+--------+--------+------------+
 | system_wrapper                                   |                                                                                       (top) |       2670 |       2359 |     232 |   79 | 3934 |      8 |      0 |         17 |
 |   system_i                                       |                                                                                      system |       2670 |       2359 |     232 |   79 | 3934 |      8 |      0 |         17 |
-|     patrm_0                                      |                                                                            system_patrm_0_0 |       2295 |       2044 |     232 |   19 | 3475 |      8 |      0 |         17 |
-|       inst                                       |                                                                  system_patrm_0_0_patrm_top |       2295 |       2044 |     232 |   19 | 3475 |      8 |      0 |         17 |
+|     patrm_0                                      |                                                                            system_patrm_0_0 |       2299 |       2048 |     232 |   19 | 3475 |      8 |      0 |         17 |
+|       inst                                       |                                                                  system_patrm_0_0_patrm_top |       2299 |       2048 |     232 |   19 | 3475 |      8 |      0 |         17 |
 |         u_buf                                    |                                                                   system_patrm_0_0_line_buf |        128 |        128 |       0 |    0 |    0 |      8 |      0 |          0 |
 |         u_coord                                  |                                                                  system_patrm_0_0_coord_gen |        268 |        210 |      58 |    0 |  352 |      0 |      0 |          8 |
 |         u_ctrl                                   |                                                                   system_patrm_0_0_ctrl_fsm |         72 |         72 |       0 |    0 |  157 |      0 |      0 |          0 |
 |         u_fetch                                  |                                                                system_patrm_0_0_pixel_fetch |        100 |        100 |       0 |    0 |  229 |      0 |      0 |          0 |
-|         u_ofifo                                  |                                                                   system_patrm_0_0_out_fifo |        129 |         43 |      86 |    0 |   78 |      0 |      0 |          0 |
-|         u_planner                                |                                                              system_patrm_0_0_block_planner |        561 |        497 |      64 |    0 |  812 |      0 |      0 |          0 |
-|         u_prefetch                               |                                                              system_patrm_0_0_prefetch_ctrl |        487 |        463 |       6 |   18 |  859 |      0 |      0 |          2 |
-|         u_rd                                     |                                                              system_patrm_0_0_axi_rd_master |         86 |         72 |      14 |    0 |  191 |      0 |      0 |          0 |
-|         u_regs                                   |                                                                  system_patrm_0_0_axil_regs |        397 |        397 |       0 |    0 |  596 |      0 |      0 |          0 |
-|         u_wr                                     |                                                              system_patrm_0_0_axi_wr_master |         98 |         94 |       4 |    0 |  196 |      0 |      0 |          0 |
-|     axi_gp0                                      |                                                                            system_axi_gp0_0 |        358 |        299 |       0 |   59 |  426 |      0 |      0 |          0 |
-|       s00_couplers                               |                                                                     s00_couplers_imp_DBL2CY |        358 |        299 |       0 |   59 |  426 |      0 |      0 |          0 |
-|         auto_pc                                  |                                                                system_axi_gp0_imp_auto_pc_0 |        358 |        299 |       0 |   59 |  426 |      0 |      0 |          0 |
-|           inst                                   |          system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_axi_protocol_converter |        358 |        299 |       0 |   59 |  426 |      0 |      0 |          0 |
-|             gen_axilite.gen_b2s_conv.axilite_b2s |                             system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s |        358 |        299 |       0 |   59 |  426 |      0 |      0 |          0 |
-|               WR.aw_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_aw_channel |         71 |         71 |       0 |    0 |   74 |      0 |      0 |          0 |
-|                 cmd_translator_0                 |              system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_cmd_translator |         31 |         31 |       0 |    0 |   56 |      0 |      0 |          0 |
-|               RD.ar_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_ar_channel |         62 |         62 |       0 |    0 |   70 |      0 |      0 |          0 |
-|                 cmd_translator_0                 |            system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_cmd_translator_1 |         30 |         30 |       0 |    0 |   56 |      0 |      0 |          0 |
-|               RD.r_channel_0                     |                   system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_r_channel |         59 |         14 |       0 |   45 |   24 |      0 |      0 |          0 |
-|               SI_REG                             |                  system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_36_axi_register_slice |        135 |        135 |       0 |    0 |  240 |      0 |      0 |          0 |
-|                 ar.ar_pipe                       |                 system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice |         46 |         46 |       0 |    0 |   58 |      0 |      0 |          0 |
-|                 aw.aw_pipe                       |               system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice_0 |         52 |         52 |       0 |    0 |   60 |      0 |      0 |          0 |
-|                 r.r_pipe                         | system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice__parameterized2 |         27 |         27 |       0 |    0 |   92 |      0 |      0 |          0 |
+|         u_ofifo                                  |                                                                   system_patrm_0_0_out_fifo |        130 |         44 |      86 |    0 |   78 |      0 |      0 |          0 |
+|         u_planner                                |                                                              system_patrm_0_0_block_planner |        562 |        498 |      64 |    0 |  812 |      0 |      0 |          0 |
+|         u_prefetch                               |                                                              system_patrm_0_0_prefetch_ctrl |        486 |        462 |       6 |   18 |  859 |      0 |      0 |          2 |
+|         u_rd                                     |                                                              system_patrm_0_0_axi_rd_master |         89 |         75 |      14 |    0 |  191 |      0 |      0 |          0 |
+|         u_regs                                   |                                                                  system_patrm_0_0_axil_regs |        396 |        396 |       0 |    0 |  596 |      0 |      0 |          0 |
+|         u_wr                                     |                                                              system_patrm_0_0_axi_wr_master |         99 |         95 |       4 |    0 |  196 |      0 |      0 |          0 |
+|     axi_gp0                                      |                                                                            system_axi_gp0_0 |        354 |        295 |       0 |   59 |  426 |      0 |      0 |          0 |
+|       s00_couplers                               |                                                                     s00_couplers_imp_DBL2CY |        354 |        295 |       0 |   59 |  426 |      0 |      0 |          0 |
+|         auto_pc                                  |                                                                system_axi_gp0_imp_auto_pc_0 |        354 |        295 |       0 |   59 |  426 |      0 |      0 |          0 |
+|           inst                                   |          system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_axi_protocol_converter |        354 |        295 |       0 |   59 |  426 |      0 |      0 |          0 |
+|             gen_axilite.gen_b2s_conv.axilite_b2s |                             system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s |        354 |        295 |       0 |   59 |  426 |      0 |      0 |          0 |
+|               WR.aw_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_aw_channel |         70 |         70 |       0 |    0 |   74 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |              system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_cmd_translator |         31 |         31 |       0 |    0 |   56 |      0 |      0 |          0 |
+|               RD.ar_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_ar_channel |         59 |         59 |       0 |    0 |   70 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |            system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_cmd_translator_1 |         31 |         31 |       0 |    0 |   56 |      0 |      0 |          0 |
+|               RD.r_channel_0                     |                   system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_r_channel |         59 |         14 |       0 |   45 |   24 |      0 |      0 |          0 |
+|               SI_REG                             |                  system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axi_register_slice |        137 |        137 |       0 |    0 |  240 |      0 |      0 |          0 |
+|                 ar.ar_pipe                       |                 system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice |         48 |         48 |       0 |    0 |   58 |      0 |      0 |          0 |
+|                 aw.aw_pipe                       |               system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice_0 |         52 |         52 |       0 |    0 |   60 |      0 |      0 |          0 |
+|                 r.r_pipe                         | system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice__parameterized2 |         27 |         27 |       0 |    0 |   92 |      0 |      0 |          0 |
 +--------------------------------------------------+---------------------------------------------------------------------------------------------+------------+------------+---------+------+------+--------+--------+------------+
 * Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
 
