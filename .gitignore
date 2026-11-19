@@ -62,3 +62,13 @@ data/vectors/
 
 # Team tracker document (kept out of git)
 docs/*Tracker*.docx
+
+# Shared, verified temporary Rev D bundle (other generated builds stay ignored)
+!results/hw/rev D/*.bit
+!results/hw/rev D/*.xsa
+!results/hw/rev D/*.elf
+!results/hw/rev D/hardware_build.log
+!results/hw/rev D/software_build.log
+
+# Vivado runtime profiling output
+dfx_runtime.txt

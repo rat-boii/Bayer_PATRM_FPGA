@@ -1,0 +1,133 @@
+{
+  "board": "ZedBoard Rev D",
+  "ddr_part": "MT41K128M16 JT-125",
+  "tools": {
+    "vivado": "2025.2",
+    "vitis": "2025.2",
+    "arm_gcc": "15.3.Rel2"
+  },
+  "hardware_tested": true,
+  "original_files_verified_unchanged": 17,
+  "xsa_embedded_bitstream_matches": true,
+  "files": {
+    ".gitattributes": {
+      "bytes": 9,
+      "sha256": "8b9c3028d6467ff3be7c793141927841d70f47f52d0590677438f488ca154992"
+    },
+    "address_map.txt": {
+      "bytes": 460,
+      "sha256": "32859569986358cd3e1b2719f048db126398b33a7fd8cd21d0421afe933903e4"
+    },
+    "bringup.elf": {
+      "bytes": 167396,
+      "sha256": "50f4e218158589ffd74f84c8590c10d9ccbea5813e6ea5b331a4913229974d65"
+    },
+    "build_recipe.md": {
+      "bytes": 2098,
+      "sha256": "ebe214429b96bff3be4ca5d741ac4ded243bd08d73c54dd11b23807196248c35"
+    },
+    "clock_interaction.rpt": {
+      "bytes": 1452,
+      "sha256": "1dbab7613e4e857f3c945ff7747bf17bc37dc0cc460b09ea0b3f065d9b101ff2"
+    },
+    "drc.rpt": {
+      "bytes": 12488,
+      "sha256": "6e197a306ef2adf2cd371b2d163a440206d901f45d6408cefbe8eb99f1b6644c"
+    },
+    "evidence/bringup_pass.png": {
+      "bytes": 24260,
+      "sha256": "658171d544f70c8d62a7720cdd94312872ada84a8c33425901555054136ee8ee"
+    },
+    "evidence/ddr_48_words_10_rounds.png": {
+      "bytes": 31749,
+      "sha256": "36f2b67bb853ea7b0bea9c5d2f28e5ea56b08357f7c323276a25ab1d4c061d30"
+    },
+    "hardware_build.log": {
+      "bytes": 118269,
+      "sha256": "05c0ae6c8d25ce73dabf72b82780d4b4825b95527c0ea07c483af28587b60fc7"
+    },
+    "methodology.rpt": {
+      "bytes": 1355,
+      "sha256": "991c31393e309de64aaac445e747927ef7b9b9c3c6ac7f84baf218a7d6dde916"
+    },
+    "patrm_gray.bit": {
+      "bytes": 4045690,
+      "sha256": "b1c536b0c64a870335542d3548432fd5e14138177bb7a56ebf72d46c6f812b7a"
+    },
+    "patrm_gray.xsa": {
+      "bytes": 529296,
+      "sha256": "38008de3fb96915e30d6480b83e2d324bc829464e77c84f72ca966ea376748c2"
+    },
+    "power.rpt": {
+      "bytes": 10182,
+      "sha256": "b97ec5b7c93160a29a95d794d44dd86bbdbf14f42206241e67b89366e3082f02"
+    },
+    "ps7_init.tcl": {
+      "bytes": 35921,
+      "sha256": "74ba1c5e868affba7f83032ed29cf96a0fe0b53d0461e1b199d41c67041d4eb8"
+    },
+    "README.md": {
+      "bytes": 4592,
+      "sha256": "cee7b83e8fa4003851add10febf48fad50b171171635ef5bb5c936532b71aebb"
+    },
+    "software_build.log": {
+      "bytes": 18557,
+      "sha256": "4ff4dd55781a98d772d2c64bb275fba2cca2c94d9807237c335c6d84b5b14937"
+    },
+    "summary.txt": {
+      "bytes": 4267,
+      "sha256": "6ea58b2ee381e463d2d41bbe756954ab913216bafcc824f2bfdd172763975100"
+    },
+    "timing_summary.rpt": {
+      "bytes": 111349,
+      "sha256": "ce3ed416d8d48a52f522ea033b41e2936dc213d2f07041e9b59e1051995c667c"
+    },
+    "utilization.rpt": {
+      "bytes": 11788,
+      "sha256": "ad5079249130c09e384fa0b3d9fcf678adc6018f1be871c4ed5cc8b2cf48f96e"
+    },
+    "utilization_hier.rpt": {
+      "bytes": 8429,
+      "sha256": "8863da7ec55fa7ac9774228678061cf2828b7270ed4b9cf68b55e3a1363b858a"
+    },
+    "worst10_paths.rpt": {
+      "bytes": 68197,
+      "sha256": "2ee55f4ff0add5db6d43ce511e1a09d6e6e4c47460b24e5981ab120538cdcd3b"
+    }
+  },
+  "hardware_validation": {
+    "date": "2026-11-19",
+    "bringup": {
+      "result": "PASS",
+      "build_id": "0x00401001",
+      "status": "0x00000000"
+    },
+    "ddr": {
+      "result": "PASS",
+      "path": "XSDB/JTAG debugger-to-DDR",
+      "rounds": 10,
+      "words_per_round": 48,
+      "word_bits": 32,
+      "base_address": "0x10000000",
+      "last_byte": "0x100000BF",
+      "distinct_bytes": 192,
+      "word_comparisons": 480,
+      "mismatches": 0,
+      "reset_between_rounds": false,
+      "arm_core_halted_during_loop": true,
+      "arm_core_resumed_after_test": true
+    },
+    "evidence": [
+      "evidence/bringup_pass.png",
+      "evidence/ddr_48_words_10_rounds.png"
+    ],
+    "not_tested": [
+      "full DDR coverage",
+      "soft-reset recovery",
+      "retention",
+      "bandwidth",
+      "PATRM PL-to-DDR AXI path",
+      "image processing"
+    ]
+  }
+}

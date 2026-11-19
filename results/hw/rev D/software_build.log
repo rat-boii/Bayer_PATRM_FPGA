@@ -1,0 +1,219 @@
+
+****** Xilinx Vitis Development Environment
+****** Vitis v2025.2 (64-bit)
+****** SW Build 6295257 on 2025-11-13-08:29:30
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+Vitis Server started on port '63382'.
+Platform patrm_gray_plat creation started.
+SDT generated successfully.
+[INFO]: Validating inputs
+[INFO]: Starting domain creation
+[INFO]: Generating Domain-specific DTS for ps7_cortexa9_0
+[INFO]: Generating required metadata from domain specific DT
+[INFO]: Successfully created Domain at C:\Users\tusha\Projects\Bayer_PATRM_FPGA\build\rd\build\vitis\bringup\patrm_gray_plat\ps7_cortexa9_0\standalone_a9_0\bsp
+Domain standalone_a9_0 added successfully.
+Platform creation finished successfully.
+Platform Quick Build initiated.
+Initiating build for the patrm_gray_plat component.
+Generating Export directory
+Generated platform metadata for creating application(s) based on platform patrm_gray_plat.
+Initiating build for the patrm_gray_plat component.
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/build_configs/gen_bsp
+[INFO]: Building BSP
+[1/145] Building C object libsrc/coresightps_dcc/src/CMakeFiles/coresightps_dcc.dir/xcoresightpsdcc.c.obj
+[2/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg_g.c.obj
+[3/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg_hw.c.obj
+[4/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg_selftest.c.obj
+[5/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg_intr.c.obj
+[6/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg_sinit.c.obj
+[7/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_hw.c.obj
+[8/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops_g.c.obj
+[9/145] Building C object libsrc/devcfg/src/CMakeFiles/devcfg.dir/xdevcfg.c.obj
+[10/145] Building C object libsrc/dmaps/src/CMakeFiles/dmaps.dir/xdmaps_g.c.obj
+[11/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_sinit.c.obj
+[12/145] Building C object libsrc/dmaps/src/CMakeFiles/dmaps.dir/xdmaps_sinit.c.obj
+C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/dmaps/src/xdmaps_sinit.c: In function 'XDmaPs_GetDrvIndex':
+C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/dmaps/src/xdmaps_sinit.c:99:32: warning: unused parameter 'InstancePtr' [-Wunused-parameter]
+   99 | u32 XDmaPs_GetDrvIndex(XDmaPs *InstancePtr, UINTPTR BaseAddress)
+      |                        ~~~~~~~~^~~~~~~~~~~
+[13/145] Building C object libsrc/dmaps/src/CMakeFiles/dmaps.dir/xdmaps_hw.c.obj
+[14/145] Building C object libsrc/dmaps/src/CMakeFiles/dmaps.dir/xdmaps_selftest.c.obj
+[15/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_g.c.obj
+C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/emacps/src/xemacps_g.c:16:9: warning: missing initializer for field 'S1GDiv0' of 'XEmacPs_Config' [-Wmissing-field-initializers]
+   16 |         },
+      |         ^
+In file included from C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/emacps/src/xemacps_g.c:1:
+C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_0/bsp/libsrc/emacps/src/xemacps.h:540:13: note: 'S1GDiv0' declared here
+  540 |         u16 S1GDiv0;    /**< 1Gbps Clock Divider 0 */
+      |             ^~~~~~~
+[16/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_pcs.c.obj
+[17/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_intr.c.obj
+[18/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops_selftest.c.obj
+[19/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps.c.obj
+[20/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops_hw.c.obj
+[21/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops_sinit.c.obj
+[22/145] Linking C static library libsrc\coresightps_dcc\src\libcoresightps_dcc.a
+[23/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_bdring.c.obj
+[24/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips_g.c.obj
+[25/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops.c.obj
+[26/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic_sinit.c.obj
+[27/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips_selftest.c.obj
+[28/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips_sinit.c.obj
+[29/145] Building C object libsrc/emacps/src/CMakeFiles/emacps.dir/xemacps_control.c.obj
+[30/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips_hw.c.obj
+[31/145] Building C object libsrc/dmaps/src/CMakeFiles/dmaps.dir/xdmaps.c.obj
+[32/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic_g.c.obj
+[33/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips_options.c.obj
+[34/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic_intr.c.obj
+[35/145] Building C object libsrc/scutimer/src/CMakeFiles/scutimer.dir/xscutimer_g.c.obj
+[36/145] Linking C static library libsrc\devcfg\src\libdevcfg.a
+[37/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic_hw.c.obj
+[38/145] Building C object libsrc/gpiops/src/CMakeFiles/gpiops.dir/xgpiops_intr.c.obj
+[39/145] Building C object libsrc/scutimer/src/CMakeFiles/scutimer.dir/xscutimer_selftest.c.obj
+[40/145] Building C object libsrc/scutimer/src/CMakeFiles/scutimer.dir/xscutimer_sinit.c.obj
+[41/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic_selftest.c.obj
+[42/145] Building C object libsrc/qspips/src/CMakeFiles/qspips.dir/xqspips.c.obj
+[43/145] Building C object libsrc/scutimer/src/CMakeFiles/scutimer.dir/xscutimer.c.obj
+[44/145] Building C object libsrc/scuwdt/src/CMakeFiles/scuwdt.dir/xscuwdt.c.obj
+[45/145] ========== BSP Build Information ==========
+Compiler PATH: C:/ArmGNU/bin/arm-none-eabi-gcc.exe
+Compiler FLAGS:  -DSDT -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard  -MMD -MP -specs=C:/Users/tusha/
+Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/ps7_cortexa9_0/standalone_a9_
+0/bsp/Xilinx.spec -IC:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray
+_plat/ps7_cortexa9_0/standalone_a9_0/bsp/include  -O2 -g -Wall -Wextra -fno-tree-loop-distribute-pat
+terns -DNDEBUG
+===========================================
+** The above flags are BSP level flags. Increase verbosity to see component specific flags **
+===========================================
+[46/145] Building C object libsrc/scuwdt/src/CMakeFiles/scuwdt.dir/xscuwdt_sinit.c.obj
+[47/145] Building C object libsrc/scugic/src/CMakeFiles/scugic.dir/xscugic.c.obj
+[48/145] Linking C static library libsrc\dmaps\src\libdmaps.a
+[49/145] Building C object libsrc/scuwdt/src/CMakeFiles/scuwdt.dir/xscuwdt_g.c.obj
+[50/145] Building C object libsrc/scuwdt/src/CMakeFiles/scuwdt.dir/xscuwdt_selftest.c.obj
+[51/145] Linking C static library libsrc\emacps\src\libemacps.a
+[52/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps_sinit.c.obj
+[53/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps_options.c.obj
+[54/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps_g.c.obj
+[55/145] Building C object libsrc/ttcps/src/CMakeFiles/ttcps.dir/xttcps_options.c.obj
+[56/145] Building C object libsrc/ttcps/src/CMakeFiles/ttcps.dir/xttcps_g.c.obj
+[57/145] Building C object libsrc/ttcps/src/CMakeFiles/ttcps.dir/xttcps_selftest.c.obj
+[58/145] Building C object libsrc/ttcps/src/CMakeFiles/ttcps.dir/xttcps.c.obj
+[59/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps.c.obj
+[60/145] Building C object libsrc/ttcps/src/CMakeFiles/ttcps.dir/xttcps_sinit.c.obj
+[61/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps_host.c.obj
+[62/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_hw.c.obj
+[63/145] Linking C static library libsrc\gpiops\src\libgpiops.a
+[64/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_g.c.obj
+[65/145] Building C object libsrc/sdps/src/CMakeFiles/sdps.dir/xsdps_card.c.obj
+[66/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_intr.c.obj
+[67/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_sinit.c.obj
+[68/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_selftest.c.obj
+[69/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps_options.c.obj
+[70/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps_g.c.obj
+[71/145] Linking C static library libsrc\qspips\src\libqspips.a
+[72/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps.c.obj
+[73/145] Linking C static library libsrc\scuwdt\src\libscuwdt.a
+[74/145] Building C object libsrc/uartps/src/CMakeFiles/uartps.dir/xuartps.c.obj
+[75/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps_hw.c.obj[INFO]: Copying headers and built archives
+[INFO]: Successfully built BSP. Generated libxil.a, libxilstandalone.a, libxiltimer.a
+[76/145] Linking C static library libsrc\scutimer\src\libscutimer.a
+[77/145] Linking C static library libsrc\scugic\src\libscugic.a
+[78/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps_sinit.c.obj
+[79/145] Building C object libsrc/xadcps/src/CMakeFiles/xadcps.dir/xadcps_g.c.obj
+[80/145] Building C object libsrc/xadcps/src/CMakeFiles/xadcps.dir/xadcps_sinit.c.obj
+[81/145] Building C object libsrc/xadcps/src/CMakeFiles/xadcps.dir/xadcps_selftest.c.obj
+[82/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps_intr.c.obj
+[83/145] Building C object libsrc/xadcps/src/CMakeFiles/xadcps.dir/xadcps_intr.c.obj
+[84/145] Linking C static library libsrc\ttcps\src\libttcps.a
+[85/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/inbyte.c.obj
+[86/145] Building C object libsrc/usbps/src/CMakeFiles/usbps.dir/xusbps_endpoint.c.obj
+[87/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/outbyte.c.obj
+[88/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/print.c.obj
+[89/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_assert.c.obj
+[90/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xpm_init.c.obj
+[91/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_testcache.c.obj
+[92/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_mem.c.obj
+[93/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_testio.c.obj
+[94/145] Linking C static library libsrc\sdps\src\libsdps.a
+[95/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/xcortexa9_g.c.obj
+[96/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_testmem.c.obj
+[97/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xplatform_info.c.obj
+[98/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/unlink.c.obj
+[99/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/cpputest_time.c.obj
+[100/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_util.c.obj
+[101/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/isatty.c.obj
+[102/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/read.c.obj
+[103/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/sbrk.c.obj
+[104/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_printf.c.obj
+[105/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/_exit.c.obj
+[106/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/fcntl.c.obj
+[107/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/_sbrk.c.obj
+[108/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/intr/xinterrupt_wrap.c.obj
+[109/145] Linking C static library libsrc\uartps\src\libuartps.a
+[110/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/write.c.obj
+[111/145] Building C object libsrc/xadcps/src/CMakeFiles/xadcps.dir/xadcps.c.obj
+[112/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/getpid.c.obj
+[113/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/close.c.obj
+[114/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/fstat.c.obj
+[115/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/errno.c.obj
+[116/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/lseek.c.obj
+[117/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/common/xil_sutil.c.obj
+[118/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/kill.c.obj
+[119/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/open.c.obj
+[120/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/abort.c.obj
+[121/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/getentropy.c.obj
+[122/145] Linking C static library libsrc\usbps\src\libusbps.a
+[123/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/gettimeofday.c.obj
+[124/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/_open.c.obj
+[125/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/putnum.c.obj
+[126/145] Building ASM object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/gcc/asm_vectors.S.obj
+[127/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/xil_exception.c.obj
+[128/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/vectors.c.obj
+[129/145] Building ASM object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/gcc/boot.S.obj
+[130/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/xil_spinlock.c.obj
+[131/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/gcc/time.c.obj
+[132/145] Building ASM object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/gcc/xil-crt0.S.obj
+[133/145] Building ASM object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/gcc/cpu_init.S.obj
+[134/145] Building ASM object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/gcc/translation_table.S.obj
+[135/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/common/xpm_counter.c.obj
+[136/145] Linking C static library libsrc\xadcps\src\libxadcps.a
+[137/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/xl2cc_counter.c.obj
+[138/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/xil_mmu.c.obj
+[139/145] Building C object libsrc/xiltimer/src/CMakeFiles/xiltimer.dir/core/default_timer/globaltimer_sleep_zynq.c.obj
+[140/145] Building C object libsrc/xiltimer/src/CMakeFiles/xiltimer.dir/xiltimer.c.obj
+[141/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/xil_misc_psreset_api.c.obj
+[142/145] Linking C static library libsrc\xiltimer\src\libxiltimer.a
+[143/145] Archiving C static library libsrc/build_configs/gen_bsp/libxil.a
+[144/145] Building C object libsrc/standalone/src/CMakeFiles/xilstandalone.dir/arm/cortexa9/xil_cache.c.obj
+[145/145] Linking C static library libsrc\standalone\src\libxilstandalone.a
+Generating Boot ELFs
+Generating Export directory
+Platform Build Finished successfully.
+Initiating build for the bringup component.
+Command: cmd.exe /C set CC= && set CXX= && empyro.bat build_app -s C:\Users\tusha\Projects\Bayer_PATRM_FPGA\build\rd\build\vitis\bringup\bringup\src -b C:\Users\tusha\Projects\Bayer_PATRM_FPGA\build\rd\build\vitis\bringup\bringup\build
+[INFO]: Starting Application build process
+[INFO]: Building Application
+[1/3] ==========Application Build Information ==========
+Compiler Flags:  -DSDT -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard  -MMD -MP -specs=C:/Users/tusha/
+Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_plat/export/patrm_gray_plat/sw/sta
+ndalone_a9_0/Xilinx.spec -IC:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/pat
+rm_gray_plat/export/patrm_gray_plat/sw/standalone_a9_0/include -Wall -Wextra      -O0  -g3     -U__c
+lang__  
+Linker Flags:       -Wl,-T -Wl,"C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringu
+p/bringup/src/lscript.ld" -L"C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/b
+ringup/src/" -L"C:/Users/tusha/Projects/Bayer_PATRM_FPGA/build/rd/build/vitis/bringup/patrm_gray_pla
+t/export/patrm_gray_plat/sw/standalone_a9_0/lib/" -L"/" -Wl,--start-group,-lxilstandalone,-lxiltimer
+,-lxil,-lgcc,-lc -Wl,--end-group
+===========================================
+[2/3] Building C object CMakeFiles/bringup.elf.dir/main.c.obj
+[3/3] Linking C executable bringup.elf
+C:/ArmGNU/bin/../lib/gcc/arm-none-eabi/15.3.1/../../../../arm-none-eabi/bin/ld.exe: warning: bringup.elf has a LOAD segment with RWX permissions
+   text	   data	    bss	    dec	    hex	filename
+  28776	   1652	  23388	  53816	   d238	bringup.elf
+Build Finished successfully
+Shutting down Vitis server running on port '63382'
+BRINGUP BUILD OK: C:\Users\tusha\Projects\Bayer_PATRM_FPGA\build\rd\results\hw\bringup.elf (167396 bytes)

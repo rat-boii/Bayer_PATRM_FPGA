@@ -617,3 +617,23 @@ Run the steps in this order.
    - `no result record`, with nothing on the UART: the application did not start. Check the `--load` output and step 3.
    - `no result for job N`: the application did not answer. The UART shows how far it got.
    - `still working on job N`: an earlier job has not finished. Use `--load` to start again.
+
+## Temporary Rev D board: verified build and 48-word DDR test
+
+The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are
+shared in [results/hw/rev D](results/hw/rev%20D/README.md), together with build
+reports, checksums, reproduction instructions and hardware-test screenshots.
+Use the explicit Rev D file paths in that README; the default build and load
+configuration remains Rev C. The local `results/hw/` parent reports reflect a
+Vivado 2025.2 rebuild; the earlier 2026.1 reports remain in Git history.
+
+On 19 November 2026, Rev D bring-up passed and ten successive JTAG DDR tests
+each matched 48/48 words with fresh data in the same 192-byte region, without
+a reset between rounds. After initialization, run the portable test with:
+
+```powershell
+xsdb scripts/board/repeat48.tcl 10
+```
+
+This checks debugger-to-DDR access, not full DDR coverage, reset recovery or
+the accelerator's PL-to-DDR data path. The standalone PDF report is not in Git.
