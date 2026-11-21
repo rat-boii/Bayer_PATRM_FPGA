@@ -433,6 +433,7 @@ check that a known signal (for example `hp0_arvalid`) behaves as expected before
 | `xsdb scripts/board/get_image.tcl [--dry-run] <address> <bytes> <file>` | DDR -> raw file, prints s/MB |
 | `python scripts/board/run_frame.py <image> <transform> <W> <H> [--dry-run] [--bit f] [--init f] [--no-program] [--timeout s]` | One frame with XSDB only (no ARM program), compared with the model (step 4.2a) |
 | `python scripts/board/run_job.py <image> <transform> <W> <H> [--load] [--n N] [--poll] [--dry-run] [--timeout-ms t] [--bit f] [--init f] [--elf f]` | One job through the ARM application, compared with the model, with timings (step 4.2) |
+| `python scripts/board/run_all.py --rev c\|d [--sizes WxH,...] [--transforms a,b] [--images a,b] [--n N] [--dry-run]` | Full grayscale set through the ARM application (step 4.3): default all 11 transforms at 480x272, 800x480, 2448x2095; one run_job.py per case, the first with `--load`; CSV and summary in `results/board/run_all_rev<r>.*`; last line `RUN_ALL PASS` |
 
 `--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
 even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
