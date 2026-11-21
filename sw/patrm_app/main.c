@@ -152,24 +152,27 @@ static patrm_rc_t job_from_desc(const patrm_job_desc_t *d, patrm_job_t *job)
     return PATRM_RC_OK;
 }
 
+/* xil_printf in the 2026.1 standalone BSP is built with SUPPORT_64BIT_PRINT: on the Cortex-A9 a single 'l' (%lu, %lx)
+ * reads a 64-bit argument. Every value printed here is 32 bits, so the formats are %u / %x / %d with unsigned int
+ * arguments; a stray 'l' shifts all following arguments (it made %s read a garbage pointer: data abort in strlen). */
 static void print_ns(const char *name, uint32_t min, uint32_t avg, uint32_t max)
 {
-    xil_printf(" %s=%lu.%03lu/%lu.%03lu/%lu.%03lu", name,
-               (unsigned long)(min / 1000U), (unsigned long)(min % 1000U),
-               (unsigned long)(avg / 1000U), (unsigned long)(avg % 1000U),
-               (unsigned long)(max / 1000U), (unsigned long)(max % 1000U));
+    xil_printf(" %s=%u.%03u/%u.%03u/%u.%03u", name,
+               (unsigned int)(min / 1000U), (unsigned int)(min % 1000U),
+               (unsigned int)(avg / 1000U), (unsigned int)(avg % 1000U),
+               (unsigned int)(max / 1000U), (unsigned int)(max % 1000U));
 }
 
 static void print_result(const patrm_job_result_t *r)
 {
     uint32_t code = (r->status & PATRM_STATUS_ERR_CODE_MASK) >> PATRM_STATUS_ERR_CODE_SHIFT;
 
-    xil_printf("RESULT seq=%lu rc=%s status=0x%08lx err=%s runs=%lu cycles=%lu bytes_rd=%lu bytes_wr=%lu "
-               "rd_stall=%lu wr_stall=%lu",
-               (unsigned long)r->seq, patrm_rc_name((patrm_rc_t)r->rc), (unsigned long)r->status,
-               patrm_err_name(code), (unsigned long)r->runs, (unsigned long)r->cycles,
-               (unsigned long)r->bytes_rd, (unsigned long)r->bytes_wr,
-               (unsigned long)r->rd_stall, (unsigned long)r->wr_stall);
+    xil_printf("RESULT seq=%u rc=%s status=0x%08x err=%s runs=%u cycles=%u bytes_rd=%u bytes_wr=%u "
+               "rd_stall=%u wr_stall=%u",
+               (unsigned int)r->seq, patrm_rc_name((patrm_rc_t)r->rc), (unsigned int)r->status,
+               patrm_err_name(code), (unsigned int)r->runs, (unsigned int)r->cycles,
+               (unsigned int)r->bytes_rd, (unsigned int)r->bytes_wr,
+               (unsigned int)r->rd_stall, (unsigned int)r->wr_stall);
     print_ns("engine_us", r->engine_ns_min, r->engine_ns_avg, r->engine_ns_max);
     print_ns("total_us", r->total_ns_min, r->total_ns_avg, r->total_ns_max);
     xil_printf("\r\n");
@@ -180,12 +183,12 @@ static void print_irq_diagnosis(uint32_t status)
     patrm_irq_state_t s = dev.irq_at_timeout;
     uint32_t ctrl = patrm_ctrl(&dev);
 
-    xil_printf("NO INTERRUPT: STATUS=0x%08lx (DONE set), CTRL=0x%08lx IRQ_EN=%lu. GIC ID 61: enabled=%d pending=%d "
-               "trigger=%lu (1 = level) priority=0x%02lx; handled so far=%lu, spurious=%lu\r\n",
-               (unsigned long)status, (unsigned long)ctrl,
-               (unsigned long)((ctrl & PATRM_CTRL_IRQ_EN_MASK) >> PATRM_CTRL_IRQ_EN_SHIFT),
-               s.enabled ? 1 : 0, s.pending ? 1 : 0, (unsigned long)s.trigger, (unsigned long)s.priority,
-               (unsigned long)dev.irq_count, (unsigned long)dev.irq_spurious);
+    xil_printf("NO INTERRUPT: STATUS=0x%08x (DONE set), CTRL=0x%08x IRQ_EN=%u. GIC ID 61: enabled=%d pending=%d "
+               "trigger=%u (1 = level) priority=0x%02x; handled so far=%u, spurious=%u\r\n",
+               (unsigned int)status, (unsigned int)ctrl,
+               (unsigned int)((ctrl & PATRM_CTRL_IRQ_EN_MASK) >> PATRM_CTRL_IRQ_EN_SHIFT),
+               s.enabled ? 1 : 0, s.pending ? 1 : 0, (unsigned int)s.trigger, (unsigned int)s.priority,
+               (unsigned int)dev.irq_count, (unsigned int)dev.irq_spurious);
 }
 
 static void run_job(const patrm_job_desc_t *d, patrm_job_result_t *r)
@@ -253,8 +256,8 @@ int main(void)
     if (rc == PATRM_RC_OK) {
         rc = patrm_irq_init(&dev);
     }
-    xil_printf("BUILD_ID 0x%08lx, init %s, global timer %lu Hz\r\n",
-               (unsigned long)dev.build_id, patrm_rc_name(rc), (unsigned long)patrm_timer_hz());
+    xil_printf("BUILD_ID 0x%08x, init %s, global timer %u Hz\r\n",
+               (unsigned int)dev.build_id, patrm_rc_name(rc), (unsigned int)patrm_timer_hz());
 
     /* A descriptor left in DDR by an earlier session must not run. */
     area->magic = 0U;

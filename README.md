@@ -486,8 +486,11 @@ permissions" message is switched off: it comes from AMD's linker script and mean
 The interrupt is programmed with trigger value `0x1` (active-high level, `XScuGic_SetPriorityTriggerType`), because the
 engine holds its output high until DONE is cleared. The handler clears DONE before it returns.
 
-Nothing in this step has run on hardware. In particular, `run_job.py` reads and writes DDR through the XSDB APU target while
-the ARM runs. That path can only be confirmed on the board.
+Verified on hardware on 2026-11-21 (ZedBoard Rev D, `results/hw/rev D` bitstream and ps7_init): all of step 8 below
+passes, with the interrupt and with `--poll`, including DDR access through the XSDB APU target while the ARM runs.
+`xil_printf` in the 2026.1 standalone BSP is built with `SUPPORT_64BIT_PRINT`, so on the Cortex-A9 a single `l` (`%lu`,
+`%lx`) reads a 64-bit argument. Print 32-bit values with `%u` / `%x` / `%d` and `unsigned int` arguments. A stray `%l`
+shifts every following argument (the first build crashed with a data abort in `strlen` on a garbage `%s` pointer).
 
 ## First lab session
 
