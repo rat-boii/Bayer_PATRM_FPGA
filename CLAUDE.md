@@ -144,8 +144,12 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
   Fallback if they cannot go in the Vivado install folder: keep them elsewhere and add
   `set_param board.repoPaths [list <folder>]` to %APPDATA%\Xilinx\Vivado\Vivado_init.tcl.
 
+## Decided 2026-11-22 (fixed; do not change without asking)
+- D19 Option A output writes: each plane pass writes straight into the final interleaved RGGB buffer with
+  WSTRB-masked 64-bit writes (only the bytes of its own plane enabled). No separate plane buffers, no interleave pass.
+
 ## Open decisions (proposed defaults; ask before relying on them)
-- Option A output writes (step 5.1). Proposal: WSTRB-masked writes into the interleaved buffer.
+- None at the moment.
 
 ## Repository layout
 model/ Python reference model and generators · spec/ regs.json and interface spec · rtl/ Verilog sources ·

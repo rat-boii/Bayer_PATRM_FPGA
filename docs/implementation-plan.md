@@ -30,8 +30,11 @@ Repo layout: model/ spec/ rtl/ tb/ vivado/ sw/ scripts/ data/ results/
 - D16 block ends at the first of: (a) source top row x0 changes, (b) BLOCK_LEN pixels, (c) a needed row's column span would exceed SPAN_MAX = 512 bytes; buffers never overflow, every D4-valid transform supported (speed varies). Closes "largest rotation/scale".
 - D17 (2026-11-15) no SystemVerilog unless completely necessary: RTL and testbenches are Verilog-2001 (.v only; xvlog and read_verilog without -sv; Verilog-2005 system functions accepted in plain Verilog mode such as $clog2 are fine). Vendor IP that is SystemVerilog inside (Zynq-7000 VIP, ILA) is allowed; our testbench around it stays Verilog. No AXI VIP: our own Verilog memory model. If SystemVerilog seems needed: stop and ask. Enforced by scripts/check_no_sv.py (run by sim.py).
 
+## Decided 2026-11-22 (step 5.1 input)
+- D19 Option A output: WSTRB-masked 64-bit writes straight into the interleaved RGGB buffer (only the plane's own bytes enabled); no plane buffers, no interleave pass.
+
 ## Open decisions (proposed defaults, not yet decided)
-- 5.1: Option A output via WSTRB-masked writes into interleaved buffer.
+- None at the moment.
 
 ## Steps (Where -> Produce -> Verify)
 Phase 0 Setup
