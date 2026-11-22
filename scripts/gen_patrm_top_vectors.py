@@ -1,5 +1,6 @@
-"""Case list and vectors for tb/tb_patrm_top.v (step 3.7). Every expected value comes from the Python model
-(model/patrm.py for the frames, model/memmodel.py for the read bytes and the burst counts).
+"""Case lists and vectors for tb/tb_patrm_top.v (step 3.7; Bayer Option A: step 5.2). Every expected value comes from
+the Python model (model/patrm.py and model/bayer.py for the frames, model/memmodel.py / model/bayer_a.py for the
+read bytes and the burst counts).
 
     python scripts/gen_patrm_top_vectors.py
 
@@ -7,7 +8,11 @@ Writes into data/vectors/patrm_top/ (not tracked; rerun this before the testbenc
 
   src_noise_<W>x<H>.hex      source image (seeded pseudo-random bytes), 64-bit little-endian words
   exp_noise_<tf>_<W>x<H>.hex expected output frame (patrm.warp_gray), same format
-  cases.txt                  one line per testbench case (CASE_HEADER), file names relative to data/vectors/
+  exp_bayerA_<tf>_<W>x<H>.hex expected Option A output mosaic (bayer.warp_bayer, checked against bayer_a.run_job)
+  cases.txt                  gray build (MODES 1): one line per testbench case (CASE_HEADER), file names relative to
+                             data/vectors/; mode 0 and T = 0 on every line
+  cases_bayer_a.txt          Option A build (MODES 3, tb compiled with --define TB_BAYER_A): Option A jobs in every
+                             group, plus gray jobs (groups a and g) to show that gray still works in that build
 
 Before writing, every frame is checked against the scalar implementation patrm.warp_gray_scalar on 2000 random
 pixels plus the four corners; identity / mirror_cols / mirror_rows must equal the (mirrored) input.
@@ -20,6 +25,7 @@ Groups = letters of the step 3.7 prompt (e = the counter checks, done in every c
   f 5  random memory timing
   g 6  frames back to back, aresetn in the middle of a frame followed by full frames
   h 7  speed table, 256x192
+mode: 0 gray, 1 Bayer Option A (t_* = T registers from bayer.plane_shifts, D12).
 op: 0 plain frame, 1 lock + W1C checks, 2 read SLVERR on burst arg, 3 write SLVERR on burst arg, 4 aresetn arg cycles
 after START, 5 START while busy, 6 the list of rejected starts (uses the case's size and transform as the good base).
 """
@@ -31,6 +37,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from model import bayer as BY                # noqa: E402
+from model import bayer_a as BA              # noqa: E402
 from model import memmodel as MM             # noqa: E402
 from model import patrm as P                 # noqa: E402
 from model.gen_images import SIM_SIZES       # noqa: E402
@@ -45,7 +53,8 @@ SEED = 37_000
 SPAN = MM.SPAN_MAX                           # build value of patrm_top
 G = {"a": 0, "b": 1, "c": 2, "d": 3, "f": 5, "g": 6, "h": 7}
 CASE_HEADER = ("group op name W H L b11 b12 b13 b21 b22 b23 lat_min lat_max ar_bp r_gap aw_bp w_bp b_lat_min b_lat_max "
-               "seed irq arg bytes_rd rd_bursts wr_bursts src_file exp_file")
+               "seed irq arg bytes_rd rd_bursts wr_bursts src_file exp_file mode t_r_x t_r_y t_gr_x t_gr_y t_gb_x t_gb_y "
+               "t_b_x t_b_y")
 MAX_PIXELS = 256 * 192                       # tb_patrm_top.v MAXW * 8
 
 
@@ -76,6 +85,26 @@ class Gen:
             self.srcs[key] = (a, f"{SUB}/{fn}")
         return self.srcs[key]
 
+    def exp_a(self, tf, W, H, L):
+        """Option A: expected mosaic file and (bytes_rd, rd_bursts, wr_bursts) for BLOCK_LEN L."""
+        a, _ = self.src(W, H)
+        b = self.b_of(tf, W, H)
+        key = ("A", tf, W, H)
+        if key not in self.exps:
+            e = BY.warp_bayer(a, W, H, b)
+            fn = f"exp_bayerA_{tf}_{W}x{H}.hex"
+            write_hex(OUT_DIR / fn, e.tobytes())
+            self.exps[key] = (f"{SUB}/{fn}", e)
+        pk = ("A", tf, W, H, L)
+        if pk not in self.preds:
+            out, cnt = BA.run_job(a, W, H, b, L, SPAN)
+            if not np.array_equal(out, self.exps[key][1]):
+                raise SystemExit(f"Option A {tf} {W}x{H}: bayer_a.run_job != bayer.warp_bayer")
+            if cnt["bytes_wr"] != 2 * W * H:
+                raise SystemExit(f"Option A {tf} {W}x{H}: BYTES_WR prediction")
+            self.preds[pk] = (cnt["bytes_rd"], cnt["rd_bursts"], cnt["wr_bursts"])
+        return self.exps[key][0], self.preds[pk]
+
     def exp(self, tf, W, H):
         key = (tf, W, H)
         if key not in self.exps:
@@ -104,14 +133,21 @@ class Gen:
         return self.preds[key]
 
     def add(self, group, tf, W, H, L=64, op=0, lat=(20, 20), ar_bp=0, r_gap=0, aw_bp=0, w_bp=0, b_lat=(20, 20),
-            seed=1, irq=1, arg=0):
+            seed=1, irq=1, arg=0, mode=0):
         b = self.b_of(tf, W, H)
         _, sf = self.src(W, H)
-        ef = self.exp(tf, W, H)
-        by, nb = self.pred(tf, W, H, L)
-        wb = MM.write_stats("gray", W, H)["write_bursts"]
+        if mode == 1:
+            ef, (by, nb, wb) = self.exp_a(tf, W, H, L)
+            T = BY.plane_shifts(b)
+            tv = [v for p in BY.PLANES for v in T[p]]
+        else:
+            ef = self.exp(tf, W, H)
+            by, nb = self.pred(tf, W, H, L)
+            wb = MM.write_stats("gray", W, H)["write_bursts"]
+            tv = [0] * 8
         self.cases.append(f"{G[group]} {op} {tf} {W} {H} {L} {' '.join(str(c) for c in b)} {lat[0]} {lat[1]} {ar_bp} "
-                          f"{r_gap} {aw_bp} {w_bp} {b_lat[0]} {b_lat[1]} {seed} {irq} {arg} {by} {nb} {wb} {sf} {ef}")
+                          f"{r_gap} {aw_bp} {w_bp} {b_lat[0]} {b_lat[1]} {seed} {irq} {arg} {by} {nb} {wb} {sf} {ef} "
+                          f"{mode} {' '.join(str(v) for v in tv)}")
         return nb, wb
 
 
@@ -180,9 +216,62 @@ def main():
 
     with open(OUT_DIR / "cases.txt", "w", newline="\n") as f:
         f.write("# " + CASE_HEADER + "\n" + "\n".join(g.cases) + "\n")
-    print(f"gen_patrm_top_vectors: {len(g.cases)} cases, {len(g.exps)} frames, {len(g.srcs)} images "
-          f"-> {OUT_DIR / 'cases.txt'}")
+    print(f"gen_patrm_top_vectors: {len(g.cases)} gray-build cases -> {OUT_DIR / 'cases.txt'}")
+    n_gray = len(g.cases)
+    bayer_a_cases(g, rng, names, ri)
+    with open(OUT_DIR / "cases_bayer_a.txt", "w", newline="\n") as f:
+        f.write("# " + CASE_HEADER + "\n" + "\n".join(g.cases[n_gray:]) + "\n")
+    print(f"gen_patrm_top_vectors: {len(g.cases) - n_gray} Option A build cases -> {OUT_DIR / 'cases_bayer_a.txt'}; "
+          f"{len(g.exps)} frames, {len(g.srcs)} images")
     return 0
+
+
+def bayer_a_cases(g, rng, names, ri):
+    """Case list of the Option A build (step 5.2, spec section 18.6). Mostly MODE 1 jobs; gray jobs in a and g."""
+    # a: every sim size x every transform x BLOCK_LEN 64 and 32 in MODE 1; gray at 64x64 in the same build
+    for W, H in SIZES:
+        for tf in names:
+            for L in (64, 32):
+                g.add("a", tf, W, H, L, mode=1)
+    for tf in names:
+        g.add("a", tf, 64, 64, mode=0)
+    # b: configuration locked during all four passes; polling
+    g.add("b", "rot15", 128, 96, op=1, mode=1)
+    g.add("b", "rot37", 64, 64, irq=0, mode=1)
+    # c: rejected starts in the Option A build (Bayer size rules, MODE 2 and 3), START while a job runs
+    g.add("c", "identity", 64, 64, op=6, mode=1)
+    g.add("c", "rot15", 64, 64, op=5, mode=1)
+    # d: bus errors on the first, a middle and the last read burst / write response of the job
+    for tf, (W, H), L in (("rot15", (128, 96), 64), ("rot90", (64, 64), 32)):
+        _, (_, nr, nw) = g.exp_a(tf, W, H, L)
+        for pos in (0, nr // 2, nr - 1):
+            g.add("d", tf, W, H, L, op=2, arg=pos, mode=1)
+        for pos in (0, nw // 2, nw - 1):
+            g.add("d", tf, W, H, L, op=3, arg=pos, mode=1)
+    # f: random memory timing; slow writes (WR_STALL, slot waits)
+    for k, tf in enumerate(names):
+        W, H = SIZES[k % len(SIZES)]
+        lo = ri(1, 40)
+        blo = ri(1, 40)
+        g.add("f", tf, W, H, (64, 32)[k % 2], lat=(lo, ri(lo, 60)), ar_bp=ri(0, 40), r_gap=ri(0, 40), aw_bp=ri(0, 40),
+              w_bp=ri(0, 40), b_lat=(blo, ri(blo, 60)), seed=ri(1, 1 << 30), mode=1)
+    for tf, (W, H), L in (("rot37", (256, 192), 64), ("combined", (128, 96), 64), ("identity", (208, 120), 32)):
+        g.add("f", tf, W, H, L, lat=(1, 3), aw_bp=80, w_bp=95, b_lat=(40, 60), seed=ri(1, 1 << 30), mode=1)
+    # g: gray and Option A jobs back to back; aresetn early (pass 0), in a middle pass and in the last pass
+    g.add("g", "rot15", 128, 96, mode=1)
+    g.add("g", "rot15", 128, 96, mode=0)
+    g.add("g", "rot37", 208, 120, mode=1)
+    g.add("g", "identity", 64, 64, L=32, mode=0)
+    g.add("g", "combined", 128, 96, op=4, arg=500, mode=1)
+    g.add("g", "rot90", 128, 96, L=32, mode=1)
+    g.add("g", "combined", 128, 96, op=4, arg=9000, mode=1)
+    g.add("g", "scale0p8", 64, 64, mode=1)
+    g.add("g", "rot5", 256, 192, op=4, arg=40000, mode=1)
+    g.add("g", "mirror_rows", 256, 192, mode=1)
+    # h: speed of Option A at 256x192 (latency on reads and write responses)
+    for L_mem in (20, 40):
+        for tf in ("identity", "rot15", "rot37", "rot90", "mirror_cols", "mirror_rows"):
+            g.add("h", tf, 256, 192, lat=(L_mem, L_mem), b_lat=(L_mem, L_mem), mode=1)
 
 
 if __name__ == "__main__":

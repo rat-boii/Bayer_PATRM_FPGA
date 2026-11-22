@@ -1,0 +1,84 @@
+module        patrm_top (OOC, xc7z020clg484-1, aclk 10.000 ns = 100 MHz, post-route; BLOCK_LEN_MAX 64, NSLOT 32, RD_OUTSTANDING 8)
+vivado        2026.1
+scope         register-to-register timing; no I/O delays; no AXI interconnect, PS or reset IP (block design: step 4.1)
+
+LUT           2620 of 53200 (4.92 %)
+  logic       2369 of 53200 (4.45 %)
+  memory      251 of 17400 (1.44 %) = 232 LUTRAM + 19 SRL
+FF            3612 of 106400 (3.39 %)
+BRAM          8 of 140 (5.71 %) (8 RAMB36 + 0 RAMB18 cells)
+DSP48E1       17 of 220 (7.73 %)
+Slices        1275 of 13300 (9.59 %)
+latches       synth 0, route 0
+
+WNS (ns)      1.238
+TNS (ns)      0.000 (0 failing of 10305 endpoints)
+WHS (ns)      0.026
+THS (ns)      0.000 (0 failing of 10305 endpoints)
+Fmax (MHz)    114.1 ESTIMATE = 1000 / (10 ns - WNS); implementation was driven by a 100 MHz constraint, this is not a run at that clock
+critical path u_planner/k_s2_reg/C -> u_ofifo/count_reg[6]/D
+              data path 8.787 ns = logic 2.173 + net 6.614 ns, 7 logic levels, skew -0.049 ns
+worst hold    slack 0.026 ns, data path 0.357 ns, 0 levels, u_prefetch/rq_wp_reg[0]/C -> u_prefetch/rq_mem_reg_0_15_0_0/DP/WADR0
+
+10 worst setup paths (one per endpoint):
+  slack 1.238 ns, data path 8.787 ns, 7 levels, u_planner/k_s2_reg/C -> u_ofifo/count_reg[6]/D
+  slack 1.342 ns, data path 8.683 ns, 7 levels, u_planner/k_s2_reg/C -> u_ofifo/count_reg[5]/D
+  slack 1.360 ns, data path 8.618 ns, 13 levels, u_planner/k_s2_reg/C -> u_coord/y_r_reg[29]/D
+  slack 1.381 ns, data path 8.597 ns, 13 levels, u_planner/k_s2_reg/C -> u_coord/y_r_reg[31]/D
+  slack 1.455 ns, data path 8.523 ns, 13 levels, u_planner/k_s2_reg/C -> u_coord/y_r_reg[30]/D
+  slack 1.458 ns, data path 8.520 ns, 12 levels, u_planner/k_s2_reg/C -> u_coord/x_r_reg[29]/D
+  slack 1.466 ns, data path 8.559 ns, 6 levels, u_planner/k_s2_reg/C -> u_ofifo/count_reg[4]/D
+  slack 1.471 ns, data path 8.507 ns, 13 levels, u_planner/k_s2_reg/C -> u_coord/y_r_reg[28]/D
+  slack 1.474 ns, data path 8.504 ns, 12 levels, u_planner/k_s2_reg/C -> u_coord/y_r_reg[25]/D
+  slack 1.478 ns, data path 8.547 ns, 6 levels, u_seq/frame_start_reg/C -> u_planner/a_rY_reg[29]/D
+
+per module: whole engine (post-route) vs standalone OOC run of steps 3.1-3.6c (sa*)
+LUTmem = LUTRAM + SRL. slack = worst setup path ending in that module, whole engine; saWNS = standalone WNS.
+* = no row in Vivado's hierarchical report, counted from the instance's leaf cells (before LUT combining).
+instance     module           |   LUT LUTmem    FF BRAM  DSP | saLUT  saMem  saFF saBR saDSP |    slack    saWNS
+u_regs       axil_regs        |   528      0   596  0.0    0 |   357      0   595    0    0 |    2.954    3.948
+u_ctrl       ctrl_fsm         |    71      0   156  0.0    0 |     -      -     -    -    - |    3.703        -
+u_seq        bayer_seq        |    49      0    99  0.0    0 |     -      -     -    -    - |    2.394        -
+u_planner    block_planner    |   577     64   815  0.0    0 |   569     80   826    0    0 |    1.478    2.753
+u_coord      coord_gen        |   269     58   352  0.0    8 |   284     68   367    0    8 |    1.360    3.817
+u_prefetch   prefetch_ctrl    |   495     24   860  0.0    2 |   447     22   882    0    2 |    2.758    2.431
+u_rd         axi_rd_master    |    89     14   191  0.0    0 |   145     14   191    0    0 |    2.204     4.73
+u_buf        line_buf         |   128      0     0  8.0    0 |     1      0     0    8    0 |    1.939        -
+u_fetch      pixel_fetch      |   109      0   231  0.0    0 |   226      0   232    0    0 |    2.445    5.075
+u_interp*    bilinear_interp  |    49      1     5  0.0    7 |    80      1     9    0    7 |    2.551    4.252
+u_ofifo      out_fifo         |   223     86    87  0.0    0 |   114     86    78    0    0 |    1.238      6.0
+u_wr         axi_wr_master    |   103      4   220  0.0    0 |   135      4   206    0    0 |    2.578    2.824
+sum of the rows: LUT 2690, FF 3612, DSP 17. Sum of the standalone runs (no ctrl_fsm run exists): LUT 2358, FF 3386.
+The LUT sum can exceed the total: Vivado counts a LUT shared by two instances (LUT combining) in both rows.
+Rows differ from the standalone runs because synthesis optimises across module boundaries (flatten_hierarchy rebuilt)
+and names moved logic after either side, and because constant or unused module ports are removed.
+
+power         ESTIMATE: report_power, default settings, vectorless (no switching activity from simulation); engine only, PS not included
+  Total On-Chip Power (W)    0.159
+  Dynamic (W)                0.055
+  Device Static (W)          0.104
+  Confidence Level           Medium
+  Clocks (W)                 0.014
+  Slice Logic (W)            0.013
+  Signals (W)                0.015
+  Block RAM (W)              <0.001
+  DSPs (W)                   0.012
+
+methodology (report_methodology): rule, severity, count
+  SYNTH-6  Warning  x8  Timing of a RAM block might be sub-optimal
+  TIMING-18  Warning  x315  Missing input or output delay
+DRC (report_drc): rule, severity, count
+  DPIP-1  Warning  x10  Input pipelining
+  DPOP-2  Warning  x11  MREG Output pipelining
+  RTSTAT-10  Warning  x1  No routable loads
+  ZPS7-1  Warning  x1  PS7 block required
+multi-driven  0 (DRC MDRV-1)
+
+port paths (information only, input / output delay 0 ns; real values come with the block design, step 4.1)
+  in   s_axi_*: needs 5.228 ns, 3 levels, s_axi_awaddr[2] -> u_regs/r_t_b_y_reg[1]/CE
+  out  s_axi_*: needs 3.232 ns, 1 levels, u_regs/rvalid_r_reg/C -> s_axi_awready
+  in   m_axi_hp0_*: needs 4.113 ns, 6 levels, m_axi_hp0_arready -> u_prefetch/drop_reg[4]/D
+  out  m_axi_hp0_*: needs 2.499 ns, 0 levels, u_rd/m_axi_hp0_araddr_reg[2]/C -> m_axi_hp0_araddr[2]
+  in   m_axi_hp1_*: needs 3.758 ns, 2 levels, m_axi_hp1_wready -> u_wr/m_axi_hp1_wdata_reg[51]/CE
+  out  m_axi_hp1_*: needs 2.499 ns, 0 levels, u_wr/m_axi_hp1_wdata_reg[0]/C -> m_axi_hp1_wdata[0]
+  in   aresetn: needs 9.103 ns, 1 levels, aresetn -> u_planner/k_orow_reg/R

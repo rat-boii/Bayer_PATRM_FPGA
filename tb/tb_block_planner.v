@@ -66,6 +66,7 @@ module tb_block_planner;
     block_planner #(.SIZE_BITS(SIZE_BITS), .CNT_BITS(CNT_BITS), .SLOT_BITS(SLOT_BITS), .SPAN_MAX(512)) dut_a (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
+        .cfg_stride2(1'b0), .cfg_o_row(1'b0), .cfg_o_col(1'b0),                // gray (Option A: tb_patrm_top)
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
         .desc_valid(a_dv), .desc_ready(desc_ready), .desc_u(a_du), .desc_v0(a_dv0), .desc_n(a_dn),
         .desc_nrows(a_dnr), .desc_slot_top(a_dst), .desc_slot_bot(a_dsb), .desc_s_col(a_dsc), .desc_last(a_dl),
@@ -76,6 +77,7 @@ module tb_block_planner;
     block_planner #(.SIZE_BITS(SIZE_BITS), .CNT_BITS(CNT_BITS), .SLOT_BITS(SLOT_BITS), .SPAN_MAX(32)) dut_b (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
+        .cfg_stride2(1'b0), .cfg_o_row(1'b0), .cfg_o_col(1'b0),                // gray (Option A: tb_patrm_top)
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
         .desc_valid(b_dv), .desc_ready(desc_ready), .desc_u(b_du), .desc_v0(b_dv0), .desc_n(b_dn),
         .desc_nrows(b_dnr), .desc_slot_top(b_dst), .desc_slot_bot(b_dsb), .desc_s_col(b_dsc), .desc_last(b_dl),

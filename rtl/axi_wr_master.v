@@ -4,7 +4,10 @@
 // = memmodel.split_bursts): the next burst starts at a, length = min(words left in the row, 16,
 // (4096 - a mod 4096) / 8) beats; a += 8 * length. Rows are contiguous in memory, so a simply runs on; only
 // the words-left counter restarts at W / 8 for every row. AXI3, 64-bit beats, AWSIZE = 3, INCR, AWID = WID = 0,
-// WSTRB = 8'hFF (gray mode; Option A hook: section 14).
+// WSTRB = 8'hFF (gray mode).
+// Bayer Option A (step 5.2, spec 18.3): cfg_height = rows of the pass (H/2), cfg_width = full W. Row u of the pass
+// is memory row 2u + o_row: the first row starts at DST_ADDR + o_row * W and after the last burst of a row the
+// address skips one row (+ W). WSTRB = cfg_wstrb of the pass (8'h55 << o_col), registered at frame_start.
 //
 // AW. An AW is issued only when all its beats are in out_fifo and not yet promised to an earlier burst:
 //     wq_count - pending_w >= length       (pending_w = beats of issued bursts not yet taken from out_fifo)
@@ -28,6 +31,7 @@
 //
 // Test-only faults: PATRM_FAULT_NO4K_WR drops the 4 KB term of the split; PATRM_FAULT_EARLY_DONE raises
 // wr_frame_done after the last W beat instead of after the last B response. tb_out_path must fail with either.
+// PATRM_FAULT_A_WSTRB writes 8'hFF in Option A passes too; tb_patrm_top TB_BAYER_A must fail.
 module axi_wr_master #(
     parameter WR_OUTSTANDING = 8,                        // bursts without B response (<= 8, Q3)
     parameter ID_W           = 6,
@@ -39,7 +43,10 @@ module axi_wr_master #(
     input  wire                 frame_start,
     input  wire [31:0]          cfg_dst_addr,            // 4 KB aligned (memory_map.md)
     input  wire [SIZE_BITS-1:0] cfg_width,               // multiple of 8
-    input  wire [SIZE_BITS-1:0] cfg_height,
+    input  wire [SIZE_BITS-1:0] cfg_height,              // rows of this pass
+    input  wire                 cfg_stride2,             // Bayer Option A pass
+    input  wire                 cfg_o_row,
+    input  wire [7:0]           cfg_wstrb,
     // words from out_fifo
     input  wire                 wq_valid,
     output wire                 wq_ready,
@@ -60,7 +67,7 @@ module axi_wr_master #(
     // HP1 write data channel
     output wire [ID_W-1:0]      m_axi_hp1_wid,
     output reg  [63:0]          m_axi_hp1_wdata,
-    output wire [7:0]           m_axi_hp1_wstrb,
+    output reg  [7:0]           m_axi_hp1_wstrb,
     output reg                  m_axi_hp1_wlast,
     output reg                  m_axi_hp1_wvalid,
     input  wire                 m_axi_hp1_wready,
@@ -88,13 +95,13 @@ module axi_wr_master #(
     assign m_axi_hp1_awprot  = 3'b000;
     assign m_axi_hp1_awqos   = 4'b0000;
     assign m_axi_hp1_wid     = {ID_W{1'b0}};
-    assign m_axi_hp1_wstrb   = 8'hFF;
     assign m_axi_hp1_bready  = 1'b1;
 
     // ---------------- frame state ----------------
     reg                 active;                          // frame in progress (frame_start .. wr_frame_done)
     reg [31:0]          a;                               // next burst address
     reg [ROWW_W-1:0]    row_words;                       // W / 8
+    reg [31:0]          skip;                            // added after the last burst of a row: 0 or W (Option A)
     reg [ROWW_W-1:0]    rem;                             // words left in the current row
     reg [SIZE_BITS-1:0] rows_left;                       // rows not completely issued
     reg [OUT_W-1:0]     outst;                           // bursts issued without B response
@@ -159,8 +166,14 @@ module axi_wr_master #(
             wb_push           <= 1'b0;
             wr_frame_done     <= 1'b0;
             len_ok            <= 1'b0;
+            m_axi_hp1_wstrb   <= 8'hFF;
         end else begin
             len_ok        <= !(frame_start || issue);
+`ifdef PATRM_FAULT_A_WSTRB
+            if (frame_start) m_axi_hp1_wstrb <= 8'hFF;   // test-only fault: no byte mask in Option A
+`else
+            if (frame_start) m_axi_hp1_wstrb <= cfg_wstrb;
+`endif
             wb_push       <= issue;
             wr_frame_done <= 1'b0;
             if (frame_start) begin
@@ -184,13 +197,14 @@ module axi_wr_master #(
 
     always @(posedge aclk) begin
         if (frame_start) begin
-            a         <= cfg_dst_addr;
+            a         <= cfg_dst_addr + (cfg_o_row ? {{(32-SIZE_BITS){1'b0}}, cfg_width} : 32'd0);
+            skip      <= cfg_stride2 ? {{(32-SIZE_BITS){1'b0}}, cfg_width} : 32'd0;
             row_words <= cfg_width[SIZE_BITS-1:3];
             rem       <= cfg_width[SIZE_BITS-1:3];
         end else if (issue) begin
             m_axi_hp1_awaddr <= a;
             m_axi_hp1_awlen  <= blen_r - 5'd1;
-            a                <= a + {24'd0, blen_r, 3'b000};
+            a                <= a + {24'd0, blen_r, 3'b000} + (fits_r ? skip : 32'd0);
             rem              <= fits_r ? row_words : rem - {{(ROWW_W-5){1'b0}}, blen_r};
         end
         blen_r <= blen;

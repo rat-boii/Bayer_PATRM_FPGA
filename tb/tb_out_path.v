@@ -66,7 +66,7 @@ module tb_out_path;
     );
 
     out_fifo of (
-        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
+        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_stride2(1'b0), .cfg_o_col(1'b0),
         .op_valid(op_valid), .op_ready(op_ready), .op_d(op_d), .op_last(op_last),
         .wq_valid(wq_valid), .wq_ready(wq_ready), .wq_data(wq_data), .wq_count(wq_count)
     );
@@ -74,6 +74,7 @@ module tb_out_path;
     axi_wr_master #(.WR_OUTSTANDING(8)) wm (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_dst_addr(DST), .cfg_width(cfg_width), .cfg_height(cfg_height),
+        .cfg_stride2(1'b0), .cfg_o_row(1'b0), .cfg_wstrb(8'hFF),
         .wq_valid(wq_valid), .wq_ready(wq_ready), .wq_data(wq_data), .wq_count(wq_count),
         .m_axi_hp1_awid(awid), .m_axi_hp1_awaddr(awaddr), .m_axi_hp1_awlen(awlen), .m_axi_hp1_awsize(awsize),
         .m_axi_hp1_awburst(awburst), .m_axi_hp1_awlock(awlock), .m_axi_hp1_awcache(awcache),

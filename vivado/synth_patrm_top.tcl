@@ -12,7 +12,7 @@ set part       xc7z020clg484-1
 set out        [file join $repo results ooc]
 file mkdir $out
 
-set names {axil_regs ctrl_fsm block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
+set names {axil_regs ctrl_fsm bayer_seq block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
            bilinear_interp out_fifo axi_wr_master patrm_top}
 set srcs {}
 foreach n $names { lappend srcs [file join $repo rtl $n.v] }

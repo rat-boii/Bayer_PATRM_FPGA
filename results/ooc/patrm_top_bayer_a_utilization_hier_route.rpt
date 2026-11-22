@@ -1,0 +1,41 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2026.1 (win64) Build 6511674 Tue Jun 16 11:02:23 MDT 2026
+| Date         : Sun Nov 22 15:35:25 2026
+| Host         : Retro_big_bro running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -file D:/MASTERS/RC_project/results/ooc/patrm_top_bayer_a_utilization_hier_route.rpt
+| Design       : patrm_top
+| Device       : xc7z020clg484-1
+| Speed File   : -1
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------+---------------+------------+------------+---------+------+------+--------+--------+------------+
+|    Instance   |     Module    | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | DSP Blocks |
++---------------+---------------+------------+------------+---------+------+------+--------+--------+------------+
+| patrm_top     |         (top) |       2620 |       2369 |     232 |   19 | 3612 |      8 |      0 |         17 |
+|   (patrm_top) |         (top) |          0 |          0 |       0 |    0 |    0 |      0 |      0 |          0 |
+|   u_buf       |      line_buf |        128 |        128 |       0 |    0 |    0 |      8 |      0 |          0 |
+|   u_coord     |     coord_gen |        269 |        211 |      58 |    0 |  352 |      0 |      0 |          8 |
+|   u_ctrl      |      ctrl_fsm |         71 |         71 |       0 |    0 |  156 |      0 |      0 |          0 |
+|   u_fetch     |   pixel_fetch |        109 |        109 |       0 |    0 |  231 |      0 |      0 |          0 |
+|   u_ofifo     |      out_fifo |        223 |        137 |      86 |    0 |   87 |      0 |      0 |          0 |
+|   u_planner   | block_planner |        577 |        513 |      64 |    0 |  815 |      0 |      0 |          0 |
+|   u_prefetch  | prefetch_ctrl |        495 |        471 |       6 |   18 |  860 |      0 |      0 |          2 |
+|   u_rd        | axi_rd_master |         89 |         75 |      14 |    0 |  191 |      0 |      0 |          0 |
+|   u_regs      |     axil_regs |        528 |        528 |       0 |    0 |  596 |      0 |      0 |          0 |
+|   u_seq       |     bayer_seq |         49 |         49 |       0 |    0 |   99 |      0 |      0 |          0 |
+|   u_wr        | axi_wr_master |        103 |         99 |       4 |    0 |  220 |      0 |      0 |          0 |
++---------------+---------------+------------+------------+---------+------+------+--------+--------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

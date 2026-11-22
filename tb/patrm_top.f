@@ -1,6 +1,7 @@
 // sources for tb_patrm_top (step 3.7); run with --incdir rtl
 ../rtl/axil_regs.v
 ../rtl/ctrl_fsm.v
+../rtl/bayer_seq.v
 ../rtl/block_planner.v
 ../rtl/coord_gen.v
 ../rtl/prefetch_ctrl.v

@@ -1,6 +1,7 @@
-// patrm_top: the grayscale PATRM engine, spec/interface.md section 12 (data path: section 0).
+// patrm_top: the PATRM engine, spec/interface.md section 12 (data path: section 0); Bayer Option A: section 18.
 //
-//   s_axi -> axil_regs -> ctrl_fsm --frame_start--> all
+//   s_axi -> axil_regs -> ctrl_fsm (BUSY, counters)
+//                      -> bayer_seq --frame_start, pass values--> all   (one pass gray, four plane passes Option A)
 //   block_planner --desc--> coord_gen --pix--> pixel_fetch --> bilinear_interp --> out_fifo --> axi_wr_master -> m_axi_hp1
 //         |                                         ^
 //         +--fetch--> prefetch_ctrl --cmd--> axi_rd_master <- m_axi_hp0
@@ -16,7 +17,7 @@
 module patrm_top #(
     parameter VERSION          = 1,                      // BUILD_ID.VERSION (= regs.json version)
     parameter BUILD_TYPE       = 0,                      // gray build
-    parameter MODES            = 1,                      // only CTRL.MODE = 0 accepted
+    parameter MODES            = 1,                      // bit n = CTRL.MODE n built: 1 gray, 3 gray + Bayer A
     parameter BLOCK_LEN_MAX    = 64,                     // D15
     parameter SPAN_MAX         = 512,                    // D16 rule (c), bytes = one buffer slot
     parameter NSLOT            = 32,                     // line buffer row slots (power of 2)
@@ -284,7 +285,16 @@ module patrm_top #(
     wire [31:0]          cfg_src_addr, cfg_dst_addr;
     wire [SIZE_BITS-1:0] cfg_width, cfg_height, cfg_block_len;
     wire [31:0]          cfg_b11, cfg_b12, cfg_b13, cfg_b21, cfg_b22, cfg_b23;
-    wire                 start_accept, busy, done_set, frame_start, bus_err;
+    wire                 start_accept, busy, done_set, frame_start, bus_err, job_done;
+    wire [1:0]           cfg_mode;
+    wire [31:0]          cfg_t_r_x, cfg_t_r_y, cfg_t_gr_x, cfg_t_gr_y, cfg_t_gb_x, cfg_t_gb_y, cfg_t_b_x, cfg_t_b_y;
+
+    // ---- per-pass values (bayer_seq, spec 18.2) ----
+    wire [1:0]           pass_index;
+    wire [31:0]          pass_b13, pass_b23;
+    wire [SIZE_BITS-1:0] pass_width, pass_height;
+    wire                 pass_o_row, pass_o_col, pass_stride2;
+    wire [7:0]           pass_wstrb;
     wire [31:0]          cnt_cycles, cnt_bytes_rd, cnt_bytes_wr, cnt_rd_stall, cnt_wr_stall;
 
     // ---- block_planner -> coord_gen / prefetch_ctrl ----
@@ -350,19 +360,34 @@ module patrm_top #(
         .s_axil_arready(s_axi_arready),
         .s_axil_rdata(s_axi_rdata), .s_axil_rresp(s_axi_rresp), .s_axil_rvalid(s_axi_rvalid),
         .s_axil_rready(s_axi_rready),
-        .cfg_mode(), .cfg_src_addr(cfg_src_addr), .cfg_dst_addr(cfg_dst_addr),
+        .cfg_mode(cfg_mode), .cfg_src_addr(cfg_src_addr), .cfg_dst_addr(cfg_dst_addr),
         .cfg_width(cfg_width), .cfg_height(cfg_height),
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
-        .cfg_t_r_x(), .cfg_t_r_y(), .cfg_t_gr_x(), .cfg_t_gr_y(), .cfg_t_gb_x(), .cfg_t_gb_y(), .cfg_t_b_x(), .cfg_t_b_y(),
+        .cfg_t_r_x(cfg_t_r_x), .cfg_t_r_y(cfg_t_r_y), .cfg_t_gr_x(cfg_t_gr_x), .cfg_t_gr_y(cfg_t_gr_y),
+        .cfg_t_gb_x(cfg_t_gb_x), .cfg_t_gb_y(cfg_t_gb_y), .cfg_t_b_x(cfg_t_b_x), .cfg_t_b_y(cfg_t_b_y),
         .cfg_block_len(cfg_block_len),
         .start_accept(start_accept), .busy(busy), .done_set(done_set), .bus_err(bus_err),
         .cnt_cycles(cnt_cycles), .cnt_bytes_rd(cnt_bytes_rd), .cnt_bytes_wr(cnt_bytes_wr),
         .cnt_rd_stall(cnt_rd_stall), .cnt_wr_stall(cnt_wr_stall),
         .interrupt(interrupt));
 
+    // frame_start comes from bayer_seq (one per pass); ctrl_fsm's own frame_start (same timing as pass 0) is unused,
+    // and the job ends with bayer_seq's job_done (= wr_frame_done of the last pass, same cycle).
+    bayer_seq #(
+        .MODES(MODES), .SIZE_BITS(SIZE_BITS)
+    ) u_seq (
+        .aclk(aclk), .aresetn(aresetn), .start_accept(start_accept), .cfg_mode(cfg_mode),
+        .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_b13(cfg_b13), .cfg_b23(cfg_b23),
+        .cfg_t_r_x(cfg_t_r_x), .cfg_t_r_y(cfg_t_r_y), .cfg_t_gr_x(cfg_t_gr_x), .cfg_t_gr_y(cfg_t_gr_y),
+        .cfg_t_gb_x(cfg_t_gb_x), .cfg_t_gb_y(cfg_t_gb_y), .cfg_t_b_x(cfg_t_b_x), .cfg_t_b_y(cfg_t_b_y),
+        .pass_done(frame_done), .frame_start(frame_start), .job_done(job_done),
+        .pass_index(pass_index), .pass_b13(pass_b13), .pass_b23(pass_b23),
+        .pass_width(pass_width), .pass_height(pass_height), .pass_o_row(pass_o_row), .pass_o_col(pass_o_col),
+        .pass_stride2(pass_stride2), .pass_wstrb(pass_wstrb));
+
     ctrl_fsm u_ctrl (
         .aclk(aclk), .aresetn(aresetn), .start_accept(start_accept), .busy(busy), .done_set(done_set),
-        .frame_start(frame_start), .wr_frame_done(frame_done),
+        .frame_start(), .wr_frame_done(job_done),
         .rd_beat(rd_beat), .wr_beat(wr_beat), .rd_stall(rd_stall), .wr_stall(wr_stall),
         .rd_err(rd_err), .wr_err(wr_err), .bus_err(bus_err),
         .cnt_cycles(cnt_cycles), .cnt_bytes_rd(cnt_bytes_rd), .cnt_bytes_wr(cnt_bytes_wr),
@@ -373,8 +398,9 @@ module patrm_top #(
         .DESC_DEPTH(DESC_DEPTH), .FETCH_DEPTH(FETCH_DEPTH)
     ) u_planner (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
-        .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
-        .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
+        .cfg_width(pass_width), .cfg_height(pass_height), .cfg_block_len(cfg_block_len),
+        .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(pass_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(pass_b23),
+        .cfg_stride2(pass_stride2), .cfg_o_row(pass_o_row), .cfg_o_col(pass_o_col),
         .desc_valid(desc_valid), .desc_ready(desc_ready), .desc_u(desc_u), .desc_v0(desc_v0), .desc_n(desc_n),
         .desc_nrows(desc_nrows), .desc_slot_top(desc_slot_top), .desc_slot_bot(desc_slot_bot),
         .desc_s_col(desc_s_col), .desc_last(desc_last),
@@ -386,7 +412,7 @@ module patrm_top #(
         .SIZE_BITS(SIZE_BITS), .CNT_BITS(CNT_BITS), .SLOT_BITS(SLOT_BITS)
     ) u_coord (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
-        .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
+        .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(pass_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(pass_b23),
         .desc_valid(desc_valid), .desc_ready(desc_ready), .desc_u(desc_u), .desc_v0(desc_v0), .desc_n(desc_n),
         .desc_nrows(desc_nrows), .desc_slot_top(desc_slot_top), .desc_slot_bot(desc_slot_bot),
         .desc_s_col(desc_s_col), .desc_last(desc_last),
@@ -398,7 +424,7 @@ module patrm_top #(
         .SIZE_BITS(SIZE_BITS), .CNT_BITS(CNT_BITS), .SLOT_BITS(SLOT_BITS), .WORD_BITS(WORD_BITS), .BLK_BITS(BLK_BITS)
     ) u_prefetch (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
-        .cfg_src_addr(cfg_src_addr), .cfg_width(cfg_width),
+        .cfg_src_addr(cfg_src_addr), .cfg_width(cfg_width), .cfg_stride2(pass_stride2),
         .fetch_valid(fetch_valid), .fetch_ready(fetch_ready), .fetch_row_top(fetch_row_top),
         .fetch_row_bot(fetch_row_bot), .fetch_slot_top(fetch_slot_top), .fetch_slot_bot(fetch_slot_bot),
         .fetch_top(fetch_top), .fetch_bot(fetch_bot), .fetch_s_col(fetch_s_col), .fetch_words(fetch_words),
@@ -433,7 +459,8 @@ module patrm_top #(
     pixel_fetch #(
         .SIZE_BITS(SIZE_BITS), .SLOT_BITS(SLOT_BITS), .WORD_BITS(WORD_BITS), .BLK_BITS(BLK_BITS)
     ) u_fetch (
-        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_width(cfg_width), .cfg_height(cfg_height),
+        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_width(pass_width), .cfg_height(pass_height),
+        .cfg_stride2(pass_stride2), .cfg_o_col(pass_o_col),
         .pix_valid(pix_valid), .pix_ready(pix_ready), .pix_X(pix_X), .pix_Y(pix_Y), .pix_first(pix_first),
         .pix_last(pix_last), .pix_nrows(pix_nrows), .pix_slot_top(pix_slot_top), .pix_slot_bot(pix_slot_bot),
         .pix_s_col(pix_s_col), .pix_frame_last(pix_frame_last),
@@ -454,6 +481,7 @@ module patrm_top #(
         .OUT_DEPTH(OUT_DEPTH), .CNT_W(OUT_CNT_W)
     ) u_ofifo (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
+        .cfg_stride2(pass_stride2), .cfg_o_col(pass_o_col),
         .op_valid(op_valid), .op_ready(op_ready), .op_d(op_d), .op_last(op_last),
         .wq_valid(wq_valid), .wq_ready(wq_ready), .wq_data(wq_data), .wq_count(wq_count));
 
@@ -461,7 +489,8 @@ module patrm_top #(
         .WR_OUTSTANDING(WR_OUTSTANDING), .ID_W(AXI_ID_WIDTH), .SIZE_BITS(SIZE_BITS), .CNT_W(OUT_CNT_W)
     ) u_wr (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
-        .cfg_dst_addr(cfg_dst_addr), .cfg_width(cfg_width), .cfg_height(cfg_height),
+        .cfg_dst_addr(cfg_dst_addr), .cfg_width(cfg_width), .cfg_height(pass_height),
+        .cfg_stride2(pass_stride2), .cfg_o_row(pass_o_row), .cfg_wstrb(pass_wstrb),
         .wq_valid(wq_valid), .wq_ready(wq_ready), .wq_data(wq_data), .wq_count(wq_count),
         .m_axi_hp1_awid(m_axi_hp1_awid), .m_axi_hp1_awaddr(m_axi_hp1_awaddr), .m_axi_hp1_awlen(m_axi_hp1_awlen),
         .m_axi_hp1_awsize(m_axi_hp1_awsize), .m_axi_hp1_awburst(m_axi_hp1_awburst),

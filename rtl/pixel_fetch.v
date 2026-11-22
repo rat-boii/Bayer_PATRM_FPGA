@@ -18,6 +18,11 @@
 // rd_stall (spec 13, decided 2026-11-18): F1 holds a pixel whose block is not ready AND ip_ready = 1
 // (ip_ready = 0 exactly when bilinear_interp has WR_STALL, so RD_STALL and WR_STALL never count the same cycle).
 // x0 / y0 are carried to F3 for the testbench only (no port; removed by synthesis).
+// Bayer Option A (step 5.2, spec 18.3, "stride-2 select"): with cfg_stride2 = 1, cfg_width / cfg_height are the
+// plane size (D1, clamp) and the bytes are read at memory column mc = 2y + o_col of the slot's memory row:
+// word w0 = mc0 >> 3 = y0 >> 2, byte mc0 mod 8 = {y0[1:0], o_col}; mc1 = mc0 + 2 (or mc0 when clamped), so w1 is
+// w0 or w0 + 1 (when mc0 mod 8 >= 6) and the bank scheme is unchanged. Only muxes on bits that exist already.
+// Test only: PATRM_FAULT_A_OCOL ignores o_col (Gr and B read the R / Gb column); tb_patrm_top TB_BAYER_A must fail.
 module pixel_fetch #(
     parameter SIZE_BITS = 13,
     parameter SLOT_BITS = 5,
@@ -29,6 +34,8 @@ module pixel_fetch #(
     input  wire                     frame_start,
     input  wire [SIZE_BITS-1:0]     cfg_width,
     input  wire [SIZE_BITS-1:0]     cfg_height,
+    input  wire                     cfg_stride2,         // Bayer Option A pass
+    input  wire                     cfg_o_col,
     // pixels (coord_gen)
     input  wire                     pix_valid,
     output wire                     pix_ready,
@@ -71,8 +78,11 @@ module pixel_fetch #(
     // ------------------------------------------------------------------ frame configuration
     reg signed [31:0]   hmax, wmax;                       // (H-1) << 16, (W-1) << 16
     reg [SIZE_BITS-1:0] wm1;                              // W - 1
+    reg                 s2, ocol;                         // Option A: memory column 2y + o_col
     always @(posedge aclk) begin
         if (frame_start) begin
+            s2   <= cfg_stride2;
+            ocol <= cfg_o_col;
             hmax <= {{(16-SIZE_BITS){1'b0}}, cfg_height - 1'b1, 16'd0};
             wmax <= {{(16-SIZE_BITS){1'b0}}, cfg_width  - 1'b1, 16'd0};
             wm1  <= cfg_width - 1'b1;
@@ -125,15 +135,20 @@ module pixel_fetch #(
     end
 
     // columns and slot words
-    wire [2:0]              yb0   = f1_Y[18:16];          // y0 mod 8
-    wire [WORD_BITS-1:0]    w0    = f1_Y[WORD_BITS+18:19];  // (y0 >> 3) mod 64
+    // memory column mc0 = y0 (gray) or 2y0 + o_col (Option A): byte mc0 mod 8, word (mc0 >> 3) mod 64
+`ifdef PATRM_FAULT_A_OCOL
+    wire [2:0]              yb0   = s2 ? {f1_Y[17:16], 1'b0} : f1_Y[18:16];   // test-only fault: o_col ignored
+`else
+    wire [2:0]              yb0   = s2 ? {f1_Y[17:16], ocol} : f1_Y[18:16];
+`endif
+    wire [WORD_BITS-1:0]    w0    = s2 ? f1_Y[WORD_BITS+17:18] : f1_Y[WORD_BITS+18:19];
 `ifdef PATRM_FAULT_CLAMP
     wire                    clamp = 1'b0;                 // deliberate fault (step 3.6b): no clamp of y1 at W-1
 `else
     wire                    clamp = (f1_Y[SIZE_BITS+15:16] == wm1);   // y0 = W-1 (valid pixels: y0 <= W-1)
 `endif
-    wire                    nextw = !clamp && (yb0 == 3'd7);          // y1 in word w0 + 1
-    wire [2:0]              yb1   = clamp ? yb0 : yb0 + 1'b1;         // y1 mod 8
+    wire                    nextw = !clamp && (s2 ? (yb0[2:1] == 2'b11) : (yb0 == 3'd7));  // y1 in word w0 + 1
+    wire [2:0]              yb1   = clamp ? yb0 : yb0 + (s2 ? 3'd2 : 3'd1);                  // mc1 mod 8
     wire [WORD_BITS-1:0]    w0p1  = w0 + 1'b1;                        // mod 64, stays inside the slot
     wire [WORD_BITS-2:0]    ee    = w0p1[WORD_BITS-1:1];              // even bank entry
     wire [WORD_BITS-2:0]    eo    = w0[WORD_BITS-1:1];                // odd bank entry

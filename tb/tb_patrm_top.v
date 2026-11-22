@@ -1,4 +1,4 @@
-// Self-checking testbench of the whole grayscale engine rtl/patrm_top.v (step 3.7). It behaves like the ARM driver
+// Self-checking testbench of the whole engine rtl/patrm_top.v (step 3.7; Bayer Option A: step 5.2). It behaves like the ARM driver
 // (spec/memory_map.md section 4): programs the registers over AXI-Lite, starts, waits for the interrupt or polls
 // STATUS, then checks the output in memory and the counters. One tb/axi_mem.v serves HP0 (reads) and HP1 (writes):
 // source image at 0x1000_0000, output at 0x1800_0000.
@@ -8,6 +8,14 @@
 //   python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --plusarg VEC_DIR=data/vectors
 // +VEC_DIR=<folder> is the vector folder (default ../../../data/vectors); the case list is
 // <VEC_DIR>/patrm_top/cases.txt (format and groups: scripts/gen_patrm_top_vectors.py).
+//
+// Two builds of the same bench (step 5.2):
+//   default          gray build, MODES = 3'b001, BUILD_TYPE 0, cases.txt
+//   TB_BAYER_A       Option A build, MODES = 3'b011, BUILD_TYPE 1, cases_bayer_a.txt (MODE 1 jobs in every group plus
+//                    gray jobs):  python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl
+//                                 --define TB_BAYER_A --plusarg VEC_DIR=data/vectors
+// A MODE 1 job is four plane passes (spec section 18): one START, one DONE, BYTES_WR = 2 x W x H, WSTRB 8'h55 / 8'hAA
+// per pass (checked on every W beat against the pass in progress), the output = model mosaic (bayer.warp_bayer).
 //
 // Checks in every complete frame:
 //   output     at the moment DONE is visible: the output region == model frame byte for byte (it was filled with a
@@ -44,8 +52,16 @@ module tb_patrm_top;
     localparam [31:0] S_BUSY  = 32'd1 << PATRM_STATUS_BUSY_LSB;
     localparam [31:0] S_DONE  = 32'd1 << PATRM_STATUS_DONE_LSB;
     localparam [31:0] S_ERROR = 32'd1 << PATRM_STATUS_ERROR_LSB;
-    localparam [31:0] BUILD_ID_EXP = (32'd1 << PATRM_BUILD_ID_VERSION_LSB) | (32'd0 << PATRM_BUILD_ID_BUILD_TYPE_LSB) |
-                                     (32'd1 << PATRM_BUILD_ID_MODES_LSB) | (32'd64 << PATRM_BUILD_ID_BLOCK_LEN_MAX_LSB);
+`ifdef TB_BAYER_A
+    localparam BUILD_TYPE = 1;                           // Option A build
+    localparam MODES      = 3;                           // gray + Bayer A
+`else
+    localparam BUILD_TYPE = 0;                           // gray build
+    localparam MODES      = 1;
+`endif
+    localparam [31:0] BUILD_ID_EXP = (32'd1 << PATRM_BUILD_ID_VERSION_LSB) |
+                                     (BUILD_TYPE << PATRM_BUILD_ID_BUILD_TYPE_LSB) |
+                                     (MODES << PATRM_BUILD_ID_MODES_LSB) | (32'd64 << PATRM_BUILD_ID_BLOCK_LEN_MAX_LSB);
 
     // ---------------- clock, reset ----------------
     reg aclk = 1'b0;
@@ -80,7 +96,7 @@ module tb_patrm_top;
     wire [63:0] h1_wdata;
     wire [7:0]  h1_wstrb;
 
-    patrm_top dut (
+    patrm_top #(.BUILD_TYPE(BUILD_TYPE), .MODES(MODES)) dut (
         .aclk(aclk), .aresetn(aresetn), .interrupt(interrupt),
         .s_axi_awaddr(awaddr), .s_axi_awprot(3'b000), .s_axi_awvalid(awvalid), .s_axi_awready(awready),
         .s_axi_wdata(wdata), .s_axi_wstrb(wstrb), .s_axi_wvalid(wvalid), .s_axi_wready(wready),
@@ -131,8 +147,9 @@ module tb_patrm_top;
     reg [63:0] expw [0:MAXW-1];
     reg [STR-1:0] vecdir, path, c_name, c_src, c_exp, junk, msgbuf, first_fail;
     integer c_group, c_op, c_W, c_H, c_L, c_lat0, c_lat1, c_arbp, c_rgap, c_awbp, c_wbp, c_blat0, c_blat1;
-    integer c_seed, c_irq, c_arg, c_bytes, c_rb, c_wb;
+    integer c_seed, c_irq, c_arg, c_bytes, c_rb, c_wb, c_mode, wfac;
     integer c_b [0:5];
+    integer c_t [0:7];                                   // T_R_X .. T_B_Y (MODE 1; 0 in gray)
     integer fd_cases, r, npix, nwords;
     reg     have_case;
 
@@ -194,7 +211,7 @@ module tb_patrm_top;
     integer cyc = 0, lite_cnt = 0;
     reg     lite_busy = 1'b0;
     reg     arm_start = 1'b0, in_frame = 1'b0, done_seen = 1'b0, irq_seen = 1'b0;
-    integer t_start = 0, t_done = 0, t_irq = 0, fs_count = 0;
+    integer t_start = 0, t_done = 0, t_irq = 0, fs_count = 0, sa_count = 0;
     integer rs_tb = 0, ws_tb = 0, k_in = 0, f1_k = 0, f1_nr = 0;
     reg     m_stall;
 
@@ -209,12 +226,15 @@ module tb_patrm_top;
             if (h0_awvalid !== 1'b0 || h0_wvalid !== 1'b0 || h0_bready !== 1'b1 ||
                 h1_arvalid !== 1'b0 || h1_rready !== 1'b1) tie_err = tie_err + 1;
             if (dut.frame_start === 1'b1) fs_count = fs_count + 1;
+            if (dut.start_accept === 1'b1) sa_count = sa_count + 1;
             // bursts stay inside the images of the current frame
             if (h0_arvalid === 1'b1 && h0_arready === 1'b1 &&
                 (h0_araddr < SRC || h0_araddr + 8 * (h0_arlen + 1) > SRC + npix)) ar_err = ar_err + 1;
             if (h1_awvalid === 1'b1 && h1_awready === 1'b1 &&
                 (h1_awaddr < DST || h1_awaddr + 8 * (h1_awlen + 1) > DST + npix)) aw_err = aw_err + 1;
-            if (h1_wvalid === 1'b1 && h1_wready === 1'b1 && h1_wstrb !== 8'hFF) strb_err = strb_err + 1;
+            // WSTRB: 8'hFF in gray, 8'h55 (R, Gb) / 8'hAA (Gr, B) in the pass in progress of a MODE 1 job
+            if (h1_wvalid === 1'b1 && h1_wready === 1'b1 &&
+                h1_wstrb !== ((c_mode == 1) ? (dut.pass_index[0] ? 8'hAA : 8'h55) : 8'hFF)) strb_err = strb_err + 1;
             // the START of a frame: AW and W handshake of CTRL with START = 1
             if (arm_start && awvalid && awready && wvalid && wready && awaddr[6:2] == (PATRM_REG_CTRL >> 2) &&
                 wstrb[0] && wdata[PATRM_CTRL_START_LSB]) begin
@@ -230,6 +250,9 @@ module tb_patrm_top;
                     m_stall = dut.u_fetch.f1_v && (f1_nr != 0) && (f1_k >= dut.blocks_ready) && !dut.wr_stall;
                     if (m_stall) rs_tb = rs_tb + 1;
                     if (dut.op_valid && !dut.op_ready) ws_tb = ws_tb + 1;
+                end
+                if (dut.frame_start === 1'b1) begin     // a new pass: pixel_fetch and prefetch_ctrl restart at block 0
+                    k_in = 0; f1_k = 0; f1_nr = 0;
                 end
                 if (dut.pix_valid && dut.pix_ready && !dut.frame_start) begin
                     f1_k = k_in;
@@ -326,12 +349,14 @@ module tb_patrm_top;
 
     task read_case;
         begin
-            r = $fscanf(fd_cases, "%d %d %s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %s %s",
+            r = $fscanf(fd_cases, "%d %d %s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %s %s %d %d %d %d %d %d %d %d %d",
                         c_group, c_op, c_name, c_W, c_H, c_L, c_b[0], c_b[1], c_b[2], c_b[3], c_b[4], c_b[5],
                         c_lat0, c_lat1, c_arbp, c_rgap, c_awbp, c_wbp, c_blat0, c_blat1, c_seed, c_irq, c_arg,
-                        c_bytes, c_rb, c_wb, c_src, c_exp);
-            have_case = (r == 28);
-            if (r != 28 && r != -1 && r != 0) fatal("bad line in cases.txt");
+                        c_bytes, c_rb, c_wb, c_src, c_exp, c_mode, c_t[0], c_t[1], c_t[2], c_t[3], c_t[4], c_t[5],
+                        c_t[6], c_t[7]);
+            have_case = (r == 37);
+            if (r != 37 && r != -1 && r != 0) fatal("bad line in the case file (rerun gen_patrm_top_vectors.py)");
+            wfac = (c_mode == 1) ? 2 : 1;                // bus bytes written per output byte
         end
     endtask
 
@@ -383,7 +408,7 @@ module tb_patrm_top;
             lite_write(PATRM_REG_B21, c_b[3]);
             lite_write(PATRM_REG_B22, c_b[4]);
             lite_write(PATRM_REG_B23, c_b[5]);
-            for (q = 0; q < 8; q = q + 1) lite_write(PATRM_REG_T_R_X + 4 * q, 32'd0);
+            for (q = 0; q < 8; q = q + 1) lite_write(PATRM_REG_T_R_X + 4 * q, c_t[q]);
             lite_write(PATRM_REG_BLOCK_LEN, c_L);
         end
     endtask
@@ -419,7 +444,7 @@ module tb_patrm_top;
 
     // ---------------- one frame ----------------
     reg [31:0] rv, rv2, st_exp, ctrl_v;
-    integer r0, w0, ar0, aw0, b0, poll, limit, t_wait, cycles;
+    integer r0, w0, ar0, aw0, b0, fs0, poll, limit, t_wait, cycles;
     real    ppc;
 
     task reset_engine;                                   // aresetn low, then everything must be idle
@@ -446,8 +471,9 @@ module tb_patrm_top;
         begin
             load_case;
             r0 = u_mem.rbeats; w0 = u_mem.wbeats; ar0 = u_mem.log_n; aw0 = u_mem.wlog_n; b0 = u_mem.bcount;
+            fs0 = fs_count;
             program_regs;
-            ctrl_v = C_START | (c_irq ? C_IRQ : 32'd0);
+            ctrl_v = C_START | (c_irq ? C_IRQ : 32'd0) | (c_mode << PATRM_CTRL_MODE_LSB);
             arm_start = 1'b1;
             lite_write(PATRM_REG_CTRL, ctrl_v);          // driver step 7
             chk_eq(b_status & (S_BUSY | S_ERROR | S_DONE), S_BUSY, "STATUS in the first BVALID cycle of START");
@@ -463,7 +489,8 @@ module tb_patrm_top;
                 lite_write(PATRM_REG_B22, ~c_b[4]);
                 lite_write(PATRM_REG_B23, ~c_b[5]);
                 lite_write(PATRM_REG_BLOCK_LEN, 1);
-                lite_write(PATRM_REG_CTRL, (32'd1 << PATRM_CTRL_MODE_LSB) | C_IRQ);
+                lite_write(PATRM_REG_CTRL, ((c_mode ^ 1) << PATRM_CTRL_MODE_LSB) | C_IRQ);
+                lite_write(PATRM_REG_T_B_Y, ~c_t[7]);
                 lite_read(PATRM_REG_SRC_ADDR, rv);  chk_eq(rv, SRC, "SRC_ADDR locked while busy");
                 lite_read(PATRM_REG_DST_ADDR, rv);  chk_eq(rv, DST, "DST_ADDR locked while busy");
                 lite_read(PATRM_REG_WIDTH, rv);     chk_eq(rv, c_W, "WIDTH locked while busy");
@@ -472,15 +499,17 @@ module tb_patrm_top;
                 lite_read(PATRM_REG_B22, rv);       chk_eq(rv, c_b[4], "B22 locked while busy");
                 lite_read(PATRM_REG_B23, rv);       chk_eq(rv, c_b[5], "B23 locked while busy");
                 lite_read(PATRM_REG_BLOCK_LEN, rv); chk_eq(rv, c_L, "BLOCK_LEN locked while busy");
-                lite_read(PATRM_REG_CTRL, rv);      chk_eq(rv, C_IRQ, "CTRL: MODE locked, IRQ_EN stays writable");
+                lite_read(PATRM_REG_T_B_Y, rv);     chk_eq(rv, c_t[7], "T_B_Y locked while busy");
+                lite_read(PATRM_REG_CTRL, rv);
+                chk_eq(rv, C_IRQ | (c_mode << PATRM_CTRL_MODE_LSB), "CTRL: MODE locked, IRQ_EN stays writable");
                 n_lock = n_lock + 1;
             end
             if (c_op == 5) begin                         // START while busy: rejected, the frame continues
-                rv2 = fs_count;
+                rv2 = sa_count;
                 lite_write(PATRM_REG_CTRL, ctrl_v);
                 lite_read(PATRM_REG_STATUS, rv);
                 chk_eq(rv, S_BUSY | S_ERROR | (PATRM_ERR_START_BUSY << PATRM_STATUS_ERR_CODE_LSB), "START while busy");
-                chk_eq(fs_count, rv2, "no second frame_start");
+                chk_eq(sa_count, rv2, "no second start_accept");
                 n_bad_starts = n_bad_starts + 1;
             end
             if (c_op == 4) begin                         // aresetn in the middle of the frame
@@ -514,6 +543,7 @@ module tb_patrm_top;
                 chk_eq(u_mem.log_n - ar0, c_rb, "AR bursts vs memmodel");
                 chk_eq(u_mem.wlog_n - aw0, c_wb, "AW bursts vs memmodel");
                 chk_eq(u_mem.bcount - b0, c_wb, "B responses at DONE");
+                chk_eq(fs_count - fs0, (c_mode == 1) ? 4 : 1, "frame_start pulses (passes) of the job");
                 n_frames[c_group] = n_frames[c_group] + 1;
                 n_bytes[c_group]  = n_bytes[c_group] + npix;
 
@@ -541,7 +571,7 @@ module tb_patrm_top;
                 chk_eq(rv, c_bytes, "BYTES_RD vs memmodel");
                 chk_eq(rv, 8 * (u_mem.rbeats - r0), "BYTES_RD vs R handshakes");
                 lite_read(PATRM_REG_BYTES_WR, rv);
-                chk_eq(rv, npix, "BYTES_WR vs W x H");
+                chk_eq(rv, wfac * npix, "BYTES_WR vs W x H (x 2 in MODE 1)");
                 chk_eq(rv, 8 * (u_mem.wbeats - w0), "BYTES_WR vs W handshakes");
                 lite_read(PATRM_REG_RD_STALL, rv);
                 chk_eq(rv, rs_tb, "RD_STALL vs own count");
@@ -552,12 +582,12 @@ module tb_patrm_top;
                 if (rv != 0)  n_rs_frames = n_rs_frames + 1;
                 if (rv2 != 0) n_ws_frames = n_ws_frames + 1;
                 ppc = (1.0 * npix) / cycles;
-                $display("  %c %0s %0dx%0d L%0d op %0d mem %0d-%0d bp %0d/%0d/%0d/%0d B %0d-%0d: CYCLES %0d, %0.3f px/clk, BYTES_RD %0d, RD_STALL %0d, WR_STALL %0d",
-                         grp_letter(c_group), c_name, c_W, c_H, c_L, c_op, c_lat0, c_lat1, c_arbp, c_rgap, c_awbp,
+                $display("  %c %0s %0s %0dx%0d L%0d op %0d mem %0d-%0d bp %0d/%0d/%0d/%0d B %0d-%0d: CYCLES %0d, %0.3f px/clk, BYTES_RD %0d, RD_STALL %0d, WR_STALL %0d",
+                         grp_letter(c_group), (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_L, c_op, c_lat0, c_lat1, c_arbp, c_rgap, c_awbp,
                          c_wbp, c_blat0, c_blat1, cycles, ppc, c_bytes, rv, rv2);
                 if (c_group == 7)
-                    $display("SPEED %0s %0dx%0d latency %0d: CYCLES %0d, %0.3f px/clk, RD_STALL %0d, WR_STALL %0d", c_name,
-                             c_W, c_H, c_lat0, cycles, ppc, rv, rv2);
+                    $display("SPEED %0s %0s %0dx%0d latency %0d: CYCLES %0d, %0.3f px/clk, RD_STALL %0d, WR_STALL %0d",
+                             (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_lat0, cycles, ppc, rv, rv2);
 
                 // ---- clear DONE / ERROR ----
                 if (c_op == 1) begin
@@ -579,7 +609,7 @@ module tb_patrm_top;
                 lite_read(PATRM_REG_STATUS, rv);
                 chk_eq(rv, 0, "STATUS after W1C");
                 chk_eq(u_mem.rbeats - r0, c_bytes / 8, "no R beat after DONE");
-                chk_eq(u_mem.wbeats - w0, npix / 8, "no W beat after DONE");
+                chk_eq(u_mem.wbeats - w0, wfac * npix / 8, "no W beat after DONE");
                 chk_eq(u_mem.log_n - ar0, c_rb, "no AR after DONE");
                 chk_eq(u_mem.wlog_n - aw0, c_wb, "no AW after DONE");
                 in_frame = 1'b0;
@@ -638,8 +668,19 @@ module tb_patrm_top;
             lite_write(PATRM_REG_HEIGHT, 0);     bad_start(0, PATRM_ERR_BAD_SIZE, "H = 0");
             lite_write(PATRM_REG_HEIGHT, 4097);  bad_start(0, PATRM_ERR_BAD_SIZE, "H = 4097");
             lite_write(PATRM_REG_HEIGHT, c_H);
+`ifdef TB_BAYER_A
+            // Option A build: MODE 1 is accepted only with the Bayer size rules (D3: W multiple of 16, H even)
+            lite_write(PATRM_REG_WIDTH, c_W - 8);
+            bad_start(PATRM_MODE_BAYER_A << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_SIZE, "MODE 1, W not a multiple of 16");
+            lite_write(PATRM_REG_WIDTH, c_W);
+            lite_write(PATRM_REG_HEIGHT, c_H - 1);
+            bad_start(PATRM_MODE_BAYER_A << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_SIZE, "MODE 1, H odd");
+            lite_write(PATRM_REG_HEIGHT, c_H);
+            bad_start(PATRM_MODE_BAYER_B << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_MODE, "MODE 2 in the Option A build");
+`else
             bad_start(PATRM_MODE_BAYER_A << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_MODE, "MODE 1 in the gray build");
             bad_start(PATRM_MODE_BAYER_B << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_MODE, "MODE 2 in the gray build");
+`endif
             bad_start(3 << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_MODE, "MODE 3");
             lite_write(PATRM_REG_SRC_ADDR, SRC + 8);   bad_start(0, PATRM_ERR_BAD_ADDR, "SRC_ADDR not 4 KB aligned");
             lite_write(PATRM_REG_SRC_ADDR, SRC);
@@ -662,10 +703,14 @@ module tb_patrm_top;
     integer i, tot_f, tot_b;
 
     initial begin
-        npix = 0; c_group = 0; c_irq = 1; c_W = 0; c_H = 0; c_L = 0; c_name = "init";
+        npix = 0; c_group = 0; c_irq = 1; c_W = 0; c_H = 0; c_L = 0; c_name = "init"; c_mode = 0; wfac = 1;
         for (i = 0; i < NGRP; i = i + 1) begin n_frames[i] = 0; n_bytes[i] = 0; end
         if (!$value$plusargs("VEC_DIR=%s", vecdir)) vecdir = "../../../data/vectors";
+`ifdef TB_BAYER_A
+        $sformat(path, "%0s/patrm_top/cases_bayer_a.txt", vecdir);
+`else
         $sformat(path, "%0s/patrm_top/cases.txt", vecdir);
+`endif
         fd_cases = $fopen(path, "r");
         if (fd_cases == 0) begin
             $sformat(msgbuf, "cannot open %0s (run python scripts/gen_patrm_top_vectors.py, or pass +VEC_DIR)", path);
@@ -678,7 +723,7 @@ module tb_patrm_top;
         idle(2);
         c_group = 1;
         lite_read(PATRM_REG_BUILD_ID, rv);
-        chk_eq(rv, BUILD_ID_EXP, "BUILD_ID (VERSION 1, gray, MODES 001, BLOCK_LEN_MAX 64)");
+        chk_eq(rv, BUILD_ID_EXP, "BUILD_ID (VERSION 1, BUILD_TYPE, MODES, BLOCK_LEN_MAX 64)");
         lite_read(PATRM_REG_STATUS, rv);
         chk_eq(rv, 0, "STATUS after reset");
 
@@ -709,7 +754,7 @@ module tb_patrm_top;
         if (nfail == 0 && tie_err != 0) first_fail = "unused HP channels not at their constants";
         if (nfail == 0 && ar_err != 0)  first_fail = "AR burst outside the source image";
         if (nfail == 0 && aw_err != 0)  first_fail = "AW burst outside the output image";
-        if (nfail == 0 && strb_err != 0) first_fail = "WSTRB != FF";
+        if (nfail == 0 && strb_err != 0) first_fail = "WSTRB not 8'hFF (gray) / 8'h55, 8'hAA (Option A pass)";
         if (nfail == 0 && irq_err != 0) first_fail = "interrupt with IRQ_EN = 0";
         if (nfail == 0 && u_mem.viol_total != 0) first_fail = "AXI protocol violations (axi_mem checker)";
         if (nfail == 0 && tie_err == 0 && ar_err == 0 && aw_err == 0 && strb_err == 0 && irq_err == 0 &&

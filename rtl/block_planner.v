@@ -19,7 +19,8 @@
 // Blocks without valid pixels (nrows = 0) drive 0 on the slot and s_col fields (the model writes -1 = none);
 // coord_gen / pixel_fetch do not use them for such blocks.
 //
-// Column ranges are kept in 8-byte words: floor8(min y0) = 8 * wlo, ceil8(max y1 + 1) = 8 * (whi + 1), so the
+// Column ranges are kept in 8-byte words of memory columns (gray: the column itself):
+// floor8(min y0) = 8 * wlo, ceil8(max y1 + 1) = 8 * (whi + 1), so the
 // aligned span is 8 * (whi - wlo + 1) and rule (c) is (whi - wlo + 1) > SPAN_MAX / 8.
 // Step 3.6c (timing, same block lists): a block never leaves its output row, and along a row Y steps by b22, so
 // y0, y1, wlo and whi of the valid pixels are monotonic (no wrap: D4 keeps |Y| < 2^30). For b22 >= 0 the block's
@@ -29,6 +30,12 @@
 // Rule (b) uses a flag blk_full = (blk_n == BLOCK_LEN) computed one pixel ahead.
 // No multipliers (0 DSP48E1): the planner's coordinates are additions only; coord_gen recomputes each block start
 // with its own multiply-add (fixed convention), so the coordinates exist twice by design (spec section 3).
+//
+// Bayer Option A (step 5.2, spec section 18.3): with cfg_stride2 = 1 the scan runs over the plane grid (cfg_width /
+// cfg_height = W/2, H/2 from bayer_seq, b13 / b23 = T_p) and every column and row that leaves the planner is a MEMORY
+// column / row of the full mosaic: column mc = 2y + o_col (word columns and rule (c) use mc), row 2x + o_row (fetch
+// records). Rows are compared for reuse in plane coordinates (the map is one-to-one within a pass). mc is monotonic
+// in y, so the step 3.6c range logic is unchanged. With cfg_stride2 = 0 the module is the gray planner.
 //
 // Test only: PATRM_FAULT_SPAN compares the span against SPAN_MAX + 8 (must fail tb_block_planner group c).
 module block_planner #(
@@ -46,6 +53,9 @@ module block_planner #(
     input  wire [SIZE_BITS-1:0]  cfg_height,
     input  wire [SIZE_BITS-1:0]  cfg_block_len,
     input  wire [31:0]           cfg_b11, cfg_b12, cfg_b13, cfg_b21, cfg_b22, cfg_b23,
+    input  wire                  cfg_stride2,           // Bayer Option A pass (bayer_seq)
+    input  wire                  cfg_o_row,
+    input  wire                  cfg_o_col,
     // block descriptors (to coord_gen)
     output wire                  desc_valid,
     input  wire                  desc_ready,
@@ -92,6 +102,7 @@ module block_planner #(
     reg  [SIZE_BITS-1:0] k_wm1, k_hm1, k_len;
     reg  [31:0]          k_xmax, k_ymax;                   // (H-1) << 16, (W-1) << 16
     reg                  k_neg, k_len1;                    // b22 < 0; BLOCK_LEN == 1
+    reg                  k_s2, k_orow, k_ocol;             // Option A: memory row 2x + o_row, column 2y + o_col
 
     // ------------------------------------------------------------------ stage A: scan
     reg                  a_run, a_flush;
@@ -111,7 +122,9 @@ module block_planner #(
             b_tok <= 1'b0; b_flush <= 1'b0; b_rowstart <= 1'b0; b_u <= 0; b_v <= 0; b_X <= 0; b_Y <= 0;
             k_b11 <= 0; k_b12 <= 0; k_b21 <= 0; k_b22 <= 0; k_wm1 <= 0; k_hm1 <= 0; k_len <= 0;
             k_xmax <= 0; k_ymax <= 0; k_neg <= 1'b0; k_len1 <= 1'b0;
+            k_s2 <= 1'b0; k_orow <= 1'b0; k_ocol <= 1'b0;
         end else if (frame_start) begin
+            k_s2 <= cfg_stride2; k_orow <= cfg_o_row; k_ocol <= cfg_o_col;
             k_b11 <= cfg_b11; k_b12 <= cfg_b12; k_b21 <= cfg_b21; k_b22 <= cfg_b22;
             k_wm1 <= cfg_width - 1'b1;
             k_hm1 <= cfg_height - 1'b1;
@@ -154,13 +167,16 @@ module block_planner #(
     wire [SIZE_BITS-1:0] bv_x0 = b_X[16 + SIZE_BITS - 1:16];          // X >>> 16 (0 .. H-1 when valid)
     wire [SIZE_BITS-1:0] bv_y0 = b_Y[16 + SIZE_BITS - 1:16];
     wire [SIZE_BITS-1:0] bv_y1 = (bv_y0 == k_wm1) ? bv_y0 : bv_y0 + 1'b1;   // min(y0 + 1, W - 1)
+    // memory columns (Option A: 2y + o_col; gray: y)
+    wire [SIZE_BITS-1:0] bv_mc0 = k_s2 ? {bv_y0[SIZE_BITS-2:0], k_ocol} : bv_y0;
+    wire [SIZE_BITS-1:0] bv_mc1 = k_s2 ? {bv_y1[SIZE_BITS-2:0], k_ocol} : bv_y1;
 
     reg                  c_tok, c_flush, c_rowstart, c_pv, c_x0last;
     reg  [SIZE_BITS-1:0] c_u, c_v, c_x0;
     reg  [WB-1:0]        c_wlo, c_whi;
     reg  signed [WB+1:0] c_bnd;                            // rule (c) bound if a block starts at this pixel
-    wire signed [WB+1:0] bv_bnd = k_neg ? $signed({2'b00, bv_y1[SIZE_BITS-1:3]}) - (SPAN_WORDS - 1)
-                                        : $signed({2'b00, bv_y0[SIZE_BITS-1:3]}) + (SPAN_WORDS - 1);
+    wire signed [WB+1:0] bv_bnd = k_neg ? $signed({2'b00, bv_mc1[SIZE_BITS-1:3]}) - (SPAN_WORDS - 1)
+                                        : $signed({2'b00, bv_mc0[SIZE_BITS-1:3]}) + (SPAN_WORDS - 1);
 
     always @(posedge aclk) begin
         if (!aresetn || frame_start) begin
@@ -172,8 +188,8 @@ module block_planner #(
             c_pv <= bv_valid;
             c_x0 <= bv_x0;
             c_x0last <= (bv_x0 == k_hm1);
-            c_wlo <= bv_y0[SIZE_BITS-1:3];
-            c_whi <= bv_y1[SIZE_BITS-1:3];
+            c_wlo <= bv_mc0[SIZE_BITS-1:3];
+            c_whi <= bv_mc1[SIZE_BITS-1:3];
             c_bnd <= bv_bnd;
         end
     end
@@ -332,7 +348,10 @@ module block_planner #(
                                d_hasv ? s_bot : {SLOT_BITS{1'b0}},
                                d_hasv ? r_scol : {SIZE_BITS{1'b0}},
                                d_last};
-    wire [FETCH_W-1:0] f_din = {d_x0, d_bot, s_top, s_bot, !d_rt, d_two && !d_rb, r_scol, r_words};
+    // memory rows (Option A: 2x + o_row; gray: x)
+    wire [SIZE_BITS-1:0] m_top = k_s2 ? {d_x0[SIZE_BITS-2:0], k_orow}  : d_x0;
+    wire [SIZE_BITS-1:0] m_bot = k_s2 ? {d_bot[SIZE_BITS-2:0], k_orow} : d_bot;
+    wire [FETCH_W-1:0] f_din = {m_top, m_bot, s_top, s_bot, !d_rt, d_two && !d_rb, r_scol, r_words};
 
     // ------------------------------------------------------------------ FIFOs (distributed RAM)
     reg  [DESC_W-1:0]  d_mem [0:DESC_DEPTH-1];

@@ -29,6 +29,7 @@ DRY_RUNS = [("dry_run_frame", ["scripts/board/run_frame.py", "mixed", "identity"
             ("dry_run_job_sw", ["scripts/board/run_job.py", "mixed", "identity", "64", "64", "--sw", "--dry-run"])]
 AXIL = ["--top", "tb_axil_regs", "-f", "tb/axil_regs.f", "--incdir", "rtl"]
 TOP = ["--top", "tb_patrm_top", "-f", "tb/patrm_top.f", "--incdir", "rtl"] + VEC
+TOP_A = TOP + ["--define", "TB_BAYER_A"]               # Option A build of the same bench (step 5.2)
 BENCHES = [("tb_axil_regs", AXIL),
            ("tb_axil_regs_alt_seed", AXIL + ["--define", "ALT_SEED"]),
            ("tb_coord_gen", ["--top", "tb_coord_gen", "-f", "tb/coord_gen.f"] + VEC),
@@ -38,10 +39,15 @@ BENCHES = [("tb_axil_regs", AXIL),
            ("tb_out_path", ["--top", "tb_out_path", "-f", "tb/out_path.f"] + VEC),
            ("tb_block_planner", ["--top", "tb_block_planner", "-f", "tb/block_planner.f"] + VEC),
            ("tb_fetch_path", ["--top", "tb_fetch_path", "-f", "tb/fetch_path.f"] + VEC),
-           ("tb_patrm_top", TOP)]
+           ("tb_bayer_seq", ["--top", "tb_bayer_seq", "-f", "tb/bayer_seq.f"]),
+           ("tb_patrm_top", TOP),
+           ("tb_patrm_top_bayer_a", TOP_A)]
 FAULTS = [("fault_done_early", TOP + ["--define", "PATRM_FAULT_DONE_EARLY"]),
           ("fault_busy_gap", TOP + ["--define", "PATRM_FAULT_BUSY_GAP"]),
-          ("fault_busy_gap_regs", AXIL + ["--define", "PATRM_FAULT_BUSY_GAP"])]
+          ("fault_busy_gap_regs", AXIL + ["--define", "PATRM_FAULT_BUSY_GAP"]),
+          ("fault_a_ocol", TOP_A + ["--define", "PATRM_FAULT_A_OCOL"]),          # step 5.2
+          ("fault_a_wstrb", TOP_A + ["--define", "PATRM_FAULT_A_WSTRB"]),
+          ("fault_a_rowstep", TOP_A + ["--define", "PATRM_FAULT_A_ROWSTEP"])]
 
 
 def run(name, args, must_fail=False):

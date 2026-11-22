@@ -137,7 +137,7 @@ The Option A changes are specified in `spec/interface.md` section 18 (step 5.1) 
 |---|---|---|
 | `rtl/axil_regs.v` | shared | none (MODE, T registers, Bayer size checks exist) |
 | `rtl/ctrl_fsm.v` | shared | A: done from bayer_seq, BUSY over all passes |
-| `rtl/bayer_seq.v` | A (new, 5.2) | runs the four plane passes, per-pass values |
+| `rtl/bayer_seq.v` | A (step 5.2) | runs the four plane passes, per-pass values (gray: one pass) |
 | `rtl/block_planner.v` | shared | A: plane grid, memory row 2x + o_row, column 2y + o_col |
 | `rtl/coord_gen.v` | shared | A: b13 / b23 = T_p of the pass |
 | `rtl/prefetch_ctrl.v` | shared | A: bottom row = top + 2W |
@@ -695,6 +695,28 @@ python -m model.test_bayer_a            # about 15 s; --quick skips 480x272
 checks it bit-exact against `model/bayer.py` warp_bayer (sim sizes, 480x272, random and extreme-zoom transforms),
 checks BYTES_RD / BYTES_WR against `model/memmodel.py`, and checks that every pixel's neighbours are inside its block's
 fetched rows and columns with at most 64 words per buffer slot. Last line `TEST PASS`. No RTL yet (step 5.2).
+
+## Step 5.2: Bayer Option A RTL (simulation)
+
+New `rtl/bayer_seq.v` runs one pass (gray) or four plane passes (MODE 1) and gives every module the values of the pass;
+block_planner, prefetch_ctrl, pixel_fetch, out_fifo and axi_wr_master take them (spec/interface.md sections 18.2,
+18.3, as built 18.7). Gray mode is cycle-identical to step 3.7.
+
+```
+python scripts/gen_patrm_top_vectors.py                                   # cases.txt + cases_bayer_a.txt
+python scripts/sim.py --top tb_bayer_seq -f tb/bayer_seq.f                # pass sequencer alone
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --define TB_BAYER_A --plusarg VEC_DIR=data/vectors
+```
+The last command is the Option A build of the engine (MODES 3): 134 MODE 1 jobs and 13 gray jobs, output mosaic
+bit-exact with `model/bayer.py`, WSTRB 8'h55 / 8'hAA per pass, BYTES_WR = 2 x W x H. `scripts/regress.py` runs both builds
+and three faults (`PATRM_FAULT_A_OCOL`, `PATRM_FAULT_A_WSTRB`, `PATRM_FAULT_A_ROWSTEP`) that must make it fail.
+
+Option A implementation numbers (OOC, 100 MHz): run from `build/ooc/patrm_top_bayer_a`
+```
+vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl -tclargs variant=bayer_a     # results/ooc/patrm_top_bayer_a_*
+```
+(2,620 LUT, 3,612 FF, 8 RAMB36, 17 DSP48E1, WNS +1.238 ns). The board bitstream with Option A is step 5.3.
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 

@@ -24,7 +24,7 @@ set engine_range 0x10000
 set src_base   0x10000000                                  ;# spec/memory_map.md section 1, 16 MB each
 set dst_base   0x18000000
 set buf_size   0x01000000
-set rtl_names  {axil_regs ctrl_fsm block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
+set rtl_names  {axil_regs ctrl_fsm bayer_seq block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
                 bilinear_interp out_fifo axi_wr_master patrm_top}
 
 array set opt {ila 0 bd_only 0 sim 0}

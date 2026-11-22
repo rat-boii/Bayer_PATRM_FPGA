@@ -59,7 +59,7 @@ module ooc_fetch_path_wrap (
     wire [15:0] blocks_ready;
 
     prefetch_ctrl u_pc (
-        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_src_addr(cfg_src_addr), .cfg_width(cfg_width),
+        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_src_addr(cfg_src_addr), .cfg_width(cfg_width), .cfg_stride2(1'b0),
         .fetch_valid(fetch_valid), .fetch_ready(fetch_ready), .fetch_row_top(fetch_row_top),
         .fetch_row_bot(fetch_row_bot), .fetch_slot_top(fetch_slot_top), .fetch_slot_bot(fetch_slot_bot),
         .fetch_top(fetch_top), .fetch_bot(fetch_bot), .fetch_s_col(fetch_s_col), .fetch_words(fetch_words),
@@ -75,6 +75,7 @@ module ooc_fetch_path_wrap (
 
     pixel_fetch u_pf (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_width(cfg_width), .cfg_height(cfg_height),
+        .cfg_stride2(1'b0), .cfg_o_col(1'b0),
         .pix_valid(pix_valid), .pix_ready(pix_ready), .pix_X(pix_X), .pix_Y(pix_Y), .pix_first(pix_first),
         .pix_last(pix_last), .pix_nrows(pix_nrows), .pix_slot_top(pix_slot_top), .pix_slot_bot(pix_slot_bot),
         .pix_s_col(pix_s_col), .pix_frame_last(pix_frame_last),

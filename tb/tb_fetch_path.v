@@ -86,6 +86,7 @@ module tb_fetch_path;
     block_planner #(.SLOT_BITS(SLOT_BITS), .SPAN_MAX(512)) u_pa (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
+        .cfg_stride2(1'b0), .cfg_o_row(1'b0), .cfg_o_col(1'b0),                // gray (Option A: tb_patrm_top)
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
         .desc_valid(a_dv), .desc_ready(desc_ready && !sel32), .desc_u(a_du), .desc_v0(a_dv0), .desc_n(a_dn),
         .desc_nrows(a_dnr), .desc_slot_top(a_dst), .desc_slot_bot(a_dsb), .desc_s_col(a_dsc), .desc_last(a_dl),
@@ -95,6 +96,7 @@ module tb_fetch_path;
     block_planner #(.SLOT_BITS(SLOT_BITS), .SPAN_MAX(32)) u_pb (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_width(cfg_width), .cfg_height(cfg_height), .cfg_block_len(cfg_block_len),
+        .cfg_stride2(1'b0), .cfg_o_row(1'b0), .cfg_o_col(1'b0),                // gray (Option A: tb_patrm_top)
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(cfg_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(cfg_b23),
         .desc_valid(b_dv), .desc_ready(desc_ready && sel32), .desc_u(b_du), .desc_v0(b_dv0), .desc_n(b_dn),
         .desc_nrows(b_dnr), .desc_slot_top(b_dst), .desc_slot_bot(b_dsb), .desc_s_col(b_dsc), .desc_last(b_dl),
@@ -152,7 +154,7 @@ module tb_fetch_path;
     wire                 blk_done;
 
     prefetch_ctrl #(.SLOT_BITS(SLOT_BITS)) u_pc (
-        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_src_addr(cfg_src), .cfg_width(cfg_width),
+        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_src_addr(cfg_src), .cfg_width(cfg_width), .cfg_stride2(1'b0),
         .fetch_valid(fv), .fetch_ready(fetch_ready), .fetch_row_top(frt), .fetch_row_bot(frb),
         .fetch_slot_top(fst), .fetch_slot_bot(fsb), .fetch_top(ft), .fetch_bot(fb), .fetch_s_col(fsc),
         .fetch_words(fw),
@@ -202,6 +204,7 @@ module tb_fetch_path;
     wire [7:0]  ip_r1, ip_r2, ip_r3, ip_r4;
     pixel_fetch #(.SLOT_BITS(SLOT_BITS)) u_pf (
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start), .cfg_width(cfg_width), .cfg_height(cfg_height),
+        .cfg_stride2(1'b0), .cfg_o_col(1'b0),
         .pix_valid(pix_valid), .pix_ready(pix_ready), .pix_X(pix_X), .pix_Y(pix_Y), .pix_first(pix_first),
         .pix_last(pix_last), .pix_nrows(pix_nrows), .pix_slot_top(pix_st), .pix_slot_bot(pix_sb),
         .pix_s_col(pix_sc), .pix_frame_last(pix_frame_last),

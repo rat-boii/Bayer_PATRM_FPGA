@@ -3,6 +3,10 @@
 #
 # Run from build/ooc/patrm_top (keeps Vivado's .jou/.log out of the repo):
 #   vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl
+#   vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl -tclargs variant=bayer_a      (step 5.2)
+#   ... -tclargs out=<folder>          reports into another folder (e.g. a re-check that must not replace results/ooc)
+# variant=gray (default): MODES 1, BUILD_TYPE 0, reports patrm_top_*; variant=bayer_a: MODES 3, BUILD_TYPE 1, reports
+# patrm_top_bayer_a_*. The per-module standalone numbers are always read from results/ooc/<module>_summary.txt.
 #
 # Reports go to results/ooc/, all named patrm_top_*:
 #   utilization_synth.rpt, utilization_route.rpt   flat utilization
@@ -22,12 +26,26 @@ set repo       [file dirname $script_dir]
 set part       xc7z020clg484-1
 set period     10.000
 set out        [file join $repo results ooc]
+set sa_dir     $out                                        ;# standalone module summaries
+set variant    gray
+# vivado.bat on Windows splits "variant=bayer_a" at the "=", so the script receives "variant" "bayer_a" (as build.tcl)
+foreach {k v} [regsub -all {=} [join $argv " "] " "] {
+    if {$k eq "variant" && ($v eq "gray" || $v eq "bayer_a")} { set variant $v } \
+    elseif {$k eq "out" && $v ne ""}                           { set out [file normalize $v] } \
+    else { error "unknown argument '$k $v' (use variant=gray|bayer_a, out=<folder>)" }
+}
+if {$variant eq "bayer_a"} {
+    set modes 3; set build_type 1; set prefix patrm_top_bayer_a
+} else {
+    set modes 1; set build_type 0; set prefix patrm_top
+}
+puts "OOC variant $variant: MODES $modes, BUILD_TYPE $build_type, reports $out/${prefix}_*"
 file mkdir $out
-proc rpt {name} { global out; return [file join $out patrm_top_$name] }
+proc rpt {name} { global out prefix; return [file join $out ${prefix}_$name] }
 
 # instance, module (= name of the standalone results/ooc/<module>_summary.txt; ctrl_fsm has no standalone run)
 set instances {
-    u_regs axil_regs  u_ctrl ctrl_fsm  u_planner block_planner  u_coord coord_gen  u_prefetch prefetch_ctrl
+    u_regs axil_regs  u_ctrl ctrl_fsm  u_seq bayer_seq  u_planner block_planner  u_coord coord_gen  u_prefetch prefetch_ctrl
     u_rd axi_rd_master  u_buf line_buf  u_fetch pixel_fetch  u_interp bilinear_interp  u_ofifo out_fifo
     u_wr axi_wr_master
 }
@@ -38,7 +56,7 @@ lappend srcs [file join $repo rtl patrm_top.v]
 read_verilog $srcs                                         ;# list: the repo path may contain spaces
 read_xdc -mode out_of_context [list [file join $script_dir ooc_100mhz.xdc]]
 synth_design -top patrm_top -part $part -mode out_of_context -include_dirs [list [file join $repo rtl]] \
-    -generic BLOCK_LEN_MAX=64 -generic NSLOT=32 -generic RD_OUTSTANDING=8
+    -generic BLOCK_LEN_MAX=64 -generic NSLOT=32 -generic RD_OUTSTANDING=8 -generic MODES=$modes -generic BUILD_TYPE=$build_type
 
 proc n_cells {flt} { return [llength [get_cells -quiet -hier -filter $flt]] }
 proc count_latches {} { return [n_cells {REF_NAME =~ LD*}] }
@@ -64,7 +82,7 @@ set latches_synth [count_latches]
 opt_design
 place_design
 route_design
-write_checkpoint -force patrm_top_route.dcp                ;# in the run folder (build/), for later inspection
+write_checkpoint -force ${prefix}_route.dcp                ;# in the run folder (build/), for later inspection
 
 # ---------------- reports ----------------
 report_utilization -file [rpt utilization_route.rpt]
@@ -170,7 +188,7 @@ foreach {inst mod} $instances {
     set dsp  [expr {[hget $r {DSP Blocks}] + [hget $r {DSP48 Blocks}]}]
     incr sum_lut $lut; incr sum_ff $ffs; incr sum_dsp $dsp
     lassign {- - - - - -} slut smem sff sbr sdsp swns
-    set sf [file join $out ${mod}_summary.txt]
+    set sf [file join $sa_dir ${mod}_summary.txt]
     if {[file exists $sf]} {
         set h [open $sf r]; set t [read $h]; close $h
         set slut [sa_field $t {^LUT\s+(\d+)}]

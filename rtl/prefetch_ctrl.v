@@ -3,9 +3,9 @@
 // Fetching blocks (nrows > 0) are numbered from 0 at frame_start, in fetch-record order.
 //   prep pipeline (ce rule, spec section 0), one record per stage:
 //     P1  record registers; DSP operands row_top, W
-//     P2  m = row_top * W (DSP48E1 M register); off = SRC_ADDR + s_col, off_w = off + W
-//     P3  addr_top = m + off, addr_bot = m + off_w (= SRC_ADDR + (row_top + 1) * W + s_col; row_bot is row_top + 1
-//         whenever it is fetched, nrows = 2)
+//     P2  m = row_top * W (DSP48E1 M register); off = SRC_ADDR + s_col, off_w = off + row step
+//     P3  addr_top = m + off, addr_bot = m + off_w. Row step = W (gray: row_bot = row_top + 1 whenever it is fetched,
+//         nrows = 2) or 2W (Bayer Option A, cfg_stride2 = 1: the next plane row is memory row row_top + 2, spec 18.3)
 //     IS  issue: top row first, then bottom; a row with fetch = 1 waits until its slot is free, then one command
 //         (cmd_valid stays 1 until cmd_ready: a slot can only become free while waiting). When the record is done
 //         (all its commands accepted): its slots get last_user = this block and busy = 1, and one entry
@@ -24,6 +24,7 @@
 //   frame_start in the middle of a frame: commands already accepted by axi_rd_master still return beats; they
 //     are counted (cmd_out) and their beats dropped (not written, not counted as complete).
 // Ports as spec section 5, plus frame_start.
+// Test only: PATRM_FAULT_A_ROWSTEP fetches the bottom row at top + W in Option A; tb_patrm_top TB_BAYER_A must fail.
 module prefetch_ctrl #(
     parameter SIZE_BITS  = 13,
     parameter CNT_BITS   = 7,                             // fetch_words / cmd_words 1..64
@@ -37,12 +38,13 @@ module prefetch_ctrl #(
     input  wire                     aresetn,
     input  wire                     frame_start,
     input  wire [31:0]              cfg_src_addr,
-    input  wire [SIZE_BITS-1:0]     cfg_width,
+    input  wire [SIZE_BITS-1:0]     cfg_width,           // full row stride W in bytes (both modes)
+    input  wire                     cfg_stride2,         // Bayer Option A pass: bottom row = top + 2W
     // fetch records (block_planner)
     input  wire                     fetch_valid,
     output wire                     fetch_ready,
     input  wire [SIZE_BITS-1:0]     fetch_row_top,
-    input  wire [SIZE_BITS-1:0]     fetch_row_bot,       // = row_top + 1 when fetched (not used, see P3)
+    input  wire [SIZE_BITS-1:0]     fetch_row_bot,       // = row_top + 1 (gray) / + 2 (Option A) when fetched (not used, see P3)
     input  wire [SLOT_BITS-1:0]     fetch_slot_top,
     input  wire [SLOT_BITS-1:0]     fetch_slot_bot,
     input  wire                     fetch_top,
@@ -76,10 +78,16 @@ module prefetch_ctrl #(
     // ------------------------------------------------------------------ frame configuration
     reg [31:0]          src_r;
     reg [SIZE_BITS-1:0] w_r;
+    reg [SIZE_BITS:0]   step_r;                          // memory distance top row -> bottom row: W or 2W
     always @(posedge aclk) begin
         if (frame_start) begin
-            src_r <= cfg_src_addr;
-            w_r   <= cfg_width;
+            src_r  <= cfg_src_addr;
+            w_r    <= cfg_width;
+`ifdef PATRM_FAULT_A_ROWSTEP
+            step_r <= {1'b0, cfg_width};                 // test-only fault: bottom row at top + W in Option A too
+`else
+            step_r <= cfg_stride2 ? {cfg_width, 1'b0} : {1'b0, cfg_width};
+`endif
         end
     end
 
@@ -134,7 +142,7 @@ module prefetch_ctrl #(
             // P2
             p2_m     <= p1_row * w_r;
             p2_off   <= src_r + {{(32-SIZE_BITS){1'b0}}, p1_scol};
-            p2_offw  <= src_r + {{(32-SIZE_BITS){1'b0}}, p1_scol} + {{(32-SIZE_BITS){1'b0}}, w_r};
+            p2_offw  <= src_r + {{(32-SIZE_BITS){1'b0}}, p1_scol} + {{(31-SIZE_BITS){1'b0}}, step_r};
             p2_st    <= p1_st;  p2_sb <= p1_sb;  p2_ft <= p1_ft;  p2_fb <= p1_fb;
             p2_words <= p1_words;
             p2_wb    <= p1_scol[WORD_BITS+2:3];

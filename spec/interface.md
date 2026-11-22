@@ -944,7 +944,7 @@ the per-pass values of 18.1. It owns the pass counter; ctrl_fsm keeps BUSY and t
 **Behaviour.** All pass_* outputs are registers, loaded in the cycle before frame_start and held for the whole pass
 (modules may still latch them at frame_start, as they latch cfg_* today). start_accept -> pass 0 values ->
 frame_start one cycle after start_accept (the same cycle as before, so gray timing is unchanged). pass_done of a
-pass that is not the last -> next pass values -> frame_start (ESTIMATE 2 cycles after pass_done). pass_done of the
+pass that is not the last -> next pass values -> frame_start (as built: 1 cycle after pass_done, 18.7). pass_done of the
 last pass -> job_done in the same cycle as the step 3.7 done_set would have come (gray: CYCLES unchanged).
 **Parameters.** MODES (bit 1 = Option A built). With MODES = 3'b001 the Option A logic is constant 0 and is removed
 by synthesis (gray build resources: measured again in 5.2). **Reset.** Idle, pass 0 values, no pulses.
@@ -1014,3 +1014,56 @@ reaches 64 words and never exceeds it). Measured in step 5.2 / 5.3.
   BYTES_WR equal to 18.4; strobes checked by tb/axi_mem.v (a byte with strobe 0 must not change).
 - The whole gray regression unchanged (`scripts/regress.py`), including tb_system.
 - Fault defines (as in step 3.7): wrong o_col in one pass, WSTRB 8'hFF, bottom row at top + W must each fail.
+
+### 18.7 As built (step 5.2, measured)
+
+**RTL.** New `rtl/bayer_seq.v`; small changes in block_planner, prefetch_ctrl, pixel_fetch, out_fifo, axi_wr_master and
+patrm_top (wiring only for coord_gen and ctrl_fsm: coord_gen gets pass_b13 / pass_b23 on its cfg_b13 / cfg_b23 ports,
+ctrl_fsm gets job_done on its wr_frame_done port and its own frame_start output is left open). Differences from the
+5.1 text: frame_start of the next pass comes **1 cycle** after pass_done (the 5.1 estimate was 2). With MODES = 3'b001
+the Option A logic is removed, but the per-pass registers of bayer_seq stay as copies of B13, B23, W and H (see the
+resource table below). Test-only faults: PATRM_FAULT_A_OCOL (pixel_fetch ignores o_col), PATRM_FAULT_A_WSTRB
+(axi_wr_master writes 8'hFF), PATRM_FAULT_A_ROWSTEP (prefetch_ctrl bottom row at top + W).
+
+**Simulation.** tb_bayer_seq (MODES 3 and MODES 1 instances side by side; 204 random jobs, 510 passes: pass values,
+frame_start / job_done timing, stability during a pass, stray pass_done, aresetn mid-job) TEST PASS. tb_patrm_top in two
+builds of the same file: gray (cases.txt, 147 frames, 3,498,752 bytes) TEST PASS with the step 3.7 speed table
+unchanged to the cycle (L = 20: identity 49,315, rot15 51,937, rot37 84,623, rot90 108,427; L = 40: 49,355, 90,306,
+150,405, 194,273); Option A build (`--define TB_BAYER_A`, MODES 3, cases_bayer_a.txt: 134 MODE 1 jobs and 13 gray jobs,
+147 frames, 3,196,672 bytes) TEST PASS: output mosaic = bayer.warp_bayer, 4 frame_start pulses per MODE 1 job, WSTRB
+8'h55 / 8'hAA of the pass in progress on every W beat, BYTES_RD and the AR / AW burst counts = bayer_a / memmodel,
+BYTES_WR = 2 x W x H, bus errors, locks, polling, rejected starts (Bayer W not a multiple of 16, H odd, MODE 2, MODE 3),
+resets in pass 0, a middle pass and the last pass, gray and MODE 1 jobs back to back. Each of the three faults makes
+the Option A build fail on its first job. Full regression REGRESSION PASS, 41 items (incl. tb_system with bayer_seq in
+the block design).
+
+**Speed (simulation, tb_patrm_top group h, 256x192, BLOCK_LEN 64; L = model memory latency; not hardware).**
+
+| transform | gray L = 20 | Option A L = 20 | gray L = 40 | Option A L = 40 |
+|---|---|---|---|---|
+| identity | 49,315 | 49,868 | 49,355 | 50,028 |
+| rot15 | 51,937 | 65,510 | 90,306 | 119,685 |
+| rot37 | 84,623 | 93,846 | 150,405 | 172,729 |
+| rot90 | 108,427 | 103,384 | 194,273 | 195,204 |
+
+Identity / mirrors: Option A costs about 550 cycles more than gray at L = 20 (three extra pass starts and drains,
+about 185 cycles each). Rotations: Option A reads more bytes (18.5) and is read-latency bound like gray; rot90 is
+slightly faster in Option A at L = 20 (shorter plane rows: fewer bursts per block row). Board numbers: step 5.3.
+
+**Resources and timing (OOC post-route, xc7z020clg484-1, 100 MHz, measured).** `vivado/ooc_patrm_top.tcl
+-tclargs variant=bayer_a` -> `results/ooc/patrm_top_bayer_a_*`; the gray re-check with the step 5.2 RTL was run into a
+scratch folder (results/ooc/patrm_top_* stay the step 3.8 reference).
+
+| build | LUT | FF | RAMB36 | DSP48E1 | WNS | WHS | critical path |
+|---|---|---|---|---|---|---|---|
+| gray, step 3.8 (reference) | 2,301 | 3,475 | 8 | 17 | +1.634 ns | +0.026 ns | planner desc FIFO -> coord_gen DSP B input |
+| gray, step 5.2 RTL | 2,372 | 3,574 | 8 | 17 | +1.618 ns | +0.026 ns | the same kind: planner desc FIFO -> coord_gen DSP B input |
+| Option A (MODES 3) | 2,620 | 3,612 | 8 | 17 | +1.238 ns | +0.026 ns | u_planner/k_s2_reg -> u_ofifo/count (7 levels, 8.79 ns) |
+
+Option A over the gray build of the same RTL: +248 LUT, +38 FF, no BRAM, no DSP, 0 latches. Largest parts: axil_regs
+528 vs 384 LUT (the eight T registers are now read by bayer_seq, so synthesis keeps them), bayer_seq 49 vs 17 LUT
+(99 vs 92 FF), out_fifo 223 vs 196, planner 577 vs 562. The gray build of the step 5.2 RTL is +71 LUT / +99 FF over
+step 3.8: out_fifo 196 vs 130 LUT (the 64-bit packer with byte insert costs LUTs also in gray mode) and the bayer_seq
+pass registers (92 FF, copies of B13, B23, W, H). Vivado merged the equivalent stride2 flags of block_planner, pixel_fetch and
+out_fifo (all loaded from pass_stride2 at frame_start) into u_planner/k_s2_reg; its fan-out is the critical path
+(slack +1.238 ns). Power ESTIMATE (vectorless, engine only): 0.159 W (0.055 dynamic + 0.104 static).
