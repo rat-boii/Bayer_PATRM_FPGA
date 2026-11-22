@@ -127,6 +127,9 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
 | `docs/`    | Plan, proposal, specs |
 | `build/`   | All tool output (git-ignored, safe to delete) |
 
+**Ethernet link and GUI (plan Phase 10, a teammate's work in parallel):** start with `docs/handover-ethernet-gui.md`.
+`AGENTS.md` points every coding agent (Codex, Claude Code) to `CLAUDE.md`, the single rule file.
+
 ### Repository map: grayscale and Bayer (D20)
 
 One repo, one engine. Shared modules get a parameter or mode input and are never copied; Bayer-only files are

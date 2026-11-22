@@ -20,7 +20,11 @@ import vitis
 os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep + os.environ["PATH"]
 
 REPO = Path(__file__).resolve().parents[2]
-XSA = REPO / "results" / "hw" / "patrm_gray.xsa"
+# XSA: environment variable PATRM_XSA if set; else results/hw/patrm_gray.xsa (from vivado/build.tcl); else the
+# verified Rev D bundle that is tracked in git (results/hw/rev D/patrm_gray.xsa), so a fresh clone can build.
+XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
+if not os.environ.get("PATRM_XSA") and not XSA.is_file():
+    XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
 WORKSPACE = REPO / "build" / "vitis" / "bringup"
 ELF_OUT = REPO / "results" / "hw" / "bringup.elf"
 PLATFORM = "patrm_gray_plat"
@@ -36,7 +40,7 @@ def remove_read_only(func, path, _exc):
 
 def main():
     if not XSA.is_file():
-        print(f"BRINGUP BUILD FAILED: {XSA} not found; run vivado/build.tcl first")
+        print(f"BRINGUP BUILD FAILED: {XSA} not found; run vivado/build.tcl or set PATRM_XSA")
         return 1
     ELF_OUT.unlink(missing_ok=True)                 # a failed build must not leave an old ELF behind
     if WORKSPACE.exists():

@@ -67,6 +67,8 @@ docs/*Tracker*.docx
 !results/hw/rev D/*.bit
 !results/hw/rev D/*.xsa
 !results/hw/rev D/*.elf
+!results/hw/patrm_app.elf
+!results/hw/patrm_app_o3.elf
 !results/hw/rev D/hardware_build.log
 !results/hw/rev D/software_build.log
 
