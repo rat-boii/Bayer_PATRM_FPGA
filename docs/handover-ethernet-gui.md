@@ -84,7 +84,12 @@ unchanged and carry them over TCP. The lwIP app receives `descriptor + source im
 - `vitis -s` and `xsdb` can exit 0 after a failure: read the last printed line (`... BUILD OK`, `JOB PASS`).
 - `vivado.bat` / `xvlog.bat` split command-line arguments at `=` (scripts already handle it).
 - Build the ARM code with `-Wall -Wextra -Werror` like `sw/patrm_app/build_vitis.py`. Fresh clone: that script now
-  falls back to `results/hw/rev D/patrm_gray.xsa` (or set `PATRM_XSA`).
+  falls back to `results/hw/rev D/patrm_gray.xsa` (or set `PATRM_XSA`). Tested 2026-11-22 on a fresh clone:
+  PATRM_APP BUILD OK, 0 warnings. That ELF (302,996 bytes, BSP from the Rev D XSA) has NOT been run on a board; for
+  board tests use the tracked, hardware-verified `results/hw/patrm_app.elf` (302,364 bytes) until yours is verified.
+- Vitis 2026.1 cannot read an XSA whose path contains a space (`'standalone' is an invalid os. Valid OSes are
+  '[]'`); the build scripts copy such an XSA to `build/xsa/` first. Keep the clone itself in a short path without
+  spaces (a long temporary path also failed: "Invalid project location").
 - Images must follow D3 (grayscale W multiple of 8) and D11 (at most 4096 x 4096); transforms D4. Use `model/job.py`
   checks on the PC side, and never do floating-point transform maths on the ARM (b comes from the PC, D5).
 - The laptop and board need static IPs on a direct cable (for example PC 192.168.1.10, board 192.168.1.20).
