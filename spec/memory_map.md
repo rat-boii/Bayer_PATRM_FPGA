@@ -92,6 +92,12 @@ For every job:
 11. Read CYCLES, BYTES_RD, BYTES_WR, RD_STALL, WR_STALL (they hold their values until the next accepted start).
 12. Write the result record (status, counters) to the job result area for the host.
 
+**Bayer Option A (MODE 1, step 5.1; spec/interface.md section 18).** The same sequence; one START runs four plane
+passes (R, Gr, Gb, B) and DONE and the interrupt come once, after the last pass. B13 / B23 are not used (write them as
+in gray; the passes take T_p_X / T_p_Y). Every output byte is written by exactly one pass with masked writes, so the
+output needs no pre-fill. The counters cover the whole job; BYTES_WR = 2 x W x H (masked beats count 8 bytes).
+The step 4.2 driver still accepts GRAY only; Option A jobs are enabled in step 5.3.
+
 ## 5. Job descriptor and result record (step 4.2)
 
 One layout, in `model/job.py` (`JOB_FIELDS`, `RESULT_FIELDS`) and `sw/include/patrm_job.h`. `model/test_job_layout.py`

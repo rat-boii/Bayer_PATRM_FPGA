@@ -127,6 +127,35 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
 | `docs/`    | Plan, proposal, specs |
 | `build/`   | All tool output (git-ignored, safe to delete) |
 
+### Repository map: grayscale and Bayer (D20)
+
+One repo, one engine. Shared modules get a parameter or mode input and are never copied; Bayer-only files are
+named `bayer_*`. **Role:** shared = used by every mode; A = Bayer Option A (MODE 1); B = Bayer Option B (MODE 2).
+The Option A changes are specified in `spec/interface.md` section 18 (step 5.1) and built in step 5.2.
+
+| File | Role | Bayer change |
+|---|---|---|
+| `rtl/axil_regs.v` | shared | none (MODE, T registers, Bayer size checks exist) |
+| `rtl/ctrl_fsm.v` | shared | A: done from bayer_seq, BUSY over all passes |
+| `rtl/bayer_seq.v` | A (new, 5.2) | runs the four plane passes, per-pass values |
+| `rtl/block_planner.v` | shared | A: plane grid, memory row 2x + o_row, column 2y + o_col |
+| `rtl/coord_gen.v` | shared | A: b13 / b23 = T_p of the pass |
+| `rtl/prefetch_ctrl.v` | shared | A: bottom row = top + 2W |
+| `rtl/line_buf.v` | shared | none |
+| `rtl/pixel_fetch.v` | shared | A: plane D1, stride-2 byte select |
+| `rtl/bilinear_interp.v` | shared | none |
+| `rtl/out_fifo.v` | shared | A: 4 pixels per word at bytes 2k + o_col |
+| `rtl/axi_rd_master.v` | shared | none |
+| `rtl/axi_wr_master.v` | shared | A: WSTRB 55 / AA, row step 2W |
+| `rtl/patrm_top.v` | shared | MODES parameter selects the build |
+| `rtl/bayer_lanes.v` | B (planned, step 6) | four lanes, row-pair fetch |
+| `model/patrm.py` | shared | gray reference (bit-exact) |
+| `model/bayer.py` | A, B | Bayer reference: split, warp each plane, merge (bit-exact) |
+| `model/bayer_a.py`, `model/test_bayer_a.py` | A | Option A as the hardware does it, checked against `bayer.py` |
+| `model/memmodel.py` | shared | block / fetch schedules for gray, A and B |
+| `sw/` | shared | driver picks the path from MODE (Bayer jobs from step 5.3) |
+| `results/hw/` | gray build | Bayer builds go to `results/hw/bayer_a/`, `results/hw/bayer_b/` |
+
 ## Known setup items
 
 - Board files, the Vitis qemu folders and the other per-laptop items are in
@@ -654,6 +683,18 @@ Run the steps in this order.
    Measured on Rev D (2026-11-22): 33 of 33 bit-exact at -O2 and at -O3. 2448x2095 software warp 342.9 ms (identity,
    -O2) against 51.3 ms on the engine: 6.7x; rot15 6.0x, rot37 3.8x, rot90 3.3x. Over all cases 2.3-6.9x (engine time),
    2.2-5.5x end to end. -O3 measured 1.6-2.3 % slower than -O2.
+
+## Step 5.1: Bayer Option A specification
+
+`spec/interface.md` section 18 specifies MODE 1: one job runs four plane passes (R, Gr, Gb, B) through the same engine,
+started by the new module `bayer_seq`; each pass reads mosaic row 2x + o_row, column 2y + o_col and writes its plane
+into the interleaved output with WSTRB 8'h55 / 8'hAA (D19). `model/bayer_a.py` is that section as code, and
+```
+python -m model.test_bayer_a            # about 15 s; --quick skips 480x272
+```
+checks it bit-exact against `model/bayer.py` warp_bayer (sim sizes, 480x272, random and extreme-zoom transforms),
+checks BYTES_RD / BYTES_WR against `model/memmodel.py`, and checks that every pixel's neighbours are inside its block's
+fetched rows and columns with at most 64 words per buffer slot. Last line `TEST PASS`. No RTL yet (step 5.2).
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 

@@ -1,7 +1,7 @@
 # Grayscale engine: modules and interfaces (step 2.2)
 
-Scope: the GRAYSCALE engine (BUILD_TYPE 0, MODES = 0b001). Bayer A/B only appear as hooks (section 14),
-detailed in steps 5.1 / 6.1. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
+Scope: the GRAYSCALE engine (BUILD_TYPE 0, MODES = 0b001) in sections 0-17; Bayer Option A (MODE 1) in section 18
+(step 5.1); Option B is a hook (section 14), detailed in step 6.1. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
 Block / fetch schedule: `model/memmodel.py` (docstring = the rules), vectors `data/vectors/sched_*.txt`.
 Bit-exact reference for every pixel: `model/patrm.py`. Figure: `docs/figures/patrm_gray_top.tex`.
 
@@ -677,7 +677,7 @@ responses; after the last B of the frame pulses `wr_frame_done`.
 | m_axi_hp1_awvalid / awready | out / in | 1 | |
 | m_axi_hp1_wid | out | [6] | 0 (AXI3) |
 | m_axi_hp1_wdata | out | [64] | |
-| m_axi_hp1_wstrb | out | [8] | 8'hFF (gray); Option A hook: masked, section 14 |
+| m_axi_hp1_wstrb | out | [8] | 8'hFF (gray); Option A: pass_wstrb, section 18 |
 | m_axi_hp1_wlast | out | 1 | |
 | m_axi_hp1_wvalid / wready | out / in | 1 | |
 | m_axi_hp1_bid | in | [6] | ignored |
@@ -770,10 +770,9 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
 
 ## 14. Bayer hooks (detail in steps 5.1 and 6.1)
 
-- **Option A** (MODE 1): ctrl_fsm runs four plane passes (R, Gr, Gb, B) with b = (b11, b12, T_px, b21, b22, T_py)
-  from the T registers (D12) and plane size (W/2, H/2) for D1. block_planner maps plane row x -> memory row
-  2x + o_row and plane column y -> memory column 2y + o_col (memmodel Pass "A-*"); the 2-row / SPAN_MAX bound
-  stays. axi_wr_master writes each full row once per pass with WSTRB on every other byte (open decision 5.1).
+- **Option A** (MODE 1): specified in section 18 (step 5.1): four plane passes (R, Gr, Gb, B) run by the new module
+  bayer_seq with b = (b11, b12, T_px, b21, b22, T_py) from the T registers (D12) and plane size (W/2, H/2) for D1;
+  memory row 2x + o_row, column 2y + o_col; WSTRB-masked writes into the interleaved buffer (D19).
 - **Option B** (MODE 2): four lanes share one coord_gen; lane p adds T_p - T_R (register difference, D6).
   A block holds up to 3 plane rows = 6 memory rows (step 1.4), so the buffer needs more read copies; to be
   designed in 6.1.
@@ -877,3 +876,141 @@ PS: 0.144 W total on-chip = 0.040 W dynamic + 0.104 W device static. No simulate
 - **Q3 Outstanding reads. Closed (2026-11-17).** UG585 (Zynq-7000 TRM), AXI_HP Interfaces, Features: read
   acceptance 14 to 70 commands, write acceptance 8 to 32 commands, both depending on the burst length.
   RD_OUTSTANDING = 8 is within the read minimum; axi_wr_master (step 3.5) uses at most 8 outstanding writes.
+
+## 18. Bayer Option A (MODE 1, step 5.1)
+
+**Scope.** What changes when the engine runs CTRL.MODE = 1. Decisions used: D2 / D12 (T_p from the T registers), D19
+(WSTRB-masked writes into the interleaved buffer), D20 (file layout). Executable form of this section:
+`model/bayer_a.py`; check: `model/test_bayer_a.py` (bit-exact with `model/bayer.py` warp_bayer, counters equal to
+`model/memmodel.py`, buffer and addressing bounds). Gray mode (MODE 0) must stay cycle-identical to the step 3.7 engine:
+same CYCLES, same bursts, same outputs (tb_patrm_top and tb_system unchanged and passing).
+
+### 18.1 One job = four plane passes
+
+A job is accepted once (axil_regs start checks, unchanged: Bayer W multiple of 16, H even) and runs four passes in
+the order R, Gr, Gb, B (`bayer.PLANES`). Each pass is a grayscale frame over the plane grid with these settings:
+
+| per-pass value | gray (MODE 0, 1 pass) | Option A pass p, offset o = (o_row, o_col) |
+|---|---|---|
+| coefficients | B11, B12, B13, B21, B22, B23 | B11, B12, **T_p_X**, B21, B22, **T_p_Y** (registers, D12; B13 / B23 unused) |
+| output grid (scan, D1, clamps) | H x W | **Hp x Wp = H/2 x W/2** (D1: 0 <= X <= (Hp-1)<<16, 0 <= Y <= (Wp-1)<<16) |
+| source memory row of plane row x | x | **2x + o_row** |
+| source memory column of plane column y | y | **2y + o_col** |
+| x1, y1 clamp | min(x0+1, H-1), min(y0+1, W-1) | min(x0+1, Hp-1), min(y0+1, Wp-1) (in plane coordinates) |
+| row stride in memory | W | W (the full mosaic row) |
+| output row of grid row u | DST + u W | **DST + (2u + o_row) W** |
+| output bytes of a 64-bit word | 8 pixels, byte k = pixel 8j+k | **4 pixels, byte 2k + o_col = plane pixel 4j+k, other bytes 0** |
+| WSTRB | 8'hFF | **8'h55 << o_col** (R, Gb: 8'h55; Gr, B: 8'hAA) |
+
+| pass | plane | o_row | o_col | T registers | WSTRB | output rows |
+|---|---|---|---|---|---|---|
+| 0 | R | 0 | 0 | T_R_X, T_R_Y | 8'h55 | even |
+| 1 | Gr | 0 | 1 | T_GR_X, T_GR_Y | 8'hAA | even |
+| 2 | Gb | 1 | 0 | T_GB_X, T_GB_Y | 8'h55 | odd |
+| 3 | B | 1 | 1 | T_B_X, T_B_Y | 8'hAA | odd |
+
+Every output byte is written by exactly one pass (test_bayer_a [1]), so no pre-fill of the output is needed; the
+board tests still fill it with 0xA5 to catch a missed byte. Passes write disjoint bytes and read only the source, so
+their order in DDR does not matter for the result.
+
+**Pass sequencing (chosen for simplicity).** Pass p+1 starts only after pass p's last write response (its
+wr_frame_done). The cost is one pipeline fill and one write drain per pass: about 3 x 100 cycles per job (ESTIMATE,
+from the step 3.7 drain of 41 to 61 cycles plus the fill), below 0.3 % of a 480x272 job. Overlapping passes is a
+possible later optimisation, not part of 5.2.
+
+### 18.2 New module: bayer_seq (rtl/bayer_seq.v)
+
+**Purpose.** Turns one accepted job into one pass (gray) or four passes (Option A) and gives every data-path module
+the per-pass values of 18.1. It owns the pass counter; ctrl_fsm keeps BUSY and the counters for the whole job.
+
+| port | dir | width | meaning |
+|---|---|---|---|
+| aclk, aresetn | in | 1 | |
+| start_accept | in | 1 | from axil_regs: a job was accepted |
+| cfg_mode | in | [2] u | CTRL.MODE, sampled at start_accept |
+| cfg_width, cfg_height | in | [13] u | W, H of the job (full mosaic) |
+| cfg_b13, cfg_b23 | in | [32] s | gray offsets |
+| cfg_t_r_x ... cfg_t_b_y | in | 8 x [32] s | T registers |
+| pass_done | in | 1 | wr_frame_done of axi_wr_master: the current pass is complete in DDR |
+| frame_start | out | 1 | one-cycle pulse per pass to every data-path module (replaces ctrl_fsm's) |
+| job_done | out | 1 | one-cycle pulse after the last pass's pass_done (to ctrl_fsm) |
+| pass_index | out | [2] u | 0..3 (0 in gray) |
+| pass_b13, pass_b23 | out | [32] s | B13 / B23 (gray) or T_p_X / T_p_Y |
+| pass_width, pass_height | out | [13] u | grid size: W, H (gray) or W/2, H/2 |
+| pass_o_row, pass_o_col | out | 1 | plane offset (0 in gray) |
+| pass_stride2 | out | 1 | 1 in Option A: memory row = 2x + o_row, column = 2y + o_col |
+| pass_wstrb | out | [8] | 8'hFF (gray) or 8'h55 << o_col |
+
+**Behaviour.** All pass_* outputs are registers, loaded in the cycle before frame_start and held for the whole pass
+(modules may still latch them at frame_start, as they latch cfg_* today). start_accept -> pass 0 values ->
+frame_start one cycle after start_accept (the same cycle as before, so gray timing is unchanged). pass_done of a
+pass that is not the last -> next pass values -> frame_start (ESTIMATE 2 cycles after pass_done). pass_done of the
+last pass -> job_done in the same cycle as the step 3.7 done_set would have come (gray: CYCLES unchanged).
+**Parameters.** MODES (bit 1 = Option A built). With MODES = 3'b001 the Option A logic is constant 0 and is removed
+by synthesis (gray build resources: measured again in 5.2). **Reset.** Idle, pass 0 values, no pulses.
+
+**ctrl_fsm change.** It no longer drives frame_start; done_set comes from job_done instead of wr_frame_done; BUSY
+spans all passes. bus_err collects error responses of the whole job.
+
+### 18.3 Changes in the existing modules (Option A only; with pass_stride2 = 0 each module is the gray module)
+
+- **block_planner.** Scans pass_height x pass_width with b13 / b23 = pass_b13 / pass_b23; D1 and the x1, y1 clamps on
+  the plane size. Memory columns mc = (y << stride2) | o_col drive the word columns (wlo = mc0 >> 3, whi = mc1 >> 3)
+  and rule (c) (span in memory bytes, SPAN_MAX unchanged). Fetch rows are memory rows: fetch_row_top =
+  (x0 << stride2) | o_row, fetch_row_bot = (x1 << stride2) | o_row. Reuse (D14 P1) compares memory rows and ranges,
+  exactly as `memmodel.schedule()` does for the "A-<plane>" passes. mc stays monotonic along an output row, so the
+  step 3.6c "first / current" range logic is unchanged. Field widths unchanged (memory row and column < 4096).
+- **coord_gen.** Uses pass_b13 / pass_b23 instead of cfg_b13 / cfg_b23; u, v0 are plane coordinates. No other change.
+- **prefetch_ctrl.** Address of the top row unchanged: SRC_ADDR + row_top * W + s_col with the full W. The bottom row
+  is the next PLANE row: address = top + (W << stride2) (as built today: top + W).
+- **pixel_fetch.** D1 and the clamps on pass_width / pass_height. Slot words and byte selects from memory columns:
+  mc0 = (y0 << stride2) | o_col, mc1 = (y1 << stride2) | o_col, w0 = (mc0 >> 3) mod 64, w1 = (mc1 >> 3) mod 64,
+  r1 = byte (mc0 mod 8) of w0, r2 = byte (mc1 mod 8) of w1 (rows likewise). mc1 - mc0 is 0 or 2, so w1 is w0 or
+  w0 + 1 and the even / odd bank scheme of section 6.2 is unchanged ("stride-2 select").
+- **out_fifo.** Option A packs 4 pixels per word: pixel k of the group goes to byte 2k + o_col, the other bytes are
+  0. A plane row of Wp = W/2 pixels still gives W/8 words, so wq_count and the burst rule are unchanged.
+- **axi_wr_master.** Rows per pass = pass_height, words per row = W/8 (full row). Row address = DST_ADDR +
+  o_row x W + u x (W << stride2) (the address no longer runs on from row to row in Option A). Each row is split like a
+  gray row (<= 16 beats, no 4 KB crossing). m_axi_hp1_wstrb = pass_wstrb. wr_frame_done ends the PASS (-> bayer_seq).
+- **Unchanged:** axil_regs (registers, start checks and Bayer size rules exist since step 3.1; BUILD_ID.MODES /
+  BUILD_TYPE from parameters), line_buf, axi_rd_master, bilinear_interp.
+
+### 18.4 Counters (section 13, per job)
+
+Cleared at the accepted start, counted over all four passes including the gaps between them. CYCLES ends with the
+last pass. BYTES_RD = 8 x R beats of the four read schedules (= `memmodel.frame_stats("A")` bytes_read).
+BYTES_WR = 8 x W beats including masked beats = **2 x W x H** (each full row is written by two passes).
+RD_STALL / WR_STALL: unchanged definitions, summed over the passes.
+
+### 18.5 Expected cost (ESTIMATES from model/memmodel.py, L = 64, P1, OVERHEAD = 2; not measurements)
+
+| size (W x H) | transform | gray bytes read | Option A bytes read | read / output (gray, A) | est. cycles gray | est. cycles A |
+|---|---|---|---|---|---|---|
+| 480x272 | identity | 291,048 | 546,336 | 2.23, 4.18 | 130,560 | 130,560 |
+| 480x272 | rot15 | 568,496 | 897,152 | 4.35, 6.87 | 158,348 | 227,014 |
+| 480x272 | rot37 | 730,056 | 974,752 | 5.59, 7.47 | 231,325 | 281,668 |
+| 480x272 | rot90 | 665,856 | 739,840 | 5.10, 5.67 | 231,234 | 240,516 |
+| 2448x2048 | identity | 11,269,440 | 21,288,800 | 2.25, 4.25 | 5,013,504 | 5,013,504 |
+| 2448x2048 | rot15 | 22,373,664 | 35,422,000 | 4.46, 7.07 | 6,216,958 | 8,937,930 |
+| 2448x2048 | rot37 | 30,370,792 | 40,789,920 | 6.06, 8.14 | 9,615,439 | 11,748,358 |
+| 2448x2048 | rot90 | 37,748,736 | 41,943,040 | 7.53, 8.37 | 13,109,248 | 13,635,584 |
+
+Option A reads the full-resolution bytes around each plane span, so it reads up to about 2x what gray reads; it is
+compute-bound at 1 pixel per clock when the reads keep up (identity) and read-bound otherwise. Writes are 2 x W x H
+bus bytes (gray: W x H). The board gray runs (step 4.3) were slower than these estimates for steep rotations
+(read latency, section 10), so Option A will be too; the real numbers come from step 5.3.
+
+**Resources (ESTIMATE).** bayer_seq: a 2-bit counter and about 100 bits of registered pass values, roughly 100 LUT and
+150 FF. Shifts / ORs in block_planner, pixel_fetch and out_fifo, the row address step and strobe in axi_wr_master: a
+few dozen LUT each. No new DSP48E1, no new BRAM (line_buf and its 64-word slot bound are unchanged: test_bayer_a [6]
+reaches 64 words and never exceeds it). Measured in step 5.2 / 5.3.
+
+### 18.6 Verification plan (step 5.2)
+
+- tb_bayer_seq: pass order, pass_* values against `bayer_a.pass_configs`, frame_start / job_done timing, gray = one
+  pass with the step 3.7 timing, reset and a new start after a job.
+- tb_patrm_top in MODE 1 with vectors from `model/bayer_a.py` (per pass: block / burst schedules from
+  `memmodel.schedule()`, final output mosaic), sizes 64x64, 128x96, 256x192, 208x120, every transform; BYTES_RD and
+  BYTES_WR equal to 18.4; strobes checked by tb/axi_mem.v (a byte with strobe 0 must not change).
+- The whole gray regression unchanged (`scripts/regress.py`), including tb_system.
+- Fault defines (as in step 3.7): wrong o_col in one pass, WSTRB 8'hFF, bottom row at top + W must each fail.
