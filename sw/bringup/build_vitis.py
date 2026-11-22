@@ -25,6 +25,18 @@ REPO = Path(__file__).resolve().parents[2]
 XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
 if not os.environ.get("PATRM_XSA") and not XSA.is_file():
     XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
+
+
+def usable_xsa(xsa):
+    """Vitis 2026.1 fails to generate the system device tree from an XSA whose path contains a space
+    ("Valid OSes are '[]'", found 2026-11-22 with results/hw/rev D): use a copy in build/xsa/ then."""
+    if " " not in str(xsa) or not xsa.is_file():
+        return xsa
+    dst = REPO / "build" / "xsa" / xsa.name
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(xsa, dst)
+    print(f"XSA path contains a space; using a copy: {dst}")
+    return dst
 WORKSPACE = REPO / "build" / "vitis" / "bringup"
 ELF_OUT = REPO / "results" / "hw" / "bringup.elf"
 PLATFORM = "patrm_gray_plat"
@@ -51,7 +63,7 @@ def main():
     try:
         client.set_workspace(path=str(WORKSPACE))
         platform = client.create_platform_component(
-            name=PLATFORM, hw_design=str(XSA), os="standalone", cpu="ps7_cortexa9_0",
+            name=PLATFORM, hw_design=str(usable_xsa(XSA)), os="standalone", cpu="ps7_cortexa9_0",
             domain_name=DOMAIN, no_boot_bsp=True)
         platform.build()
 
