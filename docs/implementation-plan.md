@@ -32,6 +32,7 @@ Repo layout: model/ spec/ rtl/ tb/ vivado/ sw/ scripts/ data/ results/
 
 ## Decided 2026-11-22 (step 5.1 input)
 - D19 Option A output: WSTRB-masked 64-bit writes straight into the interleaved RGGB buffer (only the plane's own bytes enabled); no plane buffers, no interleave pass.
+- D20 Bayer file layout: flat rtl/ and tb/ with bayer_ prefix for Bayer-only files; shared modules parameterised, never copied; results/hw/<variant>/ for Bayer builds; README repository map (shared / gray / A / B), first written in step 5.1.
 
 ## Open decisions (proposed defaults, not yet decided)
 - None at the moment.

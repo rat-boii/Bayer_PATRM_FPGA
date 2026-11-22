@@ -147,6 +147,12 @@ t_B = (39321, 45875). Step 1.3 checks these exactly.
 ## Decided 2026-11-22 (fixed; do not change without asking)
 - D19 Option A output writes: each plane pass writes straight into the final interleaved RGGB buffer with
   WSTRB-masked 64-bit writes (only the bytes of its own plane enabled). No separate plane buffers, no interleave pass.
+- D20 Bayer file layout: same repo, same role folders. rtl/ and tb/ stay flat; new Bayer-only files are named
+  bayer_*.v / tb_bayer_*.v (Option-specific: bayer_seq = A, bayer_lanes = B). Shared modules are never copied: they get
+  a parameter or a mode input, and the grayscale tests must keep passing. One Vivado script builds every variant;
+  reports go to results/hw/<variant>/ for Bayer builds (gray stays in results/hw/). The README keeps a repository map
+  marking each file shared / gray / Bayer A / Bayer B. Subfolders were considered: no functional effect, only path
+  churn in .f lists, Tcl, sim.py and regress.py; may be done later as its own step.
 
 ## Open decisions (proposed defaults; ask before relying on them)
 - None at the moment.
