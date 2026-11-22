@@ -1,0 +1,39 @@
+run_all (step 4.4, ARM software baseline), 2026-11-22 14:17, board Rev D, elf patrm_app.elf, bitstream results/hw/rev D/patrm_gray.bit, ps7_init results/hw/rev D/ps7_init.tcl, N = 1
+cases 33 of 33 run, 33 passed, 352 s; CSV results/board/run_all_revd_sw_patrm_app.csv; logs build/board/run_all_revd_sw_patrm_app
+
+size       transform   result    cycles    PL ms   PL fps  engine us end-to-end us  Mpix/s RD stall %
+480x272    identity    PASS                                 8739.978      9336.003   14.94           
+480x272    mirror_cols PASS                                 8898.532      9518.750   14.67           
+480x272    mirror_rows PASS                                 8802.412      9422.793   14.83           
+480x272    rot5        PASS                                 8711.966      9332.261   14.99           
+480x272    rot15       PASS                                 8324.206      8943.981   15.68           
+480x272    rot37       PASS                                 7766.772      8385.449   16.81           
+480x272    scale0p8    PASS                                 6363.941      6981.181   20.52           
+480x272    scale1p25   PASS                                 8713.956      9334.141   14.98           
+480x272    combined    PASS                                 7724.941      8338.926   16.90           
+480x272    rot90       PASS                                 6001.175      6621.280   21.76           
+480x272    rot180      PASS                                 8814.713      9426.732   14.81           
+800x480    identity    PASS                                25692.366     27269.289   14.95           
+800x480    mirror_cols PASS                                26060.396     27672.123   14.74           
+800x480    mirror_rows PASS                                25854.870     27461.283   14.85           
+800x480    rot5        PASS                                25820.403     27437.498   14.87           
+800x480    rot15       PASS                                24613.341     26245.080   15.60           
+800x480    rot37       PASS                                23299.070     24943.323   16.48           
+800x480    scale0p8    PASS                                18775.353     20392.240   20.45           
+800x480    scale1p25   PASS                                25592.926     27276.966   15.00           
+800x480    combined    PASS                                22985.476     24592.867   16.71           
+800x480    rot90       PASS                                18511.036     20214.233   20.74           
+800x480    rot180      PASS                                25937.520     27529.766   14.80           
+2448x2095  identity    PASS                               342906.255    358599.236   14.96           
+2448x2095  mirror_cols PASS                               350348.104    366128.550   14.64           
+2448x2095  mirror_rows PASS                               344868.018    360629.313   14.87           
+2448x2095  rot5        PASS                               352426.070    368227.612   14.55           
+2448x2095  rot15       PASS                               342344.230    358173.116   14.98           
+2448x2095  rot37       PASS                               363126.464    378962.384   14.12           
+2448x2095  scale0p8    PASS                               250608.203    266615.732   20.46           
+2448x2095  scale1p25   PASS                               341424.683    357243.289   15.02           
+2448x2095  combined    PASS                               315217.713    331078.458   16.27           
+2448x2095  rot90       PASS                               449455.972    465132.996   11.41           
+2448x2095  rot180      PASS                               347846.433    363618.935   14.74           
+
+RUN_ALL PASS

@@ -43,6 +43,10 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
    Vitis compiles the ARM software with `arm-none-eabi-gcc`, which is not in the Vitis folder. Install the Arm GNU
    Toolchain for arm-none-eabi (version 14.2.Rel1 here) and put its `bin` folder on PATH.
 
+   The ARM software baseline (step 4.4) is first checked on the laptop with a Windows gcc:
+   `winget install BrechtSanders.WinLibs.POSIX.UCRT` (GCC 16.2 here, no admin rights). PATH is not needed:
+   `model/test_patrm_sw.py` and `check_setup.py` also look in the winget package folder.
+
 4. **Licence.** Vivado 2026.1 does not start without a valid licence file. Open the Vivado License Manager
    (`<install>\Vivado\bin\vlm.bat`) and load your licence. If a file from another laptop is rejected, get one for this
    laptop.
@@ -432,8 +436,8 @@ check that a known signal (for example `hp0_arvalid`) behaves as expected before
 | `xsdb scripts/board/put_image.tcl [--dry-run] <file> <address>` | Raw file -> DDR, prints s/MB |
 | `xsdb scripts/board/get_image.tcl [--dry-run] <address> <bytes> <file>` | DDR -> raw file, prints s/MB |
 | `python scripts/board/run_frame.py <image> <transform> <W> <H> [--dry-run] [--bit f] [--init f] [--no-program] [--timeout s]` | One frame with XSDB only (no ARM program), compared with the model (step 4.2a) |
-| `python scripts/board/run_job.py <image> <transform> <W> <H> [--load] [--n N] [--poll] [--dry-run] [--timeout-ms t] [--bit f] [--init f] [--elf f]` | One job through the ARM application, compared with the model, with timings (step 4.2) |
-| `python scripts/board/run_all.py --rev c\|d [--sizes WxH,...] [--transforms a,b] [--images a,b] [--n N] [--dry-run]` | Full grayscale set through the ARM application (step 4.3): default all 11 transforms at 480x272, 800x480, 2448x2095; one run_job.py per case, the first with `--load`; CSV and summary in `results/board/run_all_rev<r>.*`; last line `RUN_ALL PASS` |
+| `python scripts/board/run_job.py <image> <transform> <W> <H> [--load] [--n N] [--poll] [--sw] [--dry-run] [--timeout-ms t] [--bit f] [--init f] [--elf f]` | One job through the ARM application, compared with the model, with timings (step 4.2); `--sw`: the ARM software baseline computes the frame instead of the engine (step 4.4) |
+| `python scripts/board/run_all.py --rev c\|d [--sizes WxH,...] [--transforms a,b] [--images a,b] [--n N] [--sw] [--elf f] [--dry-run]` | Full grayscale set through the ARM application (step 4.3): default all 11 transforms at 480x272, 800x480, 2448x2095; one run_job.py per case, the first with `--load`; CSV and summary in `results/board/run_all_rev<r>.*`; last line `RUN_ALL PASS` |
 
 `--dry-run` checks the arguments and files and prints each step without touching the board. **`xsdb` exits with code 0
 even when a script fails**, so read the output: success ends with `DONE` (or `DRY RUN OK`), failure prints `BOARD ERROR: ...`.
@@ -621,6 +625,35 @@ Run the steps in this order.
    - `no result record`, with nothing on the UART: the application did not start. Check the `--load` output and step 3.
    - `no result for job N`: the application did not answer. The UART shows how far it got.
    - `still working on job N`: an earlier job has not finished. Use `--load` to start again.
+
+## Step 4.4: ARM software baseline
+
+`sw/patrm_sw/patrm_sw.c` is the same fixed-point warp in plain C (`patrm_sw_gray`), bit-exact with `model/patrm.py`.
+
+1. **Laptop (no board).** `python -m model.test_patrm_sw` compiles it with the laptop gcc at -O2 and -O3 and compares
+   every byte with the model (worked example, all transforms x images, board and paper sizes, 300 random transforms,
+   identity and mirrors, D3 rejection). Last line `TEST PASS`.
+2. **Build both ARM levels.** `PATRM_APP_OPT=O2` (default) and `O3`:
+   ```
+   PATRM_APP_OPT=O2 vitis -s sw/patrm_app/build_vitis.py      # results/hw/patrm_app.elf
+   PATRM_APP_OPT=O3 vitis -s sw/patrm_app/build_vitis.py      # results/hw/patrm_app_o3.elf
+   ```
+   In PowerShell: `$env:PATRM_APP_OPT='O3'` before the command. With GCC 14.2 and `-mfpu=vfpv3`, `patrm_sw_gray` has
+   the same instructions at -O2 and -O3 (only branch addresses differ); both are still measured.
+3. **Board.** A job with flags bit 2 runs `patrm_sw_gray` on the ARM instead of the engine (spec/memory_map.md
+   section 5). With the UART open, for each ELF:
+   ```
+   python scripts/board/run_all.py --rev d --sw                                   # -O2, all 33 cases
+   python scripts/board/run_all.py --rev d --sw --elf results/hw/patrm_app_o3.elf # -O3
+   ```
+   A pass ends with `RUN_ALL PASS`: every output bit-exact with the model and the engine counters 0 (the application
+   really took the software path). The software warp time and the end-to-end time (with cache work) come from the
+   ARM global timer; the summary is in `results/board/run_all_rev<r>_sw_<elf>.txt`. Speedup = software time / engine
+   time of the same case in `results/board/run_all_rev<r>.txt`.
+
+   Measured on Rev D (2026-11-22): 33 of 33 bit-exact at -O2 and at -O3. 2448x2095 software warp 342.9 ms (identity,
+   -O2) against 51.3 ms on the engine: 6.7x; rot15 6.0x, rot37 3.8x, rot90 3.3x. Over all cases 2.3-6.9x (engine time),
+   2.2-5.5x end to end. -O3 measured 1.6-2.3 % slower than -O2.
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 

@@ -9,6 +9,10 @@ the XSA, and the application from sw/patrm_app, sw/patrm_drv and sw/include. Our
 
 Checks after the build: every source of ours was compiled with those flags, the build log has no compiler warning, and
 the program stays below 0x0F00_0000 (spec/memory_map.md section 1).
+
+Optimisation level (step 4.4, ARM software baseline at -O2 and -O3): environment variable PATRM_APP_OPT = O2 (default)
+or O3. O2 builds results/hw/patrm_app.elf in build/vitis/patrm_app; O3 builds results/hw/patrm_app_o3.elf in
+build/vitis/patrm_app_o3. The whole application uses that level; the program prints it on the UART at start.
 `vitis -s` can exit with 0 after a failure: the build succeeded only if the last line is PATRM_APP BUILD OK.
 """
 import json
@@ -27,19 +31,25 @@ os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep
 
 REPO = Path(__file__).resolve().parents[2]
 XSA = REPO / "results" / "hw" / "patrm_gray.xsa"
-WORKSPACE = REPO / "build" / "vitis" / "patrm_app"
-ELF_OUT = REPO / "results" / "hw" / "patrm_app.elf"
+OPT = os.environ.get("PATRM_APP_OPT", "O2").upper()
+if OPT not in ("O2", "O3"):
+    print(f"PATRM_APP BUILD FAILED: PATRM_APP_OPT must be O2 or O3, not {OPT}")
+    sys.exit(1)
+SUFFIX = "" if OPT == "O2" else "_o3"
+WORKSPACE = REPO / "build" / "vitis" / f"patrm_app{SUFFIX}"
+ELF_OUT = REPO / "results" / "hw" / f"patrm_app{SUFFIX}.elf"
 PLATFORM = "patrm_gray_plat"
 DOMAIN = "standalone_a9_0"
 APP = "patrm_app"
 PROGRAM_END = 0x0F00_0000
 SOURCES = [("sw/patrm_app", "main.c"), ("sw/patrm_drv", "patrm_drv.c"), ("sw/patrm_drv", "patrm_drv.h"),
+           ("sw/patrm_sw", "patrm_sw.c"), ("sw/patrm_sw", "patrm_sw.h"),
            ("sw/include", "patrm_regs.h"), ("sw/include", "patrm_defs.h"), ("sw/include", "patrm_job.h")]
-C_FILES = ("main.c", "patrm_drv.c")
-REQUIRED_FLAGS = ("-Wall", "-Wextra", "-Werror")
+C_FILES = ("main.c", "patrm_drv.c", "patrm_sw.c")
+REQUIRED_FLAGS = ("-Wall", "-Wextra", "-Werror", f"-{OPT}")
 SETTINGS = {"USER_COMPILE_WARNINGS_ALL": "-Wall", "USER_COMPILE_WARNINGS_EXTRA": "-Wextra",
-            "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": "-O2",
-            "USER_COMPILE_OTHER_FLAGS": "-std=gnu11"}
+            "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": f"-{OPT}",
+            "USER_COMPILE_OTHER_FLAGS": f"-std=gnu11 -DPATRM_APP_OPT_LEVEL={OPT[1]}"}
 
 
 def remove_read_only(func, path, _exc):
@@ -125,7 +135,8 @@ def main():
     if not 0 < end <= PROGRAM_END:
         return fail(f"program ends at 0x{end:08X}, it must stay below 0x{PROGRAM_END:08X}")
     shutil.copyfile(elfs[0], ELF_OUT)
-    print(f"flags: {' '.join(REQUIRED_FLAGS)} on {', '.join(C_FILES)}; 0 warnings; program ends at 0x{end:08X}")
+    print(f"flags: {' '.join(REQUIRED_FLAGS)} -DPATRM_APP_OPT_LEVEL={OPT[1]} on {', '.join(C_FILES)}; 0 warnings; "
+          f"program ends at 0x{end:08X}")
     print(f"PATRM_APP BUILD OK: {ELF_OUT} ({ELF_OUT.stat().st_size} bytes)")
     return 0
 

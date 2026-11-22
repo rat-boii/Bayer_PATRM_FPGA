@@ -106,7 +106,7 @@ Job descriptor, 96 bytes at 0x1F00_0000:
 | 0x04 | seq | job number, not 0, different from the previous job |
 | 0x08 | layout | 1 |
 | 0x0C | mode | MODE value. The step 4.2 driver accepts GRAY only |
-| 0x10 | flags | bit 0: wait for the interrupt (else poll STATUS). bit 1: the ARM wrote the source, flush it |
+| 0x10 | flags | bit 0: wait for the interrupt (else poll STATUS). bit 1: the ARM wrote the source, flush it. bit 2: software job (step 4.4), see below. Other bits: rejected with BAD_JOB |
 | 0x14, 0x18 | width, height | W, H |
 | 0x1C | block_len | BLOCK_LEN |
 | 0x20, 0x24 | src_addr, dst_addr | buffers |
@@ -134,6 +134,8 @@ Result record, 128 bytes at 0x1F00_1000:
 | 0x58 | build_id | BUILD_ID |
 | 0x5C, 0x60 | irq_count, irq_spurious | interrupts handled since the application started; those with DONE not set |
 | 0x64 | reserved[7] | 0 |
+
+**Software job (flags bit 2, step 4.4).** The ARM software baseline `patrm_sw_gray` (`sw/patrm_sw`) computes the frame instead of the engine: grayscale only, the same job checks as the engine path. The ARM invalidates the source range (the PC wrote it past the caches), runs the warp, and flushes the output range. In the result record `engine_ns_*` is then the warp alone and `total_ns_*` the warp plus that cache work; `status`, `cycles`, `bytes_rd`, `bytes_wr` and the stall counters are 0. The application is built at -O2 (`patrm_app.elf`) or -O3 (`patrm_app_o3.elf`) and prints the level on the UART.
 
 Times come from the Cortex-A9 global timer. They are stored in nanoseconds, because a 64 x 64 frame takes only tens of
 microseconds, and printed in microseconds on the UART and by `run_job.py`. A stored time saturates at 4.29 s.

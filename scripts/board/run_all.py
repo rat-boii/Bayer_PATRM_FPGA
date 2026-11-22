@@ -4,6 +4,8 @@
     python scripts/board/run_all.py --rev c                      the Rev C board, the team reference (results/hw, D18)
     python scripts/board/run_all.py --rev d --dry-run            every XSDB command of every case, no board
     python scripts/board/run_all.py --rev d --sizes 480x272 --transforms identity,rot15     a subset
+    python scripts/board/run_all.py --rev d --sw                 the ARM software baseline instead of the engine (4.4)
+    python scripts/board/run_all.py --rev d --sw --elf results/hw/patrm_app_o3.elf          the same, -O3 build
 
 Default set: every transform in model/transforms.json at 480x272, 800x480 and the paper size 2448x2095 (W x H, D7),
 image "photo" (the test photo scaled to the size). Each case is one run of scripts/board/run_job.py: the first one with
@@ -13,7 +15,8 @@ JOB PASS: output bit-exact with the model (all rows, last row included), guard b
 BYTES_RD / BYTES_WR equal to the model's predictions.
 
 Output: results/board/run_all_rev<r>.csv (one row per case) and results/board/run_all_rev<r>.txt (the summary),
-per-case logs in build/board/run_all_rev<r>/. The last line is RUN_ALL PASS or RUN_ALL FAIL: <cases>; exit code 0 / 1.
+per-case logs in build/board/run_all_rev<r>/. With --sw the name gets _sw_<ELF name>, e.g. run_all_revd_sw_patrm_app_o3.
+With --sw the engine columns (cycles, bytes, stalls) are empty and engine_us is the software warp time (ARM timer). The last line is RUN_ALL PASS or RUN_ALL FAIL: <cases>; exit code 0 / 1.
 """
 import argparse
 import csv
@@ -35,7 +38,7 @@ from model.gen_transforms import load as load_transforms   # noqa: E402
 
 DEFAULT_SIZES = "480x272,800x480,2448x2095"
 HW = {"c": ROOT / "results" / "hw", "d": ROOT / "results" / "hw" / "rev D"}
-CSV_FIELDS = ["case", "image", "transform", "W", "H", "result", "exit_code", "rc", "cycles", "pl_ms", "pl_fps",
+CSV_FIELDS = ["case", "path", "image", "transform", "W", "H", "result", "exit_code", "rc", "cycles", "pl_ms", "pl_fps",
               "engine_us", "total_us", "engine_fps", "total_fps", "mpix_s_engine", "bytes_rd", "bytes_wr",
               "rd_stall", "wr_stall", "rd_stall_pct", "seconds"]
 
@@ -50,19 +53,21 @@ def parse_sizes(text):
 
 def case_row(k, image, tf, W, H, code, seconds, a):
     """One CSV row; the numbers come from the result record run_job.py saved (none in a dry run)."""
-    row = dict(case=k, image=image, transform=tf, W=W, H=H, exit_code=code, seconds=f"{seconds:.1f}",
+    row = dict(case=k, path="sw" if a.sw else "engine", image=image, transform=tf, W=W, H=H, exit_code=code, seconds=f"{seconds:.1f}",
                result="PASS" if code == RF.EXIT_PASS else ("FAIL" if code == RF.EXIT_FAIL else "ERROR"))
     if a.dry_run:
         row["result"] = "DRY" if code == RF.EXIT_PASS else row["result"]
         return row
     _, image_name = RF.find_image(image, W, H)
-    path = RF.RUN_ROOT / f"job_{image_name}_{tf}_{W}x{H}" / "result.bin"
+    path = RF.RUN_ROOT / f"{'jobsw' if a.sw else 'job'}_{image_name}_{tf}_{W}x{H}" / "result.bin"
     if not path.is_file():
         return row
     r = J.decode_result(path.read_bytes())
-    cyc = r["cycles_avg"] or r["cycles"]
-    row.update(rc=r["rc_name"], cycles=cyc, bytes_rd=r["bytes_rd"], bytes_wr=r["bytes_wr"],
-               rd_stall=r["rd_stall"], wr_stall=r["wr_stall"])
+    cyc = 0 if a.sw else (r["cycles_avg"] or r["cycles"])
+    row.update(rc=r["rc_name"])
+    if not a.sw:
+        row.update(cycles=cyc, bytes_rd=r["bytes_rd"], bytes_wr=r["bytes_wr"], rd_stall=r["rd_stall"],
+                   wr_stall=r["wr_stall"])
     if cyc:
         row.update(pl_ms=f"{1e3 * cyc / RF.PL_CLOCK_HZ:.3f}", pl_fps=f"{RF.PL_CLOCK_HZ / cyc:.1f}",
                    rd_stall_pct=f"{100 * r['rd_stall'] / r['cycles']:.1f}" if r["cycles"] else "")
@@ -82,6 +87,7 @@ def main(argv=None):
     ap.add_argument("--images", default="photo", help="comma list of image names from data/gen (default photo)")
     ap.add_argument("--n", type=int, default=1, help="frames per case (run_job --n)")
     ap.add_argument("--elf", default=str(ROOT / "results" / "hw" / "patrm_app.elf"), help="ARM application")
+    ap.add_argument("--sw", action="store_true", help="ARM software baseline instead of the engine (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     a = ap.parse_args(argv)
 
@@ -101,19 +107,21 @@ def main(argv=None):
     images = [i.strip() for i in a.images.split(",") if i.strip()]
     cases = [(img, tf, W, H) for (W, H) in sizes for img in images for tf in tfs]
 
-    tag = f"rev{a.rev}" + ("_dry" if a.dry_run else "")
+    tag = f"rev{a.rev}" + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + ("_dry" if a.dry_run else "")
     log_dir = RF.RUN_ROOT / f"run_all_{tag}"
     log_dir.mkdir(parents=True, exist_ok=True)
-    out_dir = ROOT / "results" / "board"
+    out_dir = log_dir if a.dry_run else ROOT / "results" / "board"   # a dry run writes nothing into results/
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"run_all: {len(cases)} cases ({len(sizes)} sizes x {len(images)} image(s) x {len(tfs)} transforms), "
-          f"board Rev {a.rev.upper()}, bit {bit}, init {init}, elf {a.elf}, N = {a.n}{', DRY RUN' if a.dry_run else ''}")
+          f"board Rev {a.rev.upper()}, {'ARM software baseline' if a.sw else 'engine'}, bit {bit}, init {init}, elf {a.elf}, N = {a.n}{', DRY RUN' if a.dry_run else ''}")
 
     rows, start = [], time.time()
     for k, (img, tf, W, H) in enumerate(cases, 1):
         args = [img, tf, str(W), str(H), "--n", str(a.n), "--elf", a.elf]
         if k == 1:
             args += ["--load", "--bit", str(bit), "--init", str(init)]
+        if a.sw:
+            args.append("--sw")
         if a.dry_run:
             args.append("--dry-run")
         t0 = time.time()
@@ -139,7 +147,8 @@ def main(argv=None):
               if r["result"] not in ("PASS", "DRY")]
     if len(rows) < len(cases):
         failed.append(f"{len(cases) - len(rows)} cases not run")
-    lines = [f"run_all (step 4.3), {datetime.datetime.now():%Y-%m-%d %H:%M}, board Rev {a.rev.upper()}, "
+    lines = [f"run_all ({'step 4.4, ARM software baseline' if a.sw else 'step 4.3, engine'}), "
+             f"{datetime.datetime.now():%Y-%m-%d %H:%M}, board Rev {a.rev.upper()}, elf {Path(a.elf).name}, "
              f"bitstream {bit.relative_to(ROOT).as_posix()}, ps7_init {init.relative_to(ROOT).as_posix()}, N = {a.n}",
              f"cases {len(rows)} of {len(cases)} run, {sum(r['result'] in ('PASS', 'DRY') for r in rows)} passed, "
              f"{time.time() - start:.0f} s; CSV {csv_path.relative_to(ROOT).as_posix()}; logs {log_dir.relative_to(ROOT).as_posix()}",

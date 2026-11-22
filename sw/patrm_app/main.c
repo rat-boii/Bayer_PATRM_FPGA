@@ -15,12 +15,19 @@
 #include "patrm_drv.h"
 #include "patrm_job.h"
 #include "patrm_regs.h"
+#include "patrm_sw.h"
 #include "xil_cache.h"
 #include "xil_printf.h"
 #include "xpseudo_asm.h"
 
 #define POLL_DELAY_TICKS(hz)   ((uint64_t)(hz) / 1000U)     /* look for a new job every 1 ms */
 #define CACHE_LINE             32U
+
+/* Optimisation level of this build, set by sw/patrm_app/build_vitis.py (PATRM_APP_OPT); printed at start so the UART
+ * log shows which software baseline (step 4.4) ran. */
+#ifndef PATRM_APP_OPT_LEVEL
+#define PATRM_APP_OPT_LEVEL 2
+#endif
 
 _Static_assert(PATRM_JOB_SIZE % CACHE_LINE == 0U, "descriptor must be whole cache lines");
 _Static_assert(PATRM_RESULT_SIZE % CACHE_LINE == 0U, "result must be whole cache lines");
@@ -134,7 +141,8 @@ static patrm_rc_t job_from_desc(const patrm_job_desc_t *d, patrm_job_t *job)
         return PATRM_RC_BAD_LAYOUT;
     }
     if ((d->repeat == 0U) || (d->repeat > PATRM_JOB_MAX_REPEAT) ||
-        (d->timeout_ms == 0U) || (d->timeout_ms > PATRM_JOB_MAX_TIMEOUT_MS)) {
+        (d->timeout_ms == 0U) || (d->timeout_ms > PATRM_JOB_MAX_TIMEOUT_MS) ||
+        ((d->flags & ~PATRM_JOB_FLAGS_KNOWN) != 0U)) {
         return PATRM_RC_BAD_JOB;
     }
     job->width = d->width;
@@ -191,12 +199,44 @@ static void print_irq_diagnosis(uint32_t status)
                (unsigned int)dev.irq_count, (unsigned int)dev.irq_spurious);
 }
 
+/* Step 4.4: one frame with the ARM software baseline instead of the engine. Same job checks as the engine path.
+ * The PC wrote the source over JTAG, past the caches, so the source range is invalidated first; the output is flushed
+ * so the PC can read it. engine_ticks = the warp alone, total_ticks = warp + cache work. The engine counters stay 0. */
+static patrm_rc_t run_sw_frame(const patrm_job_t *job, patrm_frame_t *frame)
+{
+    const uint32_t size = job->width * job->height;
+    patrm_rc_t rc = patrm_validate(&dev, job);
+    uint64_t t_begin, t_start, t_done;
+
+    memset(frame, 0, sizeof(*frame));
+    if (rc != PATRM_RC_OK) {
+        return rc;
+    }
+    if (job->mode != PATRM_MODE_GRAY) {
+        return PATRM_RC_BAD_MODE;                  /* the software baseline is grayscale only */
+    }
+    t_begin = patrm_now();
+    Xil_DCacheInvalidateRange((INTPTR)job->src_addr, (INTPTR)size);
+    t_start = patrm_now();
+    if (patrm_sw_gray((const uint8_t *)(uintptr_t)job->src_addr, (uint8_t *)(uintptr_t)job->dst_addr,
+                      job->width, job->height, job->b) != PATRM_SW_OK) {
+        return PATRM_RC_BAD_SIZE;
+    }
+    t_done = patrm_now();
+    Xil_DCacheFlushRange((INTPTR)job->dst_addr, (INTPTR)size);
+    dsb();
+    frame->engine_ticks = t_done - t_start;
+    frame->total_ticks = patrm_now() - t_begin;
+    return PATRM_RC_OK;
+}
+
 static void run_job(const patrm_job_desc_t *d, patrm_job_result_t *r)
 {
     patrm_job_t job;
     patrm_frame_t frame;
     stat_t cycles, engine, total;
     patrm_rc_t rc = job_from_desc(d, &job);
+    const bool sw = (d->flags & PATRM_JOB_FLAG_SW) != 0U;
     uint32_t i;
     uint32_t runs = 0U;
 
@@ -206,7 +246,7 @@ static void run_job(const patrm_job_desc_t *d, patrm_job_result_t *r)
     stat_reset(&total);
     if (rc == PATRM_RC_OK) {
         for (i = 0U; i < d->repeat; i++) {
-            rc = patrm_run(&dev, &job, &frame);
+            rc = sw ? run_sw_frame(&job, &frame) : patrm_run(&dev, &job, &frame);
             if (rc != PATRM_RC_OK) {
                 break;
             }
@@ -258,6 +298,7 @@ int main(void)
     }
     xil_printf("BUILD_ID 0x%08x, init %s, global timer %u Hz\r\n",
                (unsigned int)dev.build_id, patrm_rc_name(rc), (unsigned int)patrm_timer_hz());
+    xil_printf("software baseline built with -O%d\r\n", (int)PATRM_APP_OPT_LEVEL);
 
     /* A descriptor left in DDR by an earlier session must not run. */
     area->magic = 0U;

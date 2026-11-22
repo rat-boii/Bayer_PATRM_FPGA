@@ -6,6 +6,7 @@
     python scripts/board/run_job.py photo rot15 480 272 --n 10      ten frames, for timing
     python scripts/board/run_job.py mixed identity 64 64 --poll     the application polls STATUS, no interrupt
     python scripts/board/run_job.py mixed rot15 128 96 --dry-run    prints every XSDB command, needs no board
+    python scripts/board/run_job.py photo rot15 480 272 --sw        the ARM software baseline runs the frame (step 4.4)
 
 <image> and <transform> as in run_frame.py. The source goes to 0x1000_0000 and the output area (0x1800_0000) is filled with
 0xA5 first. run_job_xsdb.tcl writes the job descriptor, polls the result record until its sequence number matches, and
@@ -55,10 +56,11 @@ def write_job_tcl(f):
 
 def prepare(a):
     a.timeout = math.ceil(a.n * a.timeout_ms / 1000) + RESULT_MARGIN_S
-    f = RF.load_frame(a, irq_en=0 if a.poll else 1, prefix="job")
-    f.update(repeat=a.n, irq=not a.poll, elf=a.elf, result_file=f["run_dir"] / "result.bin",
+    irq = not (a.poll or a.sw)                     # a software job does not use the engine or its interrupt
+    f = RF.load_frame(a, irq_en=1 if irq else 0, prefix="jobsw" if a.sw else "job")
+    f.update(repeat=a.n, irq=irq, sw=a.sw, elf=a.elf, result_file=f["run_dir"] / "result.bin",
              descriptor=J.encode_job(1, a.W, a.H, "gray", f["b"], RF.BLOCK_LEN, repeat=a.n, timeout_ms=a.timeout_ms,
-                                     irq=not a.poll, block_len_max=MM.BLOCK_LEN_MAX))
+                                     irq=irq, block_len_max=MM.BLOCK_LEN_MAX, sw=a.sw))
     write_job_tcl(f)
     return f
 
@@ -80,7 +82,10 @@ def report(f, seq):
     if r["seq"] != seq:
         fails.append(f"result is for job {r['seq']}, not {seq}")
     print(f"result code    {r['rc']} ({r['rc_name']})")
-    print(f"wait mode      {'interrupt' if r['flags'] & J.JOB_FLAG_IRQ_EN else 'polling'}")
+    if f["sw"]:
+        print("path           ARM software baseline (flags bit 2), not the engine")
+    else:
+        print(f"wait mode      {'interrupt' if r['flags'] & J.JOB_FLAG_IRQ_EN else 'polling'}")
     if r["flags"] != J.decode_job(f["descriptor"])["flags"]:
         fails.append(f"result flags 0x{r['flags']:X} differ from the job's")
     print(f"BUILD_ID       0x{r['build_id']:08X}")
@@ -93,29 +98,38 @@ def report(f, seq):
         print(f"CYCLES         {r['cycles']}, RD_STALL {r['rd_stall']}, WR_STALL {r['wr_stall']} (at the failure)")
         fails.append(f"the application reports {r['rc_name']} after {r['runs']} of {n} frames")
         return fails                                # the output of a failed job says nothing
-    st = R.unpack("STATUS", r["status"])
-    if not st["DONE"] or st["BUSY"] or st["ERROR"]:
-        fails.append("STATUS at the end of the frame is not DONE alone")
-    if r["runs"] != n:
-        fails.append(f"{r['runs']} of {n} frames completed")
-    if f["irq"] and r["irq_count"] < n:
-        fails.append(f"{r['irq_count']} interrupts handled, the job needs {n}")
+    if f["sw"]:
+        # the software path leaves every engine field 0; anything else means the ELF ignored the SW flag
+        if r["status"] or r["cycles"] or r["bytes_rd"] or r["bytes_wr"]:
+            fails.append("engine counters are not 0: the application ran the engine, not the software "
+                         "baseline (an ELF from before step 4.4?)")
+        if r["runs"] != n:
+            fails.append(f"{r['runs']} of {n} frames completed")
+    else:
+        st = R.unpack("STATUS", r["status"])
+        if not st["DONE"] or st["BUSY"] or st["ERROR"]:
+            fails.append("STATUS at the end of the frame is not DONE alone")
+        if r["runs"] != n:
+            fails.append(f"{r['runs']} of {n} frames completed")
+        if f["irq"] and r["irq_count"] < n:
+            fails.append(f"{r['irq_count']} interrupts handled, the job needs {n}")
 
-    print(f"CYCLES         {r['cycles']}  ({1e6 * r['cycles'] / RF.PL_CLOCK_HZ:.1f} us at 100 MHz); "
-          f"over N = {r['runs']}: min {r['cycles_min']}, avg {r['cycles_avg']}, max {r['cycles_max']}")
-    RF.check_bytes(f, r["bytes_rd"], r["bytes_wr"], fails)
-    print(f"RD_STALL       {r['rd_stall']}")
-    print(f"WR_STALL       {r['wr_stall']}")
+        print(f"CYCLES         {r['cycles']}  ({1e6 * r['cycles'] / RF.PL_CLOCK_HZ:.1f} us at 100 MHz); "
+              f"over N = {r['runs']}: min {r['cycles_min']}, avg {r['cycles_avg']}, max {r['cycles_max']}")
+        RF.check_bytes(f, r["bytes_rd"], r["bytes_wr"], fails)
+        print(f"RD_STALL       {r['rd_stall']}")
+        print(f"WR_STALL       {r['wr_stall']}")
     RF.check_output(f, fails)
 
     print(f"timer          {r['timer_hz']} Hz")
-    for name, key in (("engine time", "engine"), ("end-to-end", "total")):
+    for name, key in ((("software warp" if f["sw"] else "engine time"), "engine"), ("end-to-end", "total")):
         print(f"{name:<14} min {us(r[key + '_ns_min']):.3f} us, avg {us(r[key + '_ns_avg']):.3f} us, "
               f"max {us(r[key + '_ns_max']):.3f} us")
     if r["engine_ns_avg"] and r["total_ns_avg"]:
         engine_s, total_s = r["engine_ns_avg"] / 1e9, r["total_ns_avg"] / 1e9
-        print(f"throughput     {W * H / engine_s / 1e6:.2f} Mpix/s (engine time, average)")
-        print(f"frame rate     {1 / engine_s:.1f} fps from engine time, {1 / total_s:.1f} fps end to end")
+        what = "software warp time" if f["sw"] else "engine time"
+        print(f"throughput     {W * H / engine_s / 1e6:.2f} Mpix/s ({what}, average)")
+        print(f"frame rate     {1 / engine_s:.1f} fps from {what}, {1 / total_s:.1f} fps end to end")
     else:
         fails.append("the application reported a time of 0")
     return fails
@@ -130,6 +144,7 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=1, help="frames to run (N > 1 for timing)")
     ap.add_argument("--poll", action="store_true", help="the application polls STATUS (IRQ_EN = 0)")
     ap.add_argument("--load", action="store_true", help="program the bitstream, set up the PS, load and start the ELF")
+    ap.add_argument("--sw", action="store_true", help="run the frame with the ARM software baseline (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     ap.add_argument("--timeout-ms", type=int, default=J.JOB_TIMEOUT_MS_DEFAULT, help="DONE timeout per frame, on the ARM")
     ap.add_argument("--bit", default=str(HW_DIR / "patrm_gray.bit"), help="bitstream for --load")
@@ -140,7 +155,7 @@ def main(argv=None):
         f = prepare(a)
         print(f"run_job: image {f['image']}")
         print(f"run_job: transform {a.transform}, {a.W} x {a.H}, b = {f['b']}")
-        print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {'polling' if a.poll else 'interrupt'}, "
+        print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {'ARM software baseline' if a.sw else ('polling' if a.poll else 'interrupt')}, "
               f"predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {a.W * a.H}")
         f["out_file"].unlink(missing_ok=True)
         f["result_file"].unlink(missing_ok=True)

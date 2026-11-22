@@ -48,6 +48,8 @@ JOB_MAX_TIMEOUT_MS = 60000
 JOB_TIMEOUT_MS_DEFAULT = 2000         # spec/memory_map.md section 4, step 9
 JOB_FLAG_IRQ_EN = 0x1
 JOB_FLAG_SRC_CPU = 0x2
+JOB_FLAG_SW = 0x4                     # step 4.4: the ARM software baseline runs the frame, not the engine
+JOB_FLAGS_KNOWN = JOB_FLAG_IRQ_EN | JOB_FLAG_SRC_CPU | JOB_FLAG_SW
 
 # (field, struct format): little-endian, every field 32 bits wide
 JOB_FIELDS = (("magic", "I"), ("seq", "I"), ("layout", "I"), ("mode", "I"), ("flags", "I"), ("width", "I"),
@@ -229,8 +231,9 @@ def _unpack_record(fields, data, what):
 
 
 def encode_job(seq, W, H, mode, b, block_len, repeat=1, timeout_ms=JOB_TIMEOUT_MS_DEFAULT, irq=True, src_by_cpu=False,
-               src=SRC_DEFAULT, dst=DST_DEFAULT, block_len_max=None):
-    """The job descriptor as bytes. All the checks of register_image apply, plus seq, repeat and timeout."""
+               src=SRC_DEFAULT, dst=DST_DEFAULT, block_len_max=None, sw=False):
+    """The job descriptor as bytes. All the checks of register_image apply, plus seq, repeat and timeout.
+    sw=True: the ARM software baseline (step 4.4) runs the frame instead of the engine (grayscale only)."""
     if not isinstance(seq, int) or not 1 <= seq <= 0xFFFF_FFFF:
         raise JobError(f"sequence number {seq} is outside 1..0xFFFFFFFF")
     if not isinstance(repeat, int) or not 1 <= repeat <= JOB_MAX_REPEAT:
@@ -238,7 +241,9 @@ def encode_job(seq, W, H, mode, b, block_len, repeat=1, timeout_ms=JOB_TIMEOUT_M
     if not isinstance(timeout_ms, int) or not 1 <= timeout_ms <= JOB_MAX_TIMEOUT_MS:
         raise JobError(f"timeout {timeout_ms} ms is outside 1..{JOB_MAX_TIMEOUT_MS}")
     register_image(W, H, mode, b, block_len, src, dst, irq_en=1 if irq else 0, block_len_max=block_len_max)
-    flags = (JOB_FLAG_IRQ_EN if irq else 0) | (JOB_FLAG_SRC_CPU if src_by_cpu else 0)
+    if sw and _mode(mode) != R.MODE["GRAY"]:
+        raise JobError("the ARM software baseline (sw=True) is grayscale only")
+    flags = (JOB_FLAG_IRQ_EN if irq else 0) | (JOB_FLAG_SRC_CPU if src_by_cpu else 0) | (JOB_FLAG_SW if sw else 0)
     return _pack_record(JOB_FIELDS, dict(magic=JOB_MAGIC, seq=seq, layout=LAYOUT_VERSION, mode=_mode(mode), flags=flags,
                                          width=W, height=H, block_len=block_len, src_addr=src, dst_addr=dst,
                                          repeat=repeat, timeout_ms=timeout_ms, b=tuple(int(c) for c in b)),

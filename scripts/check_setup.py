@@ -195,6 +195,16 @@ def check_arm_compiler():
     return True, str(gcc), ""
 
 
+def check_host_compiler():
+    """Laptop gcc for the ARM software baseline test (step 4.4, model/test_patrm_sw.py): PATH, else winget WinLibs."""
+    from model.test_patrm_sw import find_host_gcc
+    gcc = find_host_gcc()
+    if gcc is None:
+        return False, "no laptop gcc on PATH or in the winget WinLibs package folder",             "winget install BrechtSanders.WinLibs.POSIX.UCRT (README, New laptop setup, step 3)"
+    out = subprocess.run([str(gcc), "--version"], capture_output=True, text=True).stdout.splitlines()
+    return True, f"{gcc} ({out[0] if out else 'version unknown'})", ""
+
+
 def check_licence():
     p = run_vivado_probe()
     fix = "run vlm (Vivado License Manager, in <install>\\Vivado\\bin), load a valid licence file, " \
@@ -289,6 +299,7 @@ ITEMS = [
     ("python packages", check_python_packages),
     ("vivado/vitis", check_amd_tools),
     ("arm compiler", check_arm_compiler),
+    ("laptop compiler", check_host_compiler),
     ("licence", check_licence),
     ("board files", check_board_files),
     ("vitis qemu folders", check_qemu_folders),

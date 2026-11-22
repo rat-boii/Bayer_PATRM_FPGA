@@ -20,6 +20,8 @@
 
 #define PATRM_JOB_FLAG_IRQ_EN   0x1U        /* wait for the interrupt; otherwise poll STATUS */
 #define PATRM_JOB_FLAG_SRC_CPU  0x2U        /* the ARM wrote the source: flush it before START */
+#define PATRM_JOB_FLAG_SW       0x4U        /* step 4.4: run the frame with the ARM software baseline, not the engine */
+#define PATRM_JOB_FLAGS_KNOWN   (PATRM_JOB_FLAG_IRQ_EN | PATRM_JOB_FLAG_SRC_CPU | PATRM_JOB_FLAG_SW)
 
 typedef struct {
     uint32_t magic;                         /* written last by the PC */
