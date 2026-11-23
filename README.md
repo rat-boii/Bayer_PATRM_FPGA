@@ -832,6 +832,7 @@ set passed again over JTAG (33 of 33, results/board/run_all_revd_jtag_rerun_2026
 CYCLES on the board are not exactly repeatable: the step 4.3 JTAG run (2026-11-21) and the JTAG rerun (2026-11-23)
 agree in 4 of 33 cases (-0.25 % .. +0.01 %); Ethernet against them: 3 of 33 (-0.07 % .. +0.18 %). BYTES_RD and
 BYTES_WR are identical in all 33 cases in every comparison.
+Decided 2026-11-23: Step 10.2's CYCLES check is "within the JTAG run-to-run spread"; it passes. The spread is per-frame noise (no drift, no effect on the output); report speed as min / avg / max over N frames (`--n`).
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 
