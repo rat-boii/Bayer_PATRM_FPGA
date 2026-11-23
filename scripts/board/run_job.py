@@ -54,15 +54,49 @@ def write_job_tcl(f):
     f["job_file"].write_text("".join(f"set job({k}) {v}\n" for k, v in lines), newline="\n")
 
 
+def run_prefix(sw, link):
+    """Run folder prefix under build/board/ (run_all.py reads result.bin from there)."""
+    return ("jobsw" if sw else "job") + ("_eth" if link == "eth" else "")
+
+
 def prepare(a):
     a.timeout = math.ceil(a.n * a.timeout_ms / 1000) + RESULT_MARGIN_S
-    irq = not (a.poll or a.sw)                     # a software job does not use the engine or its interrupt
-    f = RF.load_frame(a, irq_en=1 if irq else 0, prefix="jobsw" if a.sw else "job")
-    f.update(repeat=a.n, irq=irq, sw=a.sw, elf=a.elf, result_file=f["run_dir"] / "result.bin",
+    eth = a.link == "eth"
+    # a software job does not use the engine or its interrupt; over Ethernet the engine is polled (lwIP owns the GIC)
+    irq = not (a.poll or a.sw or eth)
+    f = RF.load_frame(a, irq_en=1 if irq else 0, prefix=run_prefix(a.sw, a.link))
+    f.update(repeat=a.n, irq=irq, sw=a.sw, elf=a.elf, result_file=f["run_dir"] / "result.bin", link=a.link,
              descriptor=J.encode_job(1, a.W, a.H, "gray", f["b"], RF.BLOCK_LEN, repeat=a.n, timeout_ms=a.timeout_ms,
-                                     irq=irq, block_len_max=MM.BLOCK_LEN_MAX, sw=a.sw))
-    write_job_tcl(f)
+                                     irq=irq, src_by_cpu=eth, block_len_max=MM.BLOCK_LEN_MAX, sw=a.sw))
+    if not eth:
+        write_job_tcl(f)
     return f
+
+
+def run_eth(f, a):
+    """Step 10.2: the job over Ethernet (scripts/eth/eth_link.py). Writes result.bin and readback.bin like the XSDB
+    path, plus eth_times.json. Returns the job's sequence number."""
+    import json
+    sys.path.insert(0, str(HERE.parent / "eth"))
+    import eth_link as EL
+    if a.load:
+        print(f"run_job: loading {a.bit}, {a.elf} (Ethernet application)")
+        EL.load_board(a.bit, a.init, a.elf)
+        print(f"run_job: job port reachable after {EL.wait_ready(a.ip):.1f} s")
+    with EL.JobLink(a.ip, timeout=a.timeout + 30) as link:
+        rsp, result, out, t = link.run(f["descriptor"], f["src_bytes"], f["out_bytes"], fill=True)
+    if rsp["status"] != 0:
+        raise FrameError(f"the board rejected the request: {rsp['status_name']}")
+    f["result_file"].write_bytes(result)
+    f["out_file"].write_bytes(out)
+    times = dict(board_rx_ms=rsp["rx_us"] / 1e3, board_job_ms=rsp["job_us"] / 1e3, pc_send_ms=1e3 * t["send_s"],
+                 pc_until_response_ms=1e3 * t["until_response_s"], pc_download_ms=1e3 * t["download_s"],
+                 pc_round_trip_ms=1e3 * t["round_trip_s"], src_bytes=len(f["src_bytes"]), out_bytes=len(out))
+    (f["run_dir"] / "eth_times.json").write_text(json.dumps(times, indent=1), encoding="utf-8")
+    print(f"ethernet       source {len(f['src_bytes'])} B received by the board in {times['board_rx_ms']:.2f} ms; "
+          f"job on the board {times['board_job_ms']:.2f} ms; output {len(out)} B downloaded in "
+          f"{times['pc_download_ms']:.2f} ms; PC round trip {times['pc_round_trip_ms']:.2f} ms")
+    return J.decode_job(f["descriptor"])["seq"]
 
 
 def us(ns):
@@ -149,27 +183,41 @@ def main(argv=None):
     ap.add_argument("--timeout-ms", type=int, default=J.JOB_TIMEOUT_MS_DEFAULT, help="DONE timeout per frame, on the ARM")
     ap.add_argument("--bit", default=str(HW_DIR / "patrm_gray.bit"), help="bitstream for --load")
     ap.add_argument("--init", default=str(HW_DIR / "ps7_init.tcl"), help="ps7_init script for --load")
-    ap.add_argument("--elf", default=str(HW_DIR / "patrm_app.elf"), help="application for --load")
+    ap.add_argument("--elf", default=None,
+                    help="application for --load (default results/hw/patrm_app.elf, with --link eth patrm_eth.elf)")
+    ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
+                    help="jtag: XSDB mailbox (step 4.2); eth: Ethernet job service (step 10.2, engine polled)")
+    ap.add_argument("--ip", default="192.168.1.10", help="board address for --link eth")
     a = ap.parse_args(argv)
+    a.elf = a.elf or str(HW_DIR / ("patrm_eth.elf" if a.link == "eth" else "patrm_app.elf"))
     try:
+        if a.link == "eth" and a.dry_run:
+            raise FrameError("--dry-run is for the XSDB path only")
         f = prepare(a)
         print(f"run_job: image {f['image']}")
         print(f"run_job: transform {a.transform}, {a.W} x {a.H}, b = {f['b']}")
-        print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {'ARM software baseline' if a.sw else ('polling' if a.poll else 'interrupt')}, "
+        wait = "ARM software baseline" if a.sw else ("polling" if not f["irq"] else "interrupt")
+        print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {wait}, link {a.link}, "
               f"predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {a.W * a.H}")
         f["out_file"].unlink(missing_ok=True)
         f["result_file"].unlink(missing_ok=True)
         start = time.time()
-        flags = (["--dry-run"] if a.dry_run else []) + (["--load"] if a.load else [])
-        values = RF.parse_xsdb(RF.run_xsdb(f, flags, XSDB_TCL), a.dry_run, tag="run_job")
-        if a.dry_run:
-            print("JOB DRY RUN OK: nothing was done on a board")
-            return RF.EXIT_PASS
-        if "SEQ" not in values:
-            raise FrameError("XSDB output has no value for SEQ")
-        fails = report(f, values["SEQ"])
+        if a.link == "eth":
+            seq = run_eth(f, a)
+        else:
+            flags = (["--dry-run"] if a.dry_run else []) + (["--load"] if a.load else [])
+            values = RF.parse_xsdb(RF.run_xsdb(f, flags, XSDB_TCL), a.dry_run, tag="run_job")
+            if a.dry_run:
+                print("JOB DRY RUN OK: nothing was done on a board")
+                return RF.EXIT_PASS
+            if "SEQ" not in values:
+                raise FrameError("XSDB output has no value for SEQ")
+            seq = values["SEQ"]
+        fails = report(f, seq)
         print(f"run time       {time.time() - start:.0f} s")
-    except (FrameError, J.JobError, ValueError, OSError) as e:
+    except Exception as e:                       # FrameError, JobError, LinkError, OSError, ValueError, ...
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise
         print(f"JOB ERROR: {e}")
         return RF.EXIT_ERROR
     if fails:

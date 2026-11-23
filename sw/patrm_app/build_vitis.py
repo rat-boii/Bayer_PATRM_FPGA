@@ -26,6 +26,9 @@ from pathlib import Path
 
 import vitis
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from amd_tools import irq_saves_vfp          # noqa: E402
+
 # Platform creation runs sdtgen, which is in Vivado's bin folder and is not on the PATH that vitis sets up.
 os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep + os.environ["PATH"]
 
@@ -60,8 +63,9 @@ APP = "patrm_app"
 PROGRAM_END = 0x0F00_0000
 SOURCES = [("sw/patrm_app", "main.c"), ("sw/patrm_drv", "patrm_drv.c"), ("sw/patrm_drv", "patrm_drv.h"),
            ("sw/patrm_sw", "patrm_sw.c"), ("sw/patrm_sw", "patrm_sw.h"),
+           ("sw/patrm_job", "patrm_jobrun.c"), ("sw/patrm_job", "patrm_jobrun.h"),
            ("sw/include", "patrm_regs.h"), ("sw/include", "patrm_defs.h"), ("sw/include", "patrm_job.h")]
-C_FILES = ("main.c", "patrm_drv.c", "patrm_sw.c")
+C_FILES = ("main.c", "patrm_drv.c", "patrm_sw.c", "patrm_jobrun.c")
 REQUIRED_FLAGS = ("-Wall", "-Wextra", "-Werror", f"-{OPT}")
 SETTINGS = {"USER_COMPILE_WARNINGS_ALL": "-Wall", "USER_COMPILE_WARNINGS_EXTRA": "-Wextra",
             "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": f"-{OPT}",
@@ -126,6 +130,14 @@ def main():
         platform = client.create_platform_component(
             name=PLATFORM, hw_design=str(usable_xsa(XSA)), os="standalone", cpu="ps7_cortexa9_0",
             domain_name=DOMAIN, no_boot_bsp=True)
+        # Step 10.2: the IRQ entry must save the VFP registers (amd_tools.irq_saves_vfp; Vitis 2026.1's CMake BSP does
+        # not define FPU_HARD_FLOAT_ABI_ENABLED). Our engine interrupt handler uses no VFP register, so the step 4.x
+        # results were not affected, but any handler that does (memcpy) would corrupt the interrupted code.
+        domain = platform.get_domain(DOMAIN)
+        flags = domain.get_config(option="proc", param="proc_extra_compiler_flags")["value"]
+        if "-DFPU_HARD_FLOAT_ABI_ENABLED=1" not in flags:
+            domain.set_config(option="proc", param="proc_extra_compiler_flags",
+                              value=f"{flags} -DFPU_HARD_FLOAT_ABI_ENABLED=1")
         platform.build()
 
         xpfm = client.find_platform_in_repos(PLATFORM)
@@ -147,6 +159,10 @@ def main():
     problem = check_build()
     if problem:
         return fail(problem)
+    ok, text = irq_saves_vfp(elfs[0])
+    print(text)
+    if not ok:
+        return fail(text)
     end = load_end(elfs[0])
     if not 0 < end <= PROGRAM_END:
         return fail(f"program ends at 0x{end:08X}, it must stay below 0x{PROGRAM_END:08X}")

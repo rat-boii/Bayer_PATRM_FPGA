@@ -2,7 +2,7 @@
  * Ethernet test services (steps 10.1 / 10.1b), lwIP raw API, bare metal on the ZedBoard ARM.
  *
  * Replaces echo.c of AMD's lwip_echo_server template (sw/patrm_eth/build_vitis.py copies it over the template file;
- * the template's main.c and platform code stay). Three TCP services:
+ * the template's main.c and platform code stay). Started by eth_job.c (eth_test_start). Three TCP services:
  *
  *   port 7     echo   Everything received is sent back unchanged, with flow control: received pbufs wait in a queue,
  *                     are copied into the send buffer only as far as tcp_sndbuf() allows, and tcp_recved() is called
@@ -53,18 +53,6 @@ static void pattern_init(void)
 	for (unsigned int k = 0; k < PATTERN_LEN; k++) {
 		pattern[k] = (unsigned char)((k * 31u + (k >> 8)) & 0xFFu);
 	}
-}
-
-int transfer_data(void)
-{
-	return 0;
-}
-
-void print_app_header(void)
-{
-	xil_printf("\n\r\n\r-----PATRM_ETH test services (steps 10.1/10.1b) ------\n\r");
-	xil_printf("echo port %u, sink port %u, source port %u\n\r", (unsigned int)ECHO_PORT,
-		   (unsigned int)SINK_PORT, (unsigned int)SOURCE_PORT);
 }
 
 static const char *mode_name(enum mode m)
@@ -339,7 +327,8 @@ static int listen_on(unsigned int port, tcp_accept_fn fn)
 	return 0;
 }
 
-int start_application(void)
+/* Called from start_application() in eth_job.c (which owns the template's hooks since step 10.2). */
+int eth_test_start(void)
 {
 	pattern_init();
 	if (listen_on(ECHO_PORT, accept_echo) || listen_on(SINK_PORT, accept_sink) ||

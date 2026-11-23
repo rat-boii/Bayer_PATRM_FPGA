@@ -47,7 +47,7 @@ SINK_PORT = 5001
 SOURCE_PORT = 5002
 MB = 1 << 20
 REV_D = REPO / "results" / "hw" / "rev D"
-ELF = REPO / "results" / "hw" / "patrm_eth_echo.elf"
+ELF = REPO / "results" / "hw" / "patrm_eth.elf"
 OUT_DIR = REPO / "results" / "eth"
 RUN_DIR = REPO / "build" / "eth"
 

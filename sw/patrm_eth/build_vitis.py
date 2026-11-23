@@ -6,12 +6,13 @@ Step 10.0 showed that Vitis 2026.1 ships lwIP (lwip220, raw API, bare metal) and
 that they build for ps7_cortexa9_0 from our XSA with -Wall -Wextra -Werror (as sw/patrm_app/build_vitis.py).
 Step 10.1: the template's echo.c is replaced by sw/patrm_eth/echo.c (flow-controlled echo, nothing dropped), lwIP gets
 the buffer sizes of AMD's TCP perf template; after a DHCP timeout (about 12 s) the board is 192.168.1.10.
+Step 10.2: PATRM jobs over Ethernet (sw/patrm_eth/eth_job.c, port 5003) with the driver, software baseline and job
+runner of sw/patrm_app. The ELF is now results/hw/patrm_eth.elf.
 
 Creates a new workspace in build/vitis/patrm_eth (an old one is deleted): a standalone platform from the XSA with
 lwip220 added to the BSP (settings from the template's own lwip_echo_server.yaml), then the app from the template.
 Checks: every template .c file compiled with the required flags, no compiler warning in the build log, program below
-0x0F00_0000 (spec/memory_map.md section 1). Copies the ELF to results/hw/patrm_eth_echo.elf (not tracked: not yet run
-on a board). `vitis -s` can exit 0 after a failure: the build succeeded only if the last line is PATRM_ETH BUILD OK.
+0x0F00_0000 (spec/memory_map.md section 1). Copies the ELF to results/hw/patrm_eth.elf (not tracked). `vitis -s` can exit 0 after a failure: the build succeeded only if the last line is PATRM_ETH BUILD OK.
 
 XSA: environment variable PATRM_XSA if set; else results/hw/patrm_gray.xsa; else the tracked Rev D bundle.
 """
@@ -26,6 +27,9 @@ from pathlib import Path
 
 import vitis
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from amd_tools import irq_saves_vfp          # noqa: E402
+
 os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep + os.environ["PATH"]
 
 REPO = Path(__file__).resolve().parents[2]
@@ -33,15 +37,23 @@ XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "
 if not os.environ.get("PATRM_XSA") and not XSA.is_file():
     XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
 WORKSPACE = REPO / "build" / "vitis" / "patrm_eth"
-ELF_OUT = REPO / "results" / "hw" / "patrm_eth_echo.elf"
+ELF_OUT = REPO / "results" / "hw" / "patrm_eth.elf"
 PLATFORM = "patrm_eth_plat"
 DOMAIN = "standalone_a9_0"
-APP = "patrm_eth_echo"
+APP = "patrm_eth"
 TEMPLATE = "lwip_echo_server"
 PROGRAM_END = 0x0F00_0000
 REQUIRED_FLAGS = ("-Wall", "-Wextra", "-Werror", "-O2")
 SETTINGS = {"USER_COMPILE_WARNINGS_ALL": "-Wall", "USER_COMPILE_WARNINGS_EXTRA": "-Wextra",
-            "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": "-O2"}
+            "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": "-O2",
+            "USER_COMPILE_OTHER_FLAGS": "-std=gnu11"}
+# Step 10.2: added to the app (import_files puts them in USER_COMPILE_SOURCES). The driver, the software baseline and
+# the job runner are the same files as in sw/patrm_app, so a job runs with the same code over JTAG and Ethernet.
+IMPORTS = [("sw/patrm_eth", "eth_job.c"), ("sw/patrm_eth", "patrm_eth.h"),
+           ("sw/patrm_drv", "patrm_drv.c"), ("sw/patrm_drv", "patrm_drv.h"),
+           ("sw/patrm_sw", "patrm_sw.c"), ("sw/patrm_sw", "patrm_sw.h"),
+           ("sw/patrm_job", "patrm_jobrun.c"), ("sw/patrm_job", "patrm_jobrun.h"),
+           ("sw/include", "patrm_regs.h"), ("sw/include", "patrm_defs.h"), ("sw/include", "patrm_job.h")]
 # BSP library settings (step 10.1): the buffer sizes of AMD's lwip_tcp_perf_server template
 # (data/lwip_tcp_perf_server.yaml, depends_libs, Vitis 2026.1). DHCP must stay on: create_app_component refuses the
 # template otherwise ("lwip220_dhcp: True expected"). On a direct cable there is no DHCP server, so the template's
@@ -185,10 +197,14 @@ def main():
         # the end marker of the lwIP topology table in xtopology_g.c as `{ NULL }` into an integer field. GCC 14 made
         # int-conversion an error; NULL is 0 here, so only that check goes back to a warning, as before GCC 14. Our
         # own sources keep -Wall -Wextra -Werror (checked below).
+        # Step 10.2: FPU_HARD_FLOAT_ABI_ENABLED, see amd_tools.irq_saves_vfp. Without it the IRQ entry does not save
+        # the VFP registers; the GEM interrupt handler runs memcpy (XEmacPs_GetQxOffset) and its d0/d1 values landed in
+        # the middle of our own memcpy of a received image: 16 bytes of a register-offset table in the source.
         flags = domain.get_config(option="proc", param="proc_extra_compiler_flags")["value"]
-        if "-Wno-error=int-conversion" not in flags:
-            domain.set_config(option="proc", param="proc_extra_compiler_flags",
-                              value=f"{flags} -Wno-error=int-conversion")
+        for extra in ("-Wno-error=int-conversion", "-DFPU_HARD_FLOAT_ABI_ENABLED=1"):
+            if extra not in flags:
+                flags = f"{flags} {extra}"
+        domain.set_config(option="proc", param="proc_extra_compiler_flags", value=flags)
         print(f"BSP libraries: {domain.get_libs()}")
         platform.build()
 
@@ -200,6 +216,8 @@ def main():
                 raise RuntimeError(f"template file {target} not found; the template layout changed")
             shutil.copyfile(REPO / "sw" / "patrm_eth" / name, target)
             print(f"replaced template {name} with sw/patrm_eth/{name}")
+        for folder, name in IMPORTS:
+            app.import_files(from_loc=str(REPO / folder), files=[name], dest_dir_in_cmp="src")
         for key, value in PERF.items():
             domain.set_config(option="lib", param=key, value=value, lib_name="lwip220")
         got = {k: domain.get_config(option="lib", param=k, lib_name="lwip220")["value"] for k in PERF}
@@ -220,6 +238,10 @@ def main():
     problem = check_build()
     if problem:
         return fail(problem)
+    ok, text = irq_saves_vfp(elfs[0])
+    print(text)
+    if not ok:
+        return fail(text)
     end = load_end(elfs[0])
     if not 0 < end <= PROGRAM_END:
         return fail(f"program ends at 0x{end:08X}, it must stay below 0x{PROGRAM_END:08X}")

@@ -21,6 +21,7 @@ With --sw the engine columns (cycles, bytes, stalls) are empty and engine_us is 
 import argparse
 import csv
 import datetime
+import json
 import subprocess
 import sys
 import time
@@ -33,6 +34,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import run_frame as RF                       # noqa: E402
+import run_job                               # noqa: E402
 from model import job as J                   # noqa: E402
 from model.gen_transforms import load as load_transforms   # noqa: E402
 
@@ -41,6 +43,8 @@ HW = {"c": ROOT / "results" / "hw", "d": ROOT / "results" / "hw" / "rev D"}
 CSV_FIELDS = ["case", "path", "image", "transform", "W", "H", "result", "exit_code", "rc", "cycles", "pl_ms", "pl_fps",
               "engine_us", "total_us", "engine_fps", "total_fps", "mpix_s_engine", "bytes_rd", "bytes_wr",
               "rd_stall", "wr_stall", "rd_stall_pct", "seconds"]
+# step 10.2, --link eth only (scripts/board/run_job.py writes eth_times.json)
+ETH_FIELDS = ["board_rx_ms", "board_job_ms", "pc_send_ms", "pc_until_response_ms", "pc_download_ms", "pc_round_trip_ms"]
 
 
 def parse_sizes(text):
@@ -59,9 +63,13 @@ def case_row(k, image, tf, W, H, code, seconds, a):
         row["result"] = "DRY" if code == RF.EXIT_PASS else row["result"]
         return row
     _, image_name = RF.find_image(image, W, H)
-    path = RF.RUN_ROOT / f"{'jobsw' if a.sw else 'job'}_{image_name}_{tf}_{W}x{H}" / "result.bin"
+    path = RF.RUN_ROOT / f"{run_job.run_prefix(a.sw, a.link)}_{image_name}_{tf}_{W}x{H}" / "result.bin"
     if not path.is_file():
         return row
+    eth_times = path.parent / "eth_times.json"
+    if a.link == "eth" and eth_times.is_file():
+        t = json.loads(eth_times.read_text(encoding="utf-8"))
+        row.update({k: f"{t[k]:.3f}" for k in ETH_FIELDS if k in t})
     r = J.decode_result(path.read_bytes())
     cyc = 0 if a.sw else (r["cycles_avg"] or r["cycles"])
     row.update(rc=r["rc_name"])
@@ -86,10 +94,17 @@ def main(argv=None):
     ap.add_argument("--transforms", default="", help="comma list (default: all of model/transforms.json)")
     ap.add_argument("--images", default="photo", help="comma list of image names from data/gen (default photo)")
     ap.add_argument("--n", type=int, default=1, help="frames per case (run_job --n)")
-    ap.add_argument("--elf", default=str(ROOT / "results" / "hw" / "patrm_app.elf"), help="ARM application")
+    ap.add_argument("--elf", default=None,
+                    help="ARM application (default results/hw/patrm_app.elf, with --link eth patrm_eth.elf)")
     ap.add_argument("--sw", action="store_true", help="ARM software baseline instead of the engine (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
+    ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
+                    help="jtag: XSDB mailbox (step 4.3); eth: Ethernet job service (step 10.2)")
     a = ap.parse_args(argv)
+    a.elf = a.elf or str(ROOT / "results" / "hw" / ("patrm_eth.elf" if a.link == "eth" else "patrm_app.elf"))
+    if a.link == "eth" and a.dry_run:
+        print("RUN_ALL FAIL: --dry-run is for the XSDB path only")
+        return RF.EXIT_ERROR
 
     hw = HW[a.rev]
     bit, init = hw / "patrm_gray.bit", hw / "ps7_init.tcl"
@@ -107,7 +122,8 @@ def main(argv=None):
     images = [i.strip() for i in a.images.split(",") if i.strip()]
     cases = [(img, tf, W, H) for (W, H) in sizes for img in images for tf in tfs]
 
-    tag = f"rev{a.rev}" + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + ("_dry" if a.dry_run else "")
+    tag = (f"rev{a.rev}" + ("_eth" if a.link == "eth" else "") + (f"_sw_{Path(a.elf).stem}" if a.sw else "")
+           + ("_dry" if a.dry_run else ""))
     log_dir = RF.RUN_ROOT / f"run_all_{tag}"
     log_dir.mkdir(parents=True, exist_ok=True)
     out_dir = log_dir if a.dry_run else ROOT / "results" / "board"   # a dry run writes nothing into results/
@@ -117,7 +133,7 @@ def main(argv=None):
 
     rows, start = [], time.time()
     for k, (img, tf, W, H) in enumerate(cases, 1):
-        args = [img, tf, str(W), str(H), "--n", str(a.n), "--elf", a.elf]
+        args = [img, tf, str(W), str(H), "--n", str(a.n), "--elf", a.elf, "--link", a.link]
         if k == 1:
             args += ["--load", "--bit", str(bit), "--init", str(init)]
         if a.sw:
@@ -140,7 +156,7 @@ def main(argv=None):
 
     csv_path = out_dir / f"run_all_{tag}.csv"
     with open(csv_path, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=CSV_FIELDS)
+        w = csv.DictWriter(fh, fieldnames=CSV_FIELDS + (ETH_FIELDS if a.link == "eth" else []))
         w.writeheader()
         w.writerows(rows)
     failed = [f"{r['W']}x{r['H']} {r['image']} {r['transform']} ({r['result']})" for r in rows

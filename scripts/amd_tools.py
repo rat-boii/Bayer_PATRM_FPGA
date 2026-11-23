@@ -88,6 +88,25 @@ def require_tool(name):
     return path
 
 
+def irq_saves_vfp(elf):
+    """True if the IRQ entry (IRQHandler) linked into a Cortex-A9 ELF saves the VFP registers (vpush).
+    Vitis 2026.1's CMake BSP never defines FPU_HARD_FLOAT_ABI_ENABLED, so asm_vectors.S leaves out the VFP save and
+    an interrupt handler that uses VFP registers (newlib memcpy does) corrupts the code it interrupts (found in step
+    10.2). The build scripts set the flag and call this to make sure it took effect. Returns (ok, text)."""
+    import subprocess
+    gcc = find_arm_gcc()
+    if gcc is None:
+        return False, "arm-none-eabi-objdump not found"
+    objdump = gcc.with_name(gcc.name.replace("gcc", "objdump"))
+    out = subprocess.run([str(objdump), "-d", "--disassemble=IRQHandler", str(elf)], capture_output=True,
+                         text=True).stdout
+    body = out.split("<IRQHandler>:", 1)[-1] if "<IRQHandler>:" in out else ""
+    if not body:
+        return False, "IRQHandler not found in the ELF"
+    return ("vpush" in body), ("IRQHandler saves the VFP registers" if "vpush" in body else
+                               "IRQHandler does NOT save the VFP registers (FPU_HARD_FLOAT_ABI_ENABLED missing)")
+
+
 def find_arm_gcc():
     """The bare-metal ARM compiler that Vitis uses for the Cortex-A9. It is not inside the Vitis folder: PATH first,
     then the default folders of the Arm GNU Toolchain installer. Returns a Path or None."""

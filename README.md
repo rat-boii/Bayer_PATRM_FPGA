@@ -120,7 +120,7 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
 | `rtl/`     | Verilog-2001 sources (one module per file) |
 | `tb/`      | Testbenches and bus models (`tb/smoke/` = toolchain smoke test) |
 | `vivado/`  | Tcl build scripts (projects are rebuilt from Tcl, never checked in) |
-| `sw/`      | Bare-metal driver, ARM baseline, `sw/patrm_eth/` Ethernet (lwIP) app (Phase 10) |
+| `sw/`      | Bare-metal driver, ARM baseline, `sw/patrm_job/` job runner (JTAG + Ethernet), `sw/patrm_eth/` Ethernet (lwIP) app (Phase 10) |
 | `scripts/` | Python runners: environment check, simulation, board access (XSDB), tests |
 | `data/`    | Test images and golden outputs (large files are git-ignored) |
 | `results/` | CSV, reports, plots |
@@ -793,6 +793,45 @@ Measured 2026-11-23 (results/eth/echo_2026-11-23_105757.*), 10 runs per size, al
 
 Each direction alone runs near gigabit line rate, about 250x faster than JTAG. Receive overruns appear only when the
 board receives and sends at full rate at the same time; a PATRM job (upload, run, download) never does that.
+
+## Step 10.2: PATRM jobs over Ethernet
+
+`sw/patrm_eth/eth_job.c` (TCP port 5003, protocol `sw/patrm_eth/patrm_eth.h`) carries the job descriptor and result
+record of the JTAG path unchanged: request = 32-byte header + descriptor + source image, response = 32-byte header +
+result record + output area. The job runs with the same code as over JTAG: `sw/patrm_job/patrm_jobrun.c`, moved out of
+`sw/patrm_app/main.c` (the JTAG app now calls it too). Over Ethernet the engine is polled (lwIP owns the GIC); the ARM
+writes the source (flag SRC_CPU, flushed before START).
+```
+vitis -s sw/patrm_eth/build_vitis.py                          # -> results/hw/patrm_eth.elf
+python scripts/eth/eth_link.py --selftest                     # protocol constants against patrm_eth.h
+python scripts/board/run_job.py mixed identity 64 64 --link eth --load --bit "results/hw/rev D/patrm_gray.bit" --init "results/hw/rev D/ps7_init.tcl"
+python scripts/board/run_all.py --rev d --link eth            # the step 4.3 set -> results/board/run_all_revd_eth.*
+```
+Every check of the JTAG runner applies (model bit-exact, last row, 4096 guard bytes, BYTES_RD / BYTES_WR predictions,
+BUILD_ID). Result 2026-11-23: 33 of 33 PASS, the whole set in 110 s (69 s of it board load and boot).
+
+| size | board receives source | job on the board | download | PC round trip |
+|---|---|---|---|---|
+| 480x272 identity | 1.6 ms | 2.8 ms (engine 1.3 ms) | 1.5 ms | 18 ms |
+| 800x480 identity | 4.5 ms | 7.5 ms (engine 3.8 ms) | 3.8 ms | 27 ms |
+| 2448x2095 identity | 62 ms | 93 ms (engine 51 ms) | 47 ms | 215 ms |
+| 2448x2095 rot90 | 61 ms | 177 ms (engine 135 ms) | 47 ms | 299 ms |
+
+"Job on the board" includes the 0xA5 fill and cache maintenance of the test (5 MB each); a demo can leave the fill out.
+Over JTAG the same 2448x2095 case takes about 25 s.
+
+**Vitis 2026.1 BSP bug found here (affects every interrupt-driven program):** the CMake BSP never defines
+`FPU_HARD_FLOAT_ABI_ENABLED`, so `asm_vectors.S` builds an IRQ entry that does not save the VFP registers. AMD's GEM
+interrupt handler calls `memcpy` (in `XEmacPs_GetQxOffset`), which uses d0-d7; an interrupt in the middle of our
+`memcpy` of a received image made it store 16 bytes of the handler's register-offset table into the image (found by
+searching a RAM dump for those 16 bytes). Both build scripts now add `-DFPU_HARD_FLOAT_ABI_ENABLED=1` to the BSP and
+check the linked `IRQHandler` for `vpush` (`scripts/amd_tools.py: irq_saves_vfp`). The JTAG app's engine interrupt
+handler uses no VFP register, so the step 4.x results were not affected; it was rebuilt with the fix and the step 4.3
+set passed again over JTAG (33 of 33, results/board/run_all_revd_jtag_rerun_2026-11-23.*).
+
+CYCLES on the board are not exactly repeatable: the step 4.3 JTAG run (2026-11-21) and the JTAG rerun (2026-11-23)
+agree in 4 of 33 cases (-0.25 % .. +0.01 %); Ethernet against them: 3 of 33 (-0.07 % .. +0.18 %). BYTES_RD and
+BYTES_WR are identical in all 33 cases in every comparison.
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 

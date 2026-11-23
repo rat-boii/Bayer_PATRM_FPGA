@@ -99,6 +99,8 @@ unchanged and carry them over TCP. The lwIP app receives `descriptor + source im
 - lwIP build: `vitis -s sw/patrm_eth/build_vitis.py` (step 10.0) holds three Vitis 2026.1 / GCC 14
   workarounds (README step 10.0). After a failed `vitis -s` run, a leftover Vitis server (java, RigelApp)
   can lock the workspace; stop it before the next run.
+- Vitis 2026.1 BSP: the IRQ entry does not save VFP registers unless FPU_HARD_FLOAT_ABI_ENABLED is defined (both
+  build scripts do it and check it). Without it, interrupts corrupt memcpy data (step 10.2).
 - The Rev D XSA routes ENET0 MDIO to EMIO, not MIO 52/53: load with `scripts/eth/echo_test.py --load` (or run
   `scripts/eth/mdio_mio.tcl` after ps7_init) until vivado/build.tcl is fixed. The board needs about 27 s to boot.
 
