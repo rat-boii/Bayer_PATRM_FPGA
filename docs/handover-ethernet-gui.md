@@ -94,11 +94,15 @@ unchanged and carry them over TCP. The lwIP app receives `descriptor + source im
   spaces (a long temporary path also failed: "Invalid project location").
 - Images must follow D3 (grayscale W multiple of 8) and D11 (at most 4096 x 4096); transforms D4. Use `model/job.py`
   checks on the PC side, and never do floating-point transform maths on the ARM (b comes from the PC, D5).
-- The laptop and board need static IPs on a direct cable (for example PC 192.168.1.10, board 192.168.1.20).
+- The laptop and board need static IPs on a direct cable. AMD's echo template uses board 192.168.1.10 (after a
+  DHCP timeout), so give the laptop another address, for example 192.168.1.100 / 255.255.255.0.
+- lwIP build: `vitis -s sw/patrm_eth/build_vitis.py` (step 10.0) holds three Vitis 2026.1 / GCC 14
+  workarounds (README step 10.0). After a failed `vitis -s` run, a leftover Vitis server (java, RigelApp)
+  can lock the workspace; stop it before the next run.
 
 ## 7. Unknown until measured
 
-- Whether the Vitis 2026.1 Python API still ships lwIP and its templates (step 10.0).
+- ~~Whether Vitis 2026.1 ships lwIP~~: yes, lwip220 + templates; it builds (step 10.0, 2026-11-23).
 - Real Ethernet throughput of a bare-metal lwIP app on the Cortex-A9 (step 10.1). The JTAG figure to compare with is
   only a rough estimate (about 0.2 MB/s from the step 4.3 run time); measure both.
 - Which ZedBoard is used for the tests: everything above is verified on the Rev D board only.

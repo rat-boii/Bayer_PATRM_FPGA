@@ -120,7 +120,7 @@ Windows, native (not WSL). Do these steps in order. Step 9 checks the result and
 | `rtl/`     | Verilog-2001 sources (one module per file) |
 | `tb/`      | Testbenches and bus models (`tb/smoke/` = toolchain smoke test) |
 | `vivado/`  | Tcl build scripts (projects are rebuilt from Tcl, never checked in) |
-| `sw/`      | Bare-metal driver and ARM baseline |
+| `sw/`      | Bare-metal driver, ARM baseline, `sw/patrm_eth/` Ethernet (lwIP) app (Phase 10) |
 | `scripts/` | Python runners: environment check, simulation, board access (XSDB), tests |
 | `data/`    | Test images and golden outputs (large files are git-ignored) |
 | `results/` | CSV, reports, plots |
@@ -720,6 +720,27 @@ Option A implementation numbers (OOC, 100 MHz): run from `build/ooc/patrm_top_ba
 vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl -tclargs variant=bayer_a     # results/ooc/patrm_top_bayer_a_*
 ```
 (2,620 LUT, 3,612 FF, 8 RAMB36, 17 DSP48E1, WNS +1.238 ns). The board bitstream with Option A is step 5.3.
+
+## Step 10.0: Ethernet feasibility (lwIP echo server builds)
+
+Ethernet (GEM0 = ENET0, on-board RJ45 PHY) is enabled in the verified XSA, and AMD's lwIP 2.2 echo server builds for
+the ARM from it. No board and no FPGA rebuild are needed for this step.
+```
+python scripts/eth/check_xsa_enet.py                 # ENET0 on MIO 16..27, MDIO, 1000 Mbps -> ENET CHECK PASS
+vitis -s sw/patrm_eth/build_vitis.py                 # -> PATRM_ETH BUILD OK, results/hw/patrm_eth_echo.elf (not yet run on a board)
+```
+Vitis 2026.1 + GCC 14 needed three workarounds, all inside `sw/patrm_eth/build_vitis.py` (the install is not changed):
+1. The installed `lwip220_v1_4/data/lwip220.yaml` starts with a byte order mark and two comment lines before `%YAML`,
+   so the repository scan drops lwIP without a message and `set_lib('lwip220')` fails with "not valid for the given
+   processor". The script copies the library to `build/esw_repo/`, fixes the header order and adds it as a LOCAL
+   embedded SW repository.
+2. AMD's raw-API lwIP options set `NO_SYS_NO_TIMERS 1`, but the library still compiles the Ethernet bridge
+   (`netif/bridgeif*.c`), which calls `sys_timeout` -> GCC 14 error. Those two unused files are left out of the copy.
+3. lopper writes the end marker of the generated `xtopology_g.c` as `{ NULL }` into an integer field -> GCC 14
+   error. The BSP alone gets `-Wno-error=int-conversion` (a warning again, as before GCC 14); our sources keep -Werror.
+
+If a `vitis -s` run fails, its Vitis server (java, `RigelApp`) can stay alive and lock the workspace ("already in
+use" / `.lock` in use). Stop it in Task Manager (or `Stop-Process`) before the next run.
 
 ## Temporary Rev D board: verified build and 48-word DDR test
 
