@@ -34,6 +34,7 @@ from amd_tools import require_tool           # noqa: E402
 from model import job as J                   # noqa: E402
 from model import memmodel as MM             # noqa: E402
 from model import patrm as P                 # noqa: E402
+from model import bayer as B                 # noqa: E402
 from model import regs as R                  # noqa: E402
 from model.gen_transforms import load as load_transforms   # noqa: E402
 
@@ -57,16 +58,17 @@ class FrameError(Exception):
     pass
 
 
-def find_image(image, W, H):
+def find_image(image, W, H, mode="gray"):
     path = Path(image)
     if path.is_file():
         return path, path.stem
-    exact = GEN_DIR / f"gray_{image}_{W}x{H}.raw"
+    kind = "gray" if mode == "gray" else "rggb"
+    exact = GEN_DIR / f"{kind}_{image}_{W}x{H}.raw"
     if exact.is_file():
         return exact, image
-    found = sorted(GEN_DIR.glob(f"gray_{image}*_{W}x{H}.raw"))
+    found = sorted(GEN_DIR.glob(f"{kind}_{image}*_{W}x{H}.raw"))
     if len(found) == 1:
-        return found[0], found[0].name[len("gray_"):-len(f"_{W}x{H}.raw")]
+        return found[0], found[0].name[len(kind) + 1:-len(f"_{W}x{H}.raw")]
     if found:
         raise FrameError(f"image {image!r} is ambiguous at {W}x{H}: " + ", ".join(p.name for p in found))
     raise FrameError(f"no image {image!r} at {W}x{H}: not a file and not in {GEN_DIR} (run python -m model.gen_images)")
@@ -120,27 +122,32 @@ def write_job_tcl(path, f):
 def load_frame(a, irq_en=0, prefix="frame"):
     """Everything both runners need for one frame: source, transform, register values, model output, run folder."""
     W, H = a.W, a.H
+    mode = getattr(a, "mode", "gray")
     J.check_regs_current()
-    image_path, image_name = find_image(a.image, W, H)
+    image_path, image_name = find_image(a.image, W, H, mode)
     tf = find_transform(a.transform)
     src_bytes = image_path.read_bytes()
     if len(src_bytes) != W * H:
         raise FrameError(f"{image_path} has {len(src_bytes)} bytes, expected W x H = {W * H}")
     b = tuple(int(c) for c in MM._b_for(tf, W, H))
-    writes, _ = J.register_image(W, H, "gray", b, BLOCK_LEN, irq_en=irq_en, block_len_max=MM.BLOCK_LEN_MAX)
+    writes, _ = J.register_image(W, H, mode, b, BLOCK_LEN, irq_en=irq_en, block_len_max=MM.BLOCK_LEN_MAX)
     if writes[-1][1] != "CTRL":
         raise FrameError("model/job.py: CTRL must be the last register written")
     src = np.frombuffer(src_bytes, dtype=np.uint8).reshape(H, W)
-    expected = P.warp_gray(src, W, H, b)
+    expected = P.warp_gray(src, W, H, b) if mode == "gray" else B.warp_bayer(src, W, H, b)
 
     run_dir = RUN_ROOT / f"{prefix}_{image_name}_{tf['name']}_{W}x{H}"
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "source.raw").write_bytes(src_bytes)
     (run_dir / "expected.raw").write_bytes(expected.tobytes())
-    return dict(W=W, H=H, b=b, writes=writes, src_bytes=src_bytes, expected=expected, image=image_path,
+    passes = MM.build_passes("A" if mode == "bayer_a" else "gray", W, H, b)
+    predicted_rd = sum(MM.pass_reads(ps, MM.make_blocks(ps, BLOCK_LEN, MM.SPAN_MAX), W, "P1")["beats"]
+                       for ps in passes) * MM.BEAT
+    return dict(W=W, H=H, mode=mode, build_id=0x00403101 if mode == "bayer_a" else BUILD_ID_EXPECTED,
+                bytes_wr=W * H * (2 if mode == "bayer_a" else 1), b=b, writes=writes, src_bytes=src_bytes, expected=expected, image=image_path,
                 run_dir=run_dir, src_file=run_dir / "source.raw", out_file=run_dir / "readback.bin",
                 out_bytes=W * H + GUARD_BYTES, bit=a.bit, init=a.init, timeout=a.timeout,
-                bytes_rd=predict_bytes_rd(W, H, b), job_file=run_dir / "job.tcl")
+                bytes_rd=predicted_rd, job_file=run_dir / "job.tcl")
 
 
 def prepare(a):
@@ -224,7 +231,7 @@ def status_text(value):
 def check_bytes(f, bytes_rd, bytes_wr, fails):
     """BYTES_RD against the memory model and BYTES_WR against W x H."""
     for name, got_v, ref, what in (("BYTES_RD", bytes_rd, f["bytes_rd"], "memmodel"),
-                                   ("BYTES_WR", bytes_wr, f["W"] * f["H"], "W x H")):
+                                   ("BYTES_WR", bytes_wr, f.get("bytes_wr", f["W"] * f["H"]), "bus bytes")):
         same = got_v == ref
         print(f"{name:<14} {got_v}  ({what} {ref}: {'same' if same else 'DIFFERENT'})")
         if not same:

@@ -189,20 +189,59 @@ static bool buffer_ok(uint32_t addr, uint32_t size)
            (size <= (PATRM_BUF_HI - addr));
 }
 
-/* D4: every output corner maps inside +/- PATRM_COORD_LIMIT_PX. Exact 64-bit arithmetic, as in the model. */
-static bool transform_ok(const patrm_job_t *job)
+/* D2/D12: use 64-bit intermediates, then floor division by two, including negative odd sums.
+ * C division truncates toward zero; do not use it alone or a signed implementation-defined shift. */
+static bool plane_shifts(const patrm_job_t *job, int32_t t[8])
+{
+    unsigned p;
+    for (p = 0U; p < 4U; p++) {
+        int64_t row = (int64_t)(p >> 1);
+        int64_t col = (int64_t)(p & 1U);
+        int64_t x = (int64_t)job->b[2] + ((int64_t)job->b[0] - Q16_ONE) * row + (int64_t)job->b[1] * col;
+        int64_t y = (int64_t)job->b[5] + (int64_t)job->b[3] * row + ((int64_t)job->b[4] - Q16_ONE) * col;
+        x = (x >= 0) ? x / 2 : -((-x + 1) / 2);
+        y = (y >= 0) ? y / 2 : -((-y + 1) / 2);
+        if ((x < INT32_MIN) || (x > INT32_MAX) || (y < INT32_MIN) || (y > INT32_MAX)) {
+            return false;
+        }
+        t[2U * p] = (int32_t)x;
+        t[2U * p + 1U] = (int32_t)y;
+    }
+    return true;
+}
+
+static bool corners_ok(const patrm_job_t *job, uint32_t w, uint32_t h, int32_t tx, int32_t ty)
 {
     const int64_t limit = (int64_t)PATRM_COORD_LIMIT_PX * Q16_ONE;
-    const int64_t u_max = (int64_t)job->height - 1;
-    const int64_t v_max = (int64_t)job->width - 1;
     unsigned corner;
-
     for (corner = 0U; corner < 4U; corner++) {
-        int64_t u = ((corner & 1U) != 0U) ? u_max : 0;
-        int64_t v = ((corner & 2U) != 0U) ? v_max : 0;
-        int64_t x = (job->b[0] * u) + (job->b[1] * v) + job->b[2];
-        int64_t y = (job->b[3] * u) + (job->b[4] * v) + job->b[5];
+        int64_t u = ((corner & 1U) != 0U) ? (int64_t)h - 1 : 0;
+        int64_t v = ((corner & 2U) != 0U) ? (int64_t)w - 1 : 0;
+        int64_t x = (job->b[0] * u) + (job->b[1] * v) + tx;
+        int64_t y = (job->b[3] * u) + (job->b[4] * v) + ty;
         if ((x > limit) || (x < -limit) || (y > limit) || (y < -limit)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* D4: full-resolution corners and, in Bayer mode, every independent plane (model/bayer.py). */
+static bool transform_ok(const patrm_job_t *job)
+{
+    int32_t t[8];
+    unsigned p;
+    if (!corners_ok(job, job->width, job->height, job->b[2], job->b[5])) {
+        return false;
+    }
+    if (job->mode == PATRM_MODE_GRAY) {
+        return true;
+    }
+    if (!plane_shifts(job, t)) {
+        return false;
+    }
+    for (p = 0U; p < 4U; p++) {
+        if (!corners_ok(job, job->width / 2U, job->height / 2U, t[2U * p], t[2U * p + 1U])) {
             return false;
         }
     }
@@ -217,8 +256,8 @@ patrm_rc_t patrm_validate(const patrm_dev_t *dev, const patrm_job_t *job)
     if ((job->mode > PATRM_MODE_BAYER_B) || (((dev->modes >> job->mode) & 1U) == 0U)) {
         return PATRM_RC_BAD_MODE;
     }
-    if (job->mode != PATRM_MODE_GRAY) {
-        return PATRM_RC_BAD_MODE;      /* Bayer needs the T_p registers (D12), added with the Bayer steps */
+    if (job->mode > PATRM_MODE_BAYER_A) {
+        return PATRM_RC_BAD_MODE;      /* Option B is not implemented yet */
     }
     rc = check_size(job);
     if (rc != PATRM_RC_OK) {
@@ -247,6 +286,10 @@ static void program(const patrm_dev_t *dev, const patrm_job_t *job)
         PATRM_T_GB_X_OFFSET, PATRM_T_GB_Y_OFFSET, PATRM_T_B_X_OFFSET, PATRM_T_B_Y_OFFSET
     };
     uint32_t i;
+    int32_t t[8] = {0};
+    if (job->mode == PATRM_MODE_BAYER_A) {
+        (void)plane_shifts(job, t);       /* patrm_validate checked all eight values before any write */
+    }
 
     reg_write(dev, PATRM_SRC_ADDR_OFFSET, job->src_addr);
     reg_write(dev, PATRM_DST_ADDR_OFFSET, job->dst_addr);
@@ -259,7 +302,7 @@ static void program(const patrm_dev_t *dev, const patrm_job_t *job)
     reg_write(dev, PATRM_B22_OFFSET, (uint32_t)job->b[4]);
     reg_write(dev, PATRM_B23_OFFSET, (uint32_t)job->b[5]);
     for (i = 0U; i < (sizeof(t_regs) / sizeof(t_regs[0])); i++) {
-        reg_write(dev, t_regs[i], 0U);                             /* gray: T_* are not used */
+        reg_write(dev, t_regs[i], (uint32_t)t[i]);                  /* D2/D12; gray remains zero */
     }
     reg_write(dev, PATRM_BLOCK_LEN_OFFSET, job->block_len);
 }

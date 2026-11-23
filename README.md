@@ -151,7 +151,9 @@ The Option A changes are specified in `spec/interface.md` section 18 (step 5.1) 
 | `rtl/axi_rd_master.v` | shared | none |
 | `rtl/axi_wr_master.v` | shared | A: WSTRB 55 / AA, row step 2W |
 | `rtl/patrm_top.v` | shared | MODES parameter selects the build |
-| `rtl/bayer_lanes.v` | B (planned, step 6) | four lanes, row-pair fetch |
+| `rtl/bayer_lanes.v`, `rtl/bayer_geometry.v` | B | shared coordinate scan, block planning, fallback and four interpolation lanes |
+| `rtl/bayer_store.v`, `rtl/bayer_merge.v` | B | bounded shared fetch and slot reuse, full-word RGGB row-pair output |
+| `scripts/gen_bayer_b_vectors.py` | B | model reference, transaction traces and rectangular-only comparison for tb_patrm_top |
 | `model/patrm.py` | shared | gray reference (bit-exact) |
 | `model/bayer.py` | A, B | Bayer reference: split, warp each plane, merge (bit-exact) |
 | `model/bayer_a.py`, `model/test_bayer_a.py` | A | Option A as the hardware does it, checked against `bayer.py` |
@@ -880,3 +882,16 @@ xsdb scripts/board/repeat48.tcl 10
 
 This checks debugger-to-DDR access, not full DDR coverage, reset recovery or
 the accelerator's PL-to-DDR data path. The standalone PDF report is not in Git.
+
+## Step 5.3: Option A on Rev D (laptop integration; board verification pending)
+
+See [the step 5.3 instructions](docs/step-5.3-revd-offline.md) for builds, offline tests and
+the later board checklist. `vivado/build.tcl -tclargs variant=bayer_a rev=d` selects
+MODES=3 / BUILD_TYPE=1 and the Rev D DDR part; artifacts go to `results/hw/bayer_a/rev_d/`.
+The no-argument gray/Rev C build remains unchanged. Set `PATRM_VARIANT=bayer_a` and
+`PATRM_REV=d` when building the matching application with sw/patrm_app/build_vitis.py.
+`run_job.py --mode bayer_a --rev d` and `run_all.py --mode bayer_a --rev d` select the
+Bayer reference and bundle; `run_all.py --variant bayer_a --mode gray --rev d` checks gray
+on the A build. Named Bayer inputs are `chart` or `photo` from generated `rggb_*.raw` files.
+New offline checks: `python -m model.test_patrm_drv` and `python -m model.test_bayer_jobs`.
+No Option A board result is claimed; step 5.3 is not complete until the board checks pass.

@@ -11,6 +11,10 @@
 ../rtl/bilinear_interp.v
 ../rtl/out_fifo.v
 ../rtl/axi_wr_master.v
+../rtl/bayer_geometry.v
+../rtl/bayer_store.v
+../rtl/bayer_merge.v
+../rtl/bayer_lanes.v
 ../rtl/patrm_top.v
 axi_mem.v
 tb_patrm_top.v

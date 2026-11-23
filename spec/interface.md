@@ -1,7 +1,7 @@
 # Grayscale engine: modules and interfaces (step 2.2)
 
 Scope: the GRAYSCALE engine (BUILD_TYPE 0, MODES = 0b001) in sections 0-17; Bayer Option A (MODE 1) in section 18
-(step 5.1); Option B is a hook (section 14), detailed in step 6.1. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
+(step 5.1); Option B design and verification are linked in section 14. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
 Block / fetch schedule: `model/memmodel.py` (docstring = the rules), vectors `data/vectors/sched_*.txt`.
 Bit-exact reference for every pixel: `model/patrm.py`. Figure: `docs/figures/patrm_gray_top.tex`.
 
@@ -774,8 +774,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
   bayer_seq with b = (b11, b12, T_px, b21, b22, T_py) from the T registers (D12) and plane size (W/2, H/2) for D1;
   memory row 2x + o_row, column 2y + o_col; WSTRB-masked writes into the interleaved buffer (D19).
 - **Option B** (MODE 2): four lanes share one coord_gen; lane p adds T_p - T_R (register difference, D6).
-  A block holds up to 3 plane rows = 6 memory rows (step 1.4), so the buffer needs more read copies; to be
-  designed in 6.1.
+  The six physical rows seen in step 1.4 are workload-specific. Legal transforms can also exceed a single
+  512-byte column window. See the [step 6.1 design and verification](../docs/step-6.1-bayer-b.md) for the fetch policy and its verification status.
 - Shared now: the T registers, MODE, BUILD_ID.MODES, and the plane-row / plane-column parameters of the planner.
 
 ## 15. Timing at 100 MHz (10 ns; whole engine MEASURED in step 3.8, module rows from the module runs)
@@ -1067,3 +1067,34 @@ step 3.8: out_fifo 196 vs 130 LUT (the 64-bit packer with byte insert costs LUTs
 pass registers (92 FF, copies of B13, B23, W, H). Vivado merged the equivalent stride2 flags of block_planner, pixel_fetch and
 out_fifo (all loaded from pass_stride2 at frame_start) into u_planner/k_s2_reg; its fan-out is the critical path
 (slack +1.238 ns). Power ESTIMATE (vectorless, engine only): 0.159 W (0.055 dynamic + 0.104 static).
+
+## 19. Bayer Option B RTL (step 6.2)
+
+Build parameters are MODES=7 and BUILD_TYPE=2. MODE 2 starts a single full-frame job. The existing MODE 0/1 sequencer supplies a single start and existing contiguous-row writer configuration for B. The shared HP0 and HP1 masters, configuration registers, counters and final write-response completion logic remain the bus interface.
+
+- **bayer_lanes** feeds the existing three-stage coordinate generator with plane-row chunks of up to 64 positions. One R coordinate plus the three latched register differences feeds **bayer_geometry**. The planner buffers up to 64 base coordinates so a group can be replayed during interpolation. The actual DDR block boundaries follow the row-key, BLOCK_LEN and aligned span rules independently of coordinate-generator chunks.
+- **bayer_store** pins the previous fetching group's tags, allocates missed windows in the remaining slots, and broadcasts returned words into four banked line-buffer copies. This implementation waits for each missed window's final returned beat before issuing the next window. In fallback mode the controller emits sorted, deduplicated runs of adjacent words per tile. RD_STALL counts occupied-group preparation/fetch cycles before lane dispatch, excluding cycles already counted as WR_STALL.
+- The four **bilinear_interp** instances share valid and output ready. A held read stage carries fractions and validity alongside the synchronous RAM outputs. **bayer_merge** collects the pair of rows and drains even then odd. Its counted word interface exposes the remaining row-buffer words directly to the existing writer. This uses the two row buffers as the queue and avoids a separate copy into the legacy output FIFO.
+- The testbench compares every completed B frame with both references, checks every accepted W beat and every AR/AW address and length, and checks fallback tile count, guards, completion and interrupt. The combined build also runs gray and A jobs. Test-only TB_RECT_ONLY disables the fallback exclusively for workloads that fit the rectangular path.
+
+**Vivado 2025.2 xsim results.** The combined build completed 24 frames, including 22 B frames and one each in gray and A mode. All 135,552 output bytes matched. The AXI memory checker reported zero protocol violations. Four mid-job resets and read/write error responses were exercised. The gray-only and Option A builds each passed their 147-frame regressions.
+
+| B workload | Fallback tiles | Fallback-enabled cycles | Rectangular-only cycles |
+|---|---:|---:|---:|
+| Identity 64 x 64 | 0 | 3,865 | 3,865 |
+| rot37 64 x 64 | 0 | 35,947 | 35,947 |
+| rot37 208 x 120 | 0 | 258,455 | 258,455 |
+| Tall footprint 64 x 128 | 32 / 2048 | 5,513 | exceeds row capacity |
+| Wide footprint 2048 x 2 | 512 / 1024 | 14,517 | exceeds slot width |
+
+All 20 paired ordinary B frames had identical cycles with identical AXI timing and seeds. Tall and wide required 480 and 6,256 read bytes respectively. Keep the fallback for the next milestone. The absolute performance of rotations is limited by fetch waits in this serialized controller (240,749 RD_STALL cycles for rot37 at 208 x 120). Check area and post-route clock timing in 6.3 and measure frame times on Rev D later. Cycle equivalence alone cannot establish equal clock frequency.
+
+**Reproduce** from the repo root using the team's simulator environment:
+
+```powershell
+python scripts/gen_bayer_b_vectors.py
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --define TB_BAYER_B --plusarg VEC_DIR=data/vectors
+python scripts/sim.py --top tb_patrm_top -f tb/patrm_top.f --incdir rtl --define TB_BAYER_B --define TB_RECT_ONLY --plusarg VEC_DIR=data/vectors
+```
+
+The full regression preserves logs for both configurations under build/regress and prints the paired cycle difference. Step 6.1 documents the coverage bounds and rollback criteria. The RTL and tests require no board.

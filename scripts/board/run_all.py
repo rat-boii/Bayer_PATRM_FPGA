@@ -1,4 +1,7 @@
-"""Full grayscale test set on the ZedBoard through the ARM job application (step 4.3).
+"""Gray/Bayer Option A test set through the ARM job application (steps 4.3 / 5.3).
+
+    --mode bayer_a --rev d selects the A bundle and even-height Bayer sizes.
+    --variant bayer_a --mode gray --rev d runs the gray regression on the A build.
 
     python scripts/board/run_all.py --rev d                      the Rev D board (results/hw/rev D files)
     python scripts/board/run_all.py --rev c                      the Rev C board, the team reference (results/hw, D18)
@@ -62,8 +65,8 @@ def case_row(k, image, tf, W, H, code, seconds, a):
     if a.dry_run:
         row["result"] = "DRY" if code == RF.EXIT_PASS else row["result"]
         return row
-    _, image_name = RF.find_image(image, W, H)
-    path = RF.RUN_ROOT / f"{run_job.run_prefix(a.sw, a.link)}_{image_name}_{tf}_{W}x{H}" / "result.bin"
+    _, image_name = RF.find_image(image, W, H, a.mode)
+    path = RF.RUN_ROOT / f"{run_job.run_prefix(a.sw, a.link, a.mode)}_{image_name}_{tf}_{W}x{H}" / "result.bin"
     if not path.is_file():
         return row
     eth_times = path.parent / "eth_times.json"
@@ -90,24 +93,40 @@ def case_row(k, image, tf, W, H, code, seconds, a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rev", choices=("c", "d"), required=True, help="board revision: selects the bitstream and ps7_init")
-    ap.add_argument("--sizes", default=DEFAULT_SIZES, help=f"W x H list (default {DEFAULT_SIZES})")
+    ap.add_argument("--variant", choices=("gray", "bayer_a"), default=None, help="bitstream build; A also runs gray jobs")
+    ap.add_argument("--mode", choices=("gray", "bayer_a"), default="gray")
+    ap.add_argument("--sizes", default=None, help=f"W x H list (default {DEFAULT_SIZES})")
     ap.add_argument("--transforms", default="", help="comma list (default: all of model/transforms.json)")
     ap.add_argument("--images", default="photo", help="comma list of image names from data/gen (default photo)")
     ap.add_argument("--n", type=int, default=1, help="frames per case (run_job --n)")
     ap.add_argument("--elf", default=None,
-                    help="ARM application (default results/hw/patrm_app.elf, with --link eth patrm_eth.elf)")
+                    help="ARM application (default: patrm_app.elf of the bundle; with --link eth results/hw/patrm_eth.elf)")
     ap.add_argument("--sw", action="store_true", help="ARM software baseline instead of the engine (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
                     help="jtag: XSDB mailbox (step 4.3); eth: Ethernet job service (step 10.2)")
     a = ap.parse_args(argv)
-    a.elf = a.elf or str(ROOT / "results" / "hw" / ("patrm_eth.elf" if a.link == "eth" else "patrm_app.elf"))
     if a.link == "eth" and a.dry_run:
         print("RUN_ALL FAIL: --dry-run is for the XSDB path only")
         return RF.EXIT_ERROR
 
-    hw = HW[a.rev]
-    bit, init = hw / "patrm_gray.bit", hw / "ps7_init.tcl"
+    if a.sw and a.mode != "gray":
+        ap.error("--sw is grayscale only")
+    variant = a.variant or a.mode
+    if a.mode == "bayer_a" and variant != "bayer_a":
+        ap.error("Bayer jobs need --variant bayer_a")
+    if a.link == "eth" and variant != "gray":
+        # results/hw/patrm_eth.elf is built from the gray XSA; there is no Ethernet build for the Bayer A bitstream yet
+        ap.error("--link eth runs on the gray build only (no Ethernet application for the Bayer A build yet)")
+    hw = HW[a.rev] if variant == "gray" else ROOT / "results" / "hw" / "bayer_a" / f"rev_{a.rev}"
+    if a.elf is None:                            # one default for every combination (merge of steps 5.3 and 10.2)
+        if a.link == "eth":
+            a.elf = str(ROOT / "results" / "hw" / "patrm_eth.elf")
+        else:
+            a.elf = str((ROOT / "results" / "hw" if variant == "gray" else hw) / "patrm_app.elf")
+    if a.sizes is None:
+        a.sizes = DEFAULT_SIZES if a.mode == "gray" else "480x272,800x480,2448x2048"
+    bit, init = hw / f"patrm_{variant}.bit", hw / "ps7_init.tcl"
     for p in (bit, init, Path(a.elf)):
         if not p.is_file():
             print(f"RUN_ALL FAIL: missing {p}")
@@ -122,18 +141,18 @@ def main(argv=None):
     images = [i.strip() for i in a.images.split(",") if i.strip()]
     cases = [(img, tf, W, H) for (W, H) in sizes for img in images for tf in tfs]
 
-    tag = (f"rev{a.rev}" + ("_eth" if a.link == "eth" else "") + (f"_sw_{Path(a.elf).stem}" if a.sw else "")
-           + ("_dry" if a.dry_run else ""))
+    tag = (f"rev{a.rev}" + (f"_bayer_a_{a.mode}" if variant == "bayer_a" else "") + ("_eth" if a.link == "eth" else "")
+           + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + ("_dry" if a.dry_run else ""))
     log_dir = RF.RUN_ROOT / f"run_all_{tag}"
     log_dir.mkdir(parents=True, exist_ok=True)
     out_dir = log_dir if a.dry_run else ROOT / "results" / "board"   # a dry run writes nothing into results/
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"run_all: {len(cases)} cases ({len(sizes)} sizes x {len(images)} image(s) x {len(tfs)} transforms), "
-          f"board Rev {a.rev.upper()}, {'ARM software baseline' if a.sw else 'engine'}, bit {bit}, init {init}, elf {a.elf}, N = {a.n}{', DRY RUN' if a.dry_run else ''}")
+          f"board Rev {a.rev.upper()}, variant {variant}, mode {a.mode}, {'ARM software baseline' if a.sw else 'engine'}, bit {bit}, init {init}, elf {a.elf}, N = {a.n}{', DRY RUN' if a.dry_run else ''}")
 
     rows, start = [], time.time()
     for k, (img, tf, W, H) in enumerate(cases, 1):
-        args = [img, tf, str(W), str(H), "--n", str(a.n), "--elf", a.elf, "--link", a.link]
+        args = [img, tf, str(W), str(H), "--mode", a.mode, "--n", str(a.n), "--elf", a.elf, "--link", a.link]
         if k == 1:
             args += ["--load", "--bit", str(bit), "--init", str(init)]
         if a.sw:

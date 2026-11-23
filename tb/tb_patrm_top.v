@@ -52,7 +52,9 @@ module tb_patrm_top;
     localparam [31:0] S_BUSY  = 32'd1 << PATRM_STATUS_BUSY_LSB;
     localparam [31:0] S_DONE  = 32'd1 << PATRM_STATUS_DONE_LSB;
     localparam [31:0] S_ERROR = 32'd1 << PATRM_STATUS_ERROR_LSB;
-`ifdef TB_BAYER_A
+`ifdef TB_BAYER_B
+    localparam BUILD_TYPE=2, MODES=7;
+`elsif TB_BAYER_A
     localparam BUILD_TYPE = 1;                           // Option A build
     localparam MODES      = 3;                           // gray + Bayer A
 `else
@@ -96,6 +98,11 @@ module tb_patrm_top;
     wire [63:0] h1_wdata;
     wire [7:0]  h1_wstrb;
 
+    `ifdef TB_RECT_ONLY
+    localparam FALLBACK=0;
+`else
+    localparam FALLBACK=1;
+`endif
     patrm_top #(.BUILD_TYPE(BUILD_TYPE), .MODES(MODES)) dut (
         .aclk(aclk), .aresetn(aresetn), .interrupt(interrupt),
         .s_axi_awaddr(awaddr), .s_axi_awprot(3'b000), .s_axi_awvalid(awvalid), .s_axi_awready(awready),
@@ -248,6 +255,13 @@ module tb_patrm_top;
                 // spec section 13, own counts
                 if (dut.busy === 1'b1) begin
                     m_stall = dut.u_fetch.f1_v && (f1_nr != 0) && (f1_k >= dut.blocks_ready) && !dut.wr_stall;
+`ifdef TB_BAYER_B
+                    if(c_mode==2) begin
+                        m_stall = dut.option_b.engine.have_data && dut.option_b.engine.state>=2 &&
+                                  dut.option_b.engine.state<=6 && !(dut.option_b.engine.tile_valid && !dut.option_b.engine.tile_ready);
+                        if(dut.option_b.engine.tile_valid && !dut.option_b.engine.tile_ready) ws_tb=ws_tb+1;
+                    end
+`endif
                     if (m_stall) rs_tb = rs_tb + 1;
                     if (dut.op_valid && !dut.op_ready) ws_tb = ws_tb + 1;
                 end
@@ -467,6 +481,57 @@ module tb_patrm_top;
         end
     endtask
 
+`ifdef TB_BAYER_B
+    integer b_word_index;
+    integer fallback_tiles,trace_fd,trace_line,trace_len,idx,expected_tiles;
+    reg [31:0] trace_addr, held_tile;
+    reg tile_was_blocked;
+    always @(posedge aclk) begin
+        if(!aresetn || dut.frame_start) tile_was_blocked<=0;
+        else if(dut.mode_b) begin
+            if(tile_was_blocked && (!dut.option_b.engine.tile_valid || dut.option_b.engine.tile!==held_tile))
+                fatal("four-lane output changed during backpressure");
+            tile_was_blocked<=dut.option_b.engine.tile_valid && !dut.option_b.engine.tile_ready;
+            held_tile<=dut.option_b.engine.tile;
+            if(dut.b_cmd_valid && dut.cmd_ready && dut.option_b.engine.store.pinned[dut.b_cmd_slot])
+                fatal("read command overwrites a pinned slot");
+        end
+    end
+    always @(posedge aclk) begin
+        if(!aresetn || dut.frame_start) fallback_tiles<=0;
+        else if(dut.mode_b && dut.option_b.engine.sample_en && dut.option_b.engine.oversized)
+            fallback_tiles<=fallback_tiles+1;
+        if(aresetn && dut.mode_b && dut.option_b.engine.validity !== {4{dut.option_b.engine.tile_valid}})
+            fatal("lane valid signals diverged");
+        if(!aresetn || dut.frame_start) b_word_index<=0;
+        else if(in_frame && c_mode==2 && h1_wvalid && h1_wready) begin
+            if(h1_wdata !== expw[b_word_index]) fatal("incorrect full B write beat");
+            b_word_index<=b_word_index+1;
+        end
+    end
+    task check_b_trace;
+        begin
+            $sformat(path,"%0s/patrm_top/b_%0s_%0dx%0d_%0d.trace",vecdir,c_name,c_W,c_H,c_L);
+            trace_fd=$fopen(path,"r");
+            if(!trace_fd) fatal("missing Option B transaction trace");
+            trace_line=$fscanf(trace_fd,"%d",expected_tiles);
+            if(trace_line!=1) fatal("invalid fallback tile count");
+            chk_eq(fallback_tiles,expected_tiles,"fallback tile count");
+            for(idx=0;idx<c_rb+c_wb;idx=idx+1) begin
+                trace_line=$fscanf(trace_fd,"%h %d",trace_addr,trace_len);
+                if(trace_line!=2) fatal("incomplete Option B transaction trace");
+                if(idx<c_rb) begin
+                    chk_eq(u_mem.log_addr[ar0+idx],trace_addr,"AR address");
+                    chk_eq(u_mem.log_len[ar0+idx],trace_len,"AR length");
+                end else begin
+                    chk_eq(u_mem.wlog_addr[aw0+idx-c_rb],trace_addr,"AW address");
+                    chk_eq(u_mem.wlog_len[aw0+idx-c_rb],trace_len,"AW length");
+                end
+            end
+            $fclose(trace_fd);
+        end
+    endtask
+`endif
     task run_frame;
         begin
             load_case;
@@ -513,6 +578,13 @@ module tb_patrm_top;
                 n_bad_starts = n_bad_starts + 1;
             end
             if (c_op == 4) begin                         // aresetn in the middle of the frame
+`ifdef TB_BAYER_B
+                if(c_mode==2 && c_arg<0) begin
+                    if(c_arg==-1) while(!dut.option_b.engine.held && cyc-t_start<200000) idle(1);
+                    else while(!(h1_wvalid && h1_wready) && cyc-t_start<200000) idle(1);
+                    if(cyc-t_start>=200000) fatal("requested reset phase never reached");
+                end else
+`endif
                 while (cyc - t_start < c_arg) idle(1);
                 $display("  g %0s %0dx%0d: aresetn %0d cycles after START (%0d R beats, %0d W beats so far)", c_name,
                          c_W, c_H, cyc - t_start, u_mem.rbeats - r0, u_mem.wbeats - w0);
@@ -540,6 +612,9 @@ module tb_patrm_top;
 
                 // ---- output in memory, at once ----
                 check_memory;
+`ifdef TB_BAYER_B
+                if(c_mode==2) check_b_trace;
+`endif
                 chk_eq(u_mem.log_n - ar0, c_rb, "AR bursts vs memmodel");
                 chk_eq(u_mem.wlog_n - aw0, c_wb, "AW bursts vs memmodel");
                 chk_eq(u_mem.bcount - b0, c_wb, "B responses at DONE");
@@ -583,11 +658,11 @@ module tb_patrm_top;
                 if (rv2 != 0) n_ws_frames = n_ws_frames + 1;
                 ppc = (1.0 * npix) / cycles;
                 $display("  %c %0s %0s %0dx%0d L%0d op %0d mem %0d-%0d bp %0d/%0d/%0d/%0d B %0d-%0d: CYCLES %0d, %0.3f px/clk, BYTES_RD %0d, RD_STALL %0d, WR_STALL %0d",
-                         grp_letter(c_group), (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_L, c_op, c_lat0, c_lat1, c_arbp, c_rgap, c_awbp,
+                         grp_letter(c_group), (c_mode == 2) ? "B" : (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_L, c_op, c_lat0, c_lat1, c_arbp, c_rgap, c_awbp,
                          c_wbp, c_blat0, c_blat1, cycles, ppc, c_bytes, rv, rv2);
                 if (c_group == 7)
                     $display("SPEED %0s %0s %0dx%0d latency %0d: CYCLES %0d, %0.3f px/clk, RD_STALL %0d, WR_STALL %0d",
-                             (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_lat0, cycles, ppc, rv, rv2);
+                             (c_mode == 2) ? "B" : (c_mode == 1) ? "A" : "gray", c_name, c_W, c_H, c_lat0, cycles, ppc, rv, rv2);
 
                 // ---- clear DONE / ERROR ----
                 if (c_op == 1) begin
@@ -668,7 +743,11 @@ module tb_patrm_top;
             lite_write(PATRM_REG_HEIGHT, 0);     bad_start(0, PATRM_ERR_BAD_SIZE, "H = 0");
             lite_write(PATRM_REG_HEIGHT, 4097);  bad_start(0, PATRM_ERR_BAD_SIZE, "H = 4097");
             lite_write(PATRM_REG_HEIGHT, c_H);
-`ifdef TB_BAYER_A
+`ifdef TB_BAYER_B
+            lite_write(PATRM_REG_WIDTH,c_W-8);
+            bad_start(PATRM_MODE_BAYER_B << PATRM_CTRL_MODE_LSB,PATRM_ERR_BAD_SIZE,"MODE 2, invalid width");
+            lite_write(PATRM_REG_WIDTH,c_W);
+`elsif TB_BAYER_A
             // Option A build: MODE 1 is accepted only with the Bayer size rules (D3: W multiple of 16, H even)
             lite_write(PATRM_REG_WIDTH, c_W - 8);
             bad_start(PATRM_MODE_BAYER_A << PATRM_CTRL_MODE_LSB, PATRM_ERR_BAD_SIZE, "MODE 1, W not a multiple of 16");
@@ -706,7 +785,10 @@ module tb_patrm_top;
         npix = 0; c_group = 0; c_irq = 1; c_W = 0; c_H = 0; c_L = 0; c_name = "init"; c_mode = 0; wfac = 1;
         for (i = 0; i < NGRP; i = i + 1) begin n_frames[i] = 0; n_bytes[i] = 0; end
         if (!$value$plusargs("VEC_DIR=%s", vecdir)) vecdir = "../../../data/vectors";
-`ifdef TB_BAYER_A
+`ifdef TB_BAYER_B
+        if(FALLBACK) $sformat(path,"%0s/patrm_top/cases_bayer_b.txt",vecdir);
+        else $sformat(path,"%0s/patrm_top/cases_b_rect.txt",vecdir);
+`elsif TB_BAYER_A
         $sformat(path, "%0s/patrm_top/cases_bayer_a.txt", vecdir);
 `else
         $sformat(path, "%0s/patrm_top/cases.txt", vecdir);

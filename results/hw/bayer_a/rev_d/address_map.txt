@@ -1,0 +1,4 @@
+address map of the block design (step 4.1, build patrm_bayer_a_revd); master address space, segment, base, last address, size
+/patrm_0/m_axi_hp0                 SEG_processing_system7_0_HP0_DDR_LOWOCM      0x00000000  0x1FFFFFFF  524288 KB
+/patrm_0/m_axi_hp1                 SEG_processing_system7_0_HP1_DDR_LOWOCM      0x00000000  0x1FFFFFFF  524288 KB
+/processing_system7_0/Data         SEG_patrm_0_reg0                             0x43C00000  0x43C0FFFF  64 KB

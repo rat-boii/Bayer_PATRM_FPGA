@@ -16,6 +16,8 @@ build/vitis/patrm_app_o3. The whole application uses that level; the program pri
 `vitis -s` can exit with 0 after a failure: the build succeeded only if the last line is PATRM_APP BUILD OK.
 """
 import json
+import io
+from contextlib import redirect_stdout, redirect_stderr
 import os
 import re
 import shutil
@@ -29,14 +31,24 @@ import vitis
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from amd_tools import irq_saves_vfp          # noqa: E402
 
+# Step 5.3: PATRM_VARIANT=bayer_a, PATRM_REV=c|d selects separate XSA/workspace/ELF.
+# The default gray build and its verified ELF location are unchanged.
+
 # Platform creation runs sdtgen, which is in Vivado's bin folder and is not on the PATH that vitis sets up.
 os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep + os.environ["PATH"]
 
 REPO = Path(__file__).resolve().parents[2]
 # XSA: environment variable PATRM_XSA if set; else results/hw/patrm_gray.xsa (from vivado/build.tcl); else the
 # verified Rev D bundle that is tracked in git (results/hw/rev D/patrm_gray.xsa), so a fresh clone can build.
-XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
-if not os.environ.get("PATRM_XSA") and not XSA.is_file():
+VARIANT = os.environ.get("PATRM_VARIANT", "gray")
+REV = os.environ.get("PATRM_REV", "c").lower()
+if VARIANT not in ("gray", "bayer_a") or REV not in ("c", "d"):
+    raise ValueError("PATRM_VARIANT must be gray|bayer_a; PATRM_REV must be c|d")
+ARTIFACT_DIR = REPO / "results" / "hw"
+if VARIANT == "bayer_a":
+    ARTIFACT_DIR = ARTIFACT_DIR / VARIANT / f"rev_{REV}"
+XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else ARTIFACT_DIR / f"patrm_{VARIANT}.xsa"
+if VARIANT == "gray" and not os.environ.get("PATRM_XSA") and (REV == "d" or not XSA.is_file()):
     XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
 
 
@@ -55,9 +67,10 @@ if OPT not in ("O2", "O3"):
     print(f"PATRM_APP BUILD FAILED: PATRM_APP_OPT must be O2 or O3, not {OPT}")
     sys.exit(1)
 SUFFIX = "" if OPT == "O2" else "_o3"
-WORKSPACE = REPO / "build" / "vitis" / f"patrm_app{SUFFIX}"
-ELF_OUT = REPO / "results" / "hw" / f"patrm_app{SUFFIX}.elf"
-PLATFORM = "patrm_gray_plat"
+BUILD_SUFFIX = "" if VARIANT == "gray" else f"_{VARIANT}_rev{REV}"
+WORKSPACE = REPO / "build" / "vitis" / f"patrm_app{SUFFIX}{BUILD_SUFFIX}"
+ELF_OUT = ARTIFACT_DIR / f"patrm_app{SUFFIX}.elf"
+PLATFORM = f"patrm_{VARIANT}_plat"
 DOMAIN = "standalone_a9_0"
 APP = "patrm_app"
 PROGRAM_END = 0x0F00_0000
@@ -110,7 +123,10 @@ def check_build():
     log = build_dir / "build.log"
     if not log.is_file():
         return f"{log} not found"
-    warnings = [ln for ln in log.read_text(errors="replace").splitlines() if re.search(r"\bwarning\b", ln, re.I)]
+    build_text = log.read_text(errors="replace")
+    if not build_text.strip():
+        return f"{log} is empty"
+    warnings = [ln for ln in build_text.splitlines() if re.search(r"\bwarning\b", ln, re.I)]
     if warnings:
         return f"{len(warnings)} warning lines in {log}, first: {warnings[0][:160]}"
     return ""
@@ -119,8 +135,12 @@ def check_build():
 def main():
     if not XSA.is_file():
         return fail(f"{XSA} not found; run vivado/build.tcl or set PATRM_XSA")
+    ELF_OUT.parent.mkdir(parents=True, exist_ok=True)
     ELF_OUT.unlink(missing_ok=True)                 # a failed build must not leave an old ELF behind
     if WORKSPACE.exists():
+        # Verify the exact generated workspace before recursive removal on Windows.
+        if WORKSPACE.resolve().parent != (REPO / "build" / "vitis").resolve():
+            return fail(f"refusing to remove workspace outside build/vitis: {WORKSPACE}")
         shutil.rmtree(WORKSPACE, onexc=remove_read_only)
     WORKSPACE.mkdir(parents=True)
 
@@ -149,7 +169,17 @@ def main():
         # AMD's linker script puts code and data in one load segment. Bare metal has no loader that uses segment
         # permissions (boot.S and the translation table set them), so only this one linker warning is switched off.
         app.set_app_config(key="USER_LINK_OTHER_FLAGS", values="-Wl,--no-warn-rwx-segments")
-        app.build()
+        # 2025.2 streams the application log over the Python API but creates no build.log.
+        # Save that exact stream ourselves on every version; keep BSP diagnostics separate.
+        captured = io.StringIO()
+        try:
+            with redirect_stdout(captured), redirect_stderr(captured):
+                app.build()
+        finally:
+            log = WORKSPACE / APP / "build" / "build.log"
+            log.parent.mkdir(parents=True, exist_ok=True)
+            log.write_text(captured.getvalue(), encoding="utf-8")
+            print(captured.getvalue(), end="")
     finally:
         vitis.dispose()
 
