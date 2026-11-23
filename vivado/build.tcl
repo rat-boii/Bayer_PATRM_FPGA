@@ -123,6 +123,14 @@ set_property -dict [list \
     CONFIG.PCW_EN_CLK0_PORT 1  CONFIG.PCW_EN_RST0_PORT 1 \
     CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $fclk_mhz] $ps
 
+# Ethernet (step 10.1): the ZedBoard's Marvell PHY is managed over MDIO on MIO 52/53. The Digilent preset leaves
+# PCW_ENET0_GRP_MDIO_IO = EMIO (into the fabric, unconnected), so lwIP could not reach the PHY and the Rev D bundle
+# needs scripts/eth/mdio_mio.tcl at load time. PS pin setting only; the engine and the PL are not affected.
+set_property -dict [list CONFIG.PCW_ENET0_GRP_MDIO_ENABLE 1 CONFIG.PCW_ENET0_GRP_MDIO_IO {MIO 52 .. 53}] $ps
+set got_mdio [get_property CONFIG.PCW_ENET0_GRP_MDIO_IO $ps]
+if {$got_mdio ne "MIO 52 .. 53"} { error "CHECK FAILED ENET0 MDIO: PCW_ENET0_GRP_MDIO_IO = '$got_mdio', expected 'MIO 52 .. 53'" }
+note "CHECK OK ENET0 MDIO on [get_property CONFIG.PCW_ENET0_GRP_MDIO_IO $ps], ENET0 enabled [get_property CONFIG.PCW_ENET0_PERIPHERAL_ENABLE $ps]"
+
 set rst [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset proc_sys_reset_0]
 set ic  [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_gp0]
 set_property CONFIG.NUM_MI 1 $ic
@@ -237,7 +245,7 @@ set p_names {PCW_UIPARAM_DDR_PARTNO PCW_UIPARAM_DDR_MEMORY_TYPE PCW_UIPARAM_DDR_
              PCW_FPGA0_PERIPHERAL_FREQMHZ PCW_ACT_FPGA0_PERIPHERAL_FREQMHZ PCW_FCLK0_PERIPHERAL_DIVISOR0
              PCW_FCLK0_PERIPHERAL_DIVISOR1 PCW_FCLK_CLK0_BUF PCW_USE_M_AXI_GP0 PCW_USE_S_AXI_HP0 PCW_S_AXI_HP0_DATA_WIDTH
              PCW_USE_S_AXI_HP1 PCW_S_AXI_HP1_DATA_WIDTH PCW_USE_FABRIC_INTERRUPT PCW_IRQ_F2P_INTR PCW_UART1_PERIPHERAL_ENABLE
-             PCW_UART1_BAUD_RATE PCW_UART1_UART1_IO}
+             PCW_UART1_BAUD_RATE PCW_UART1_UART1_IO PCW_ENET0_PERIPHERAL_ENABLE PCW_ENET0_GRP_MDIO_IO}
 set ps_lines {}
 foreach p $p_names {
     if {[catch {set v [get_property CONFIG.$p $ps]}]} { set v "(no such property)" }
