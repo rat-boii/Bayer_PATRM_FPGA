@@ -866,6 +866,22 @@ The engine is 3-7x faster than the ARM, but at these sizes the stream is limited
 trip about 18 ms, of which the engine 4-7 ms). 60 fps at 800x480 would need the upload of the next frame to overlap the
 engine run (not done yet).
 
+## Step 10.5: Bayer video in the GUI
+
+Mode "Bayer RGGB" mosaics each colour frame to RGGB on the PC, runs it through Bayer Option A on the board (Bayer A
+bitstream + `results/hw/bayer_a/rev_d/patrm_eth.elf`) and checks every output raw against `model/bayer.warp_bayer`.
+The colour pictures are a PC-side preview only (one RGB pixel per 2x2 cell). The Bayer A bitstream also runs gray.
+```
+python scripts/eth/make_burst.py --color                                   # colour test burst -> data/gen/burst_800x480_rgb
+python scripts/eth/video_gui.py --mode bayer --frames data/gen/burst_800x480_rgb
+    # Bitstream "Bayer A (gray + Bayer)" -> Load board -> Load frames -> Play
+python scripts/eth/video_stream.py --mode bayer --load --frames data/gen/burst_800x480_rgb   # headless
+```
+Result 2026-11-23, 100 frames per run, every frame bit-exact: Bayer 800x480 spin about 40-43 fps (identity 49 fps),
+640x480 58 fps, 480x272 103-119 fps; in the GUI about 48-53 fps with the warp alone at about 122 fps.
+
+![Bayer video GUI](docs/img/step10_5_bayer_gui.png)
+
 ## Temporary Rev D board: verified build and 48-word DDR test
 
 The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are

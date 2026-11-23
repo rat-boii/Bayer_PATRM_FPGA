@@ -1,0 +1,1 @@
+247 frames 800x480, mode bayer, transform spin, engine fpga: 48.0 fps average; model check 247 of 247 bit-exact

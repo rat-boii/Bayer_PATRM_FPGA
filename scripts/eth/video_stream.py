@@ -5,6 +5,13 @@
     python scripts/eth/video_stream.py --engine arm                        the ARM software baseline instead
     python scripts/eth/video_stream.py --load                              program the board first (about 70 s)
     python scripts/eth/video_gui.py                                        the GUI on top of this
+    python scripts/eth/video_stream.py --mode bayer --load                 step 10.5: raw RGGB through the Bayer A build
+
+Step 10.5, --mode bayer: each frame is converted to RGB, cover-cropped and mosaicked to RGGB (model/gen_images.rgb_to_rggb;
+W a multiple of 16, H even), run as a Bayer Option A job (four plane passes on the board) and checked against
+model/bayer.warp_bayer on the raw mosaic. Needs the Bayer A bitstream (--load --bundle bayer_a, the default with
+--mode bayer); that bitstream also runs gray jobs. The colour pictures in the GUI are a PC-side preview only
+(preview_rgb: one RGB pixel per 2x2 cell); nothing is demosaiced on the board and the check never uses the preview.
 
 Frames: every PNG/JPG in the folder, in name order, converted to grayscale and cover-cropped to exactly W x H (D3:
 W a multiple of 8). The PC prepares them before streaming (decoding PNGs live would limit the rate, not the board).
@@ -15,7 +22,7 @@ Transform per frame (--transform):
     <name>          a fixed transform of model/transforms.json (identity, rot15, rot90, ...)
 Each frame is one job: source up, run, output down, one after the other on one TCP connection (no UART line on the
 board). Measured per frame: upload, board (receive + job), download, round trip; stream fps = frames / streaming time.
-Check: every output against model/patrm.warp_gray with the same integer b, in parallel worker processes; a frame
+Check: every output against model/patrm.warp_gray (Bayer: model/bayer.warp_bayer) with the same integer b, in parallel worker processes; a frame
 counts as bit-exact only with 0 differing bytes. Result: results/eth/video_<date>_<time>.csv / .txt; the last line
 is VIDEO PASS (all frames bit-exact, rc OK) or VIDEO FAIL: <reason>.
 """
@@ -39,6 +46,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from model import job as J                    # noqa: E402
 from model import memmodel as MM              # noqa: E402
 from model import patrm as P                  # noqa: E402
+from model import bayer as BY                 # noqa: E402
+from model.gen_images import rgb_to_rggb     # noqa: E402
 from model.gen_transforms import load as load_transforms   # noqa: E402
 import eth_link as EL                          # noqa: E402
 
@@ -46,6 +55,30 @@ BLOCK_LEN = 64                                 # driver default (D15)
 DEFAULT_FRAMES = REPO / "data" / "gen" / "burst_800x480"
 OUT_DIR = REPO / "results" / "eth"
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".bmp")
+MODES = ("gray", "bayer")
+JOB_MODE = {"gray": "gray", "bayer": "bayer_a"}     # model/job.py mode names
+HW = REPO / "results" / "hw"
+BUNDLES = {                                         # board files for --load / the GUI's Load board (step 10.5)
+    "gray": dict(bit=HW / "rev D" / "patrm_gray.bit", init=HW / "rev D" / "ps7_init.tcl", elf=HW / "patrm_eth.elf",
+                 mdio="fix"),
+    "bayer_a": dict(bit=HW / "bayer_a" / "rev_d" / "patrm_bayer_a.bit", init=HW / "bayer_a" / "rev_d" / "ps7_init.tcl",
+                    elf=HW / "bayer_a" / "rev_d" / "patrm_eth.elf", mdio="check"),
+}
+
+
+def load_bundle(name):
+    """Program the FPGA with a bundle and start its Ethernet application (eth_link.load_board)."""
+    if name not in BUNDLES:
+        raise VideoError(f"unknown bundle {name!r}: {', '.join(BUNDLES)}")
+    EL.load_board(**BUNDLES[name])
+
+
+def preview_rgb(raw):
+    """Display only: an RGGB mosaic as an (H/2, W/2, 3) RGB picture, one pixel per 2x2 cell (G = mean of Gr, Gb)."""
+    r = raw[0::2, 0::2]
+    g = ((raw[0::2, 1::2].astype(np.uint16) + raw[1::2, 0::2]) >> 1).astype(np.uint8)
+    b = raw[1::2, 1::2]
+    return np.dstack((r, g, b))
 
 
 class VideoError(Exception):
@@ -57,27 +90,31 @@ def parse_size(text):
     return int(w), int(h)
 
 
-def load_frames(folder, W, H, progress=None):
-    """Grayscale W x H frames from every image in the folder (name order), cover-cropped (no distortion)."""
-    P.check_size(W, H, "gray")
+def load_frames(folder, W, H, progress=None, mode="gray"):
+    """W x H frames from every image in the folder (name order), cover-cropped (no distortion): grayscale, or with
+    mode='bayer' RGGB mosaics of the colour image."""
+    if mode not in MODES:
+        raise VideoError(f"mode must be one of {MODES}")
+    P.check_size(W, H, mode)
     files = sorted(p for p in Path(folder).iterdir() if p.suffix.lower() in IMAGE_EXT)
     if not files:
         raise VideoError(f"no PNG/JPG images in {folder}")
     frames = []
     for i, f in enumerate(files):
-        im = Image.open(f).convert("L")
+        im = Image.open(f).convert("L" if mode == "gray" else "RGB")
         s = max(W / im.width, H / im.height)
         rw, rh = max(W, round(im.width * s)), max(H, round(im.height * s))
         im = im.resize((rw, rh), Image.BILINEAR)
         x0, y0 = (rw - W) // 2, (rh - H) // 2
-        frames.append(np.asarray(im.crop((x0, y0, x0 + W, y0 + H)), dtype=np.uint8).copy())
+        pix = np.asarray(im.crop((x0, y0, x0 + W, y0 + H)), dtype=np.uint8)
+        frames.append(pix.copy() if mode == "gray" else np.ascontiguousarray(rgb_to_rggb(pix)))
         if progress:
             progress(i + 1, len(files))
     return frames, files
 
 
-def transform_list(spec, n, W, H):
-    """Integer b (Q15.16, D5) for each of n frames, checked against D4."""
+def transform_list(spec, n, W, H, mode="gray"):
+    """Integer b (Q15.16, D5) for each of n frames, checked against D4 (Bayer: full mosaic and all four planes)."""
     def lin(a, b, k):
         return a + (b - a) * (k / max(1, n - 1))
     if spec == "spin":
@@ -96,14 +133,17 @@ def transform_list(spec, n, W, H):
         bs = [b] * n
     bs = [tuple(int(c) for c in b) for b in bs]
     for b in bs:
-        P.check_transform(b, W, H)
+        if mode == "bayer":
+            BY.check_bayer_transform(b, W, H)
+        else:
+            P.check_transform(b, W, H)
     return bs
 
 
-def verify_frame(k, src_bytes, W, H, b, out_bytes):
+def verify_frame(k, src_bytes, W, H, b, out_bytes, mode="gray"):
     """Worker process: model output for this frame against the board's. Returns (k, differing bytes)."""
     src = np.frombuffer(src_bytes, dtype=np.uint8).reshape(H, W)
-    exp = P.warp_gray(src, W, H, b, check=False)
+    exp = BY.warp_bayer(src, W, H, b) if mode == "bayer" else P.warp_gray(src, W, H, b, check=False)
     got = np.frombuffer(out_bytes, dtype=np.uint8).reshape(H, W)
     return k, int(np.count_nonzero(exp != got))
 
@@ -119,8 +159,8 @@ class Verifier:
         self.done = 0
         self.bad = []                          # (frame, differing bytes)
 
-    def submit(self, k, src, W, H, b, out):
-        f = self.pool.submit(verify_frame, k, src.tobytes(), W, H, b, out)
+    def submit(self, k, src, W, H, b, out, mode="gray"):
+        f = self.pool.submit(verify_frame, k, src.tobytes(), W, H, b, out, mode)
         with self.lock:
             self.futures.append(f)
             self.submitted += 1
@@ -153,17 +193,21 @@ class Verifier:
 class Streamer:
     """One TCP connection to the board's job service; one job per frame."""
 
-    def __init__(self, W, H, engine="fpga", ip=EL.BOARD_IP):
+    def __init__(self, W, H, engine="fpga", ip=EL.BOARD_IP, mode="gray"):
         if engine not in ("fpga", "arm"):
             raise VideoError("engine must be fpga or arm")
-        self.W, self.H, self.engine = W, H, engine
+        if mode not in MODES:
+            raise VideoError(f"mode must be one of {MODES}")
+        if mode == "bayer" and engine == "arm":
+            raise VideoError("the ARM software baseline is grayscale only (step 4.4); Bayer runs on the FPGA")
+        self.W, self.H, self.engine, self.mode = W, H, engine, mode
         self.link = EL.JobLink(ip, timeout=60)
         self.seq = 0
 
     def frame(self, src, b):
         """Returns (output H x W uint8, result dict, timings dict in ms)."""
         self.seq = (self.seq % 0xFFFF_FFFF) + 1
-        desc = J.encode_job(self.seq, self.W, self.H, "gray", b, BLOCK_LEN, repeat=1, irq=False, src_by_cpu=True,
+        desc = J.encode_job(self.seq, self.W, self.H, JOB_MODE[self.mode], b, BLOCK_LEN, repeat=1, irq=False, src_by_cpu=True,
                             block_len_max=MM.BLOCK_LEN_MAX, sw=(self.engine == "arm"))
         rsp, res, out, t = self.link.run(desc, src.tobytes(), self.W * self.H, fill=False, quiet=True)
         if rsp["status"] != 0:
@@ -192,6 +236,9 @@ def main(argv=None):
     ap.add_argument("--size", type=parse_size, default=(800, 480), help="W x H (default 800x480)")
     ap.add_argument("--transform", default="spin", help="spin, sweep:A:B, zoom:S1:S2 or a transforms.json name")
     ap.add_argument("--engine", choices=("fpga", "arm"), default="fpga")
+    ap.add_argument("--mode", choices=MODES, default="gray", help="gray, or bayer: RGGB mosaics through Bayer Option A")
+    ap.add_argument("--bundle", choices=tuple(BUNDLES), default=None,
+                    help="bitstream + application for --load (default: bayer_a with --mode bayer, else gray)")
     ap.add_argument("--loops", type=int, default=1, help="play the frames this many times")
     ap.add_argument("--load", action="store_true", help="program the board and start patrm_eth.elf first")
     ap.add_argument("--ip", default=EL.BOARD_IP)
@@ -204,22 +251,24 @@ def main(argv=None):
         lines.append(text)
 
     try:
-        frames, files = load_frames(a.frames, W, H)
-        bs = transform_list(a.transform, len(frames), W, H)
-        say(f"video: {len(frames)} frames from {a.frames} at {W}x{H}, transform {a.transform}, engine {a.engine}, "
-            f"loops {a.loops}")
+        frames, files = load_frames(a.frames, W, H, mode=a.mode)
+        bs = transform_list(a.transform, len(frames), W, H, a.mode)
+        say(f"video: {len(frames)} frames from {a.frames} at {W}x{H}, mode {a.mode}, transform {a.transform}, "
+            f"engine {a.engine}, loops {a.loops}")
         if a.load:
-            EL.load_board()
+            bundle = a.bundle or ("bayer_a" if a.mode == "bayer" else "gray")
+            say(f"loading bundle {bundle}: {BUNDLES[bundle]['bit']}")
+            load_bundle(bundle)
             say(f"board ready after {EL.wait_ready(a.ip):.1f} s")
         ver = Verifier()
-        st = Streamer(W, H, a.engine, a.ip)
+        st = Streamer(W, H, a.engine, a.ip, a.mode)
         t0 = time.perf_counter()
         n = 0
         try:
             for loop in range(a.loops):
                 for k, (src, b) in enumerate(zip(frames, bs)):
                     out, r, t = st.frame(src, b)
-                    ver.submit(n, src, W, H, b, out.tobytes())
+                    ver.submit(n, src, W, H, b, out.tobytes(), a.mode)
                     rows.append(dict(frame=n, file=files[k].name, cycles=r["cycles"], **{f"{x}_ms": f"{v:.3f}"
                                                                                        for x, v in t.items()}))
                     n += 1
@@ -228,7 +277,7 @@ def main(argv=None):
         stream_s = time.perf_counter() - t0
         checked, nbad = ver.finish()
         fps = n / stream_s
-        say(f"streamed {n} frames in {stream_s:.2f} s: {fps:.1f} fps ({a.engine}, {W}x{H}, round trip, one frame at "
+        say(f"streamed {n} frames in {stream_s:.2f} s: {fps:.1f} fps ({a.engine}, {a.mode}, {W}x{H}, round trip, one frame at "
             f"a time)")
         for key in ("upload", "board_rx", "board_job", "engine", "download", "round_trip"):
             vals = [float(r_[f"{key}_ms"]) for r_ in rows]

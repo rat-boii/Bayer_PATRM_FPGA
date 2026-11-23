@@ -1,0 +1,10 @@
+video: 100 frames from C:/work/throughput/direct_mirror_rows/png_input at 640x480, mode bayer, transform spin, engine fpga, loops 1
+streamed 100 frames in 1.74 s: 57.6 fps (fpga, bayer, 640x480, round trip, one frame at a time)
+  upload      median    0.11 ms  min    0.07  max    1.02
+  board_rx    median    3.49 ms  min    3.45  max   18.30
+  board_job   median    8.66 ms  min    4.91  max    9.43
+  engine      median    6.82 ms  min    3.08  max    7.59
+  download    median    2.59 ms  min    2.25  max    7.06
+  round_trip  median   15.35 ms  min   11.15  max   33.57
+checked against the model: 100 of 100 frames, 100 bit-exact
+VIDEO PASS

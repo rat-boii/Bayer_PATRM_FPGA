@@ -13,6 +13,11 @@
 "Limit 60 fps" plays at video speed; without it the stream runs as fast as the link and engine allow.
 On Stop a summary goes to results/eth/video_gui_<date>_<time>.txt.
 
+Step 10.5: Mode "Bayer RGGB" mosaics each colour frame to RGGB and runs it through Bayer Option A (four plane passes on
+the board); every output is checked raw against model/bayer.warp_bayer. Both views then show a colour preview made on
+the PC (one RGB pixel per 2x2 cell, display only). "Bitstream" picks what Load board programs: "Bayer A" runs gray and
+Bayer jobs (results/hw/bayer_a/rev_d), "Gray" is the step 10.3 build (gray only). Bayer runs on the FPGA only.
+
 Core (frames, transforms, link, check): scripts/eth/video_stream.py.
 """
 import argparse
@@ -34,6 +39,7 @@ import video_stream as VS                      # noqa: E402
 TRANSFORMS = ["spin", "sweep:-30:30", "zoom:0.8:1.3", "identity", "rot5", "rot15", "rot37", "rot90", "rot180",
               "mirror_cols", "mirror_rows", "scale0p8", "scale1p25", "combined"]
 VIEW_W = 560                                   # each picture is shown at most this wide
+BUNDLE_NAMES = {"Bayer A (gray + Bayer)": "bayer_a", "Gray (step 10.3 build)": "gray"}
 
 
 class VideoGui:
@@ -50,6 +56,7 @@ class VideoGui:
         self.verifier = None
         self.disp_stamps = deque(maxlen=60)
         self.photo_in = self.photo_out = None
+        self.mode = "gray"                     # mode of the loaded frames
         root.title("PATRM video over Ethernet")
         self._build(a)
         self._tick()
@@ -64,6 +71,8 @@ class VideoGui:
         self.v_engine = tk.StringVar(value="fpga")
         self.v_loop = tk.BooleanVar(value=True)
         self.v_limit = tk.BooleanVar(value=False)
+        self.v_mode = tk.StringVar(value=a.mode)
+        self.v_bundle = tk.StringVar(value="Bayer A (gray + Bayer)")
         ttk.Label(top, text="Frames").grid(row=0, column=0, sticky="w")
         ttk.Entry(top, textvariable=self.v_folder, width=52).grid(row=0, column=1, columnspan=4, sticky="we")
         ttk.Button(top, text="Browse", command=self.browse).grid(row=0, column=5, padx=4)
@@ -76,8 +85,16 @@ class VideoGui:
         ttk.Label(eng, text="Engine").pack(side="left")
         ttk.Radiobutton(eng, text="FPGA", value="fpga", variable=self.v_engine).pack(side="left")
         ttk.Radiobutton(eng, text="ARM", value="arm", variable=self.v_engine).pack(side="left")
+        md = ttk.Frame(top)
+        md.grid(row=1, column=5, sticky="w", padx=8)
+        ttk.Label(md, text="Mode").pack(side="left")
+        ttk.Radiobutton(md, text="Gray", value="gray", variable=self.v_mode).pack(side="left")
+        ttk.Radiobutton(md, text="Bayer RGGB", value="bayer", variable=self.v_mode).pack(side="left")
         btn = ttk.Frame(top)
         btn.grid(row=2, column=0, columnspan=6, sticky="w", pady=4)
+        ttk.Label(btn, text="Bitstream").pack(side="left")
+        ttk.Combobox(btn, textvariable=self.v_bundle, values=list(BUNDLE_NAMES), width=22,
+                     state="readonly").pack(side="left", padx=4)
         ttk.Button(btn, text="Load board", command=self.load_board).pack(side="left")
         ttk.Button(btn, text="Load frames", command=self.load_frames).pack(side="left", padx=4)
         self.b_play = ttk.Button(btn, text="Play", command=self.play)
@@ -125,8 +142,9 @@ class VideoGui:
     def load_board(self):
         def work():
             try:
-                self.status("Programming the FPGA and starting patrm_eth.elf ...")
-                EL.load_board()
+                bundle = BUNDLE_NAMES[self.v_bundle.get()]
+                self.status(f"Programming the FPGA ({bundle} bitstream) and starting its patrm_eth.elf ...")
+                VS.load_bundle(bundle)
                 self.status("Waiting for the board to boot (about 27 s) ...")
                 s = EL.wait_ready()
                 self.status(f"Board ready after {s:.0f} s.", "#060")
@@ -141,11 +159,14 @@ class VideoGui:
         def work():
             try:
                 W, H = VS.parse_size(self.v_size.get())
+                mode = self.v_mode.get()
                 frames, files = VS.load_frames(self.v_folder.get(), W, H,
-                                               progress=lambda i, n: self.status(f"Preparing frames {i} / {n} ..."))
-                bs = VS.transform_list(self.v_tf.get(), len(frames), W, H)
-                self.frames, self.files, self.bs, self.size = frames, files, bs, (W, H)
-                self.status(f"{len(frames)} frames ready at {W}x{H}, transform {self.v_tf.get()}.", "#060")
+                                               progress=lambda i, n: self.status(f"Preparing frames {i} / {n} ..."),
+                                               mode=mode)
+                bs = VS.transform_list(self.v_tf.get(), len(frames), W, H, mode)
+                self.frames, self.files, self.bs, self.size, self.mode = frames, files, bs, (W, H), mode
+                kind = "RGGB mosaics" if mode == "bayer" else "grayscale"
+                self.status(f"{len(frames)} {kind} frames ready at {W}x{H}, transform {self.v_tf.get()}.", "#060")
             except Exception as e:
                 self.status(f"Load frames failed: {e}", "#B00")
         threading.Thread(target=work, daemon=True).start()
@@ -156,13 +177,24 @@ class VideoGui:
         if not self.frames:
             self.status("Load frames first.", "#B00")
             return
+        if self.v_mode.get() != self.mode:
+            self.status("Mode changed: press Load frames again.", "#B00")
+            return
         try:                                     # transform may have been changed after loading
-            self.bs = VS.transform_list(self.v_tf.get(), len(self.frames), *self.size)
+            self.bs = VS.transform_list(self.v_tf.get(), len(self.frames), *self.size, self.mode)
         except Exception as e:
             self.status(f"Transform: {e}", "#B00")
             return
         engine = self.v_engine.get()
-        self.l_out_title.config(text="Output (FPGA engine)" if engine == "fpga" else "Output (ARM software baseline)")
+        if self.mode == "bayer" and engine == "arm":
+            self.status("The ARM baseline is grayscale only; choose Engine FPGA for Bayer.", "#B00")
+            return
+        if self.mode == "bayer":
+            self.l_in_title.config(text="Input: RGGB mosaic (colour preview on the PC)")
+            self.l_out_title.config(text="Output: FPGA Bayer Option A (colour preview on the PC)")
+        else:
+            self.l_in_title.config(text="Input (PC -> board)")
+            self.l_out_title.config(text="Output (FPGA engine)" if engine == "fpga" else "Output (ARM software baseline)")
         self.running = True
         self.stats = dict(n=0, t0=time.perf_counter(), times=deque(maxlen=60), stamps=deque(maxlen=60), error="")
         self.verifier = VS.Verifier()
@@ -180,7 +212,7 @@ class VideoGui:
     def _stream(self, engine):
         W, H = self.size
         try:
-            st = VS.Streamer(W, H, engine)
+            st = VS.Streamer(W, H, engine, mode=self.mode)
         except Exception as e:
             self.stats["error"] = f"cannot connect to the board: {e}"
             self.running = False
@@ -195,7 +227,7 @@ class VideoGui:
                     break
                 src, b = self.frames[i], self.bs[i]
                 out, r, t = st.frame(src, b)
-                self.verifier.submit(k, src, W, H, b, out.tobytes())
+                self.verifier.submit(k, src, W, H, b, out.tobytes(), self.mode)
                 now = time.perf_counter()
                 with self.lock:
                     self.latest = (k, src, out, t, r["cycles"])
@@ -225,7 +257,7 @@ class VideoGui:
                 f"only {checked} of {n} frames were checked"
         W, H = self.size
         fps = n / elapsed if elapsed > 0 and n else 0.0
-        text = (f"{n} frames {W}x{H}, transform {self.v_tf.get()}, engine {engine}: {fps:.1f} fps average; "
+        text = (f"{n} frames {W}x{H}, mode {self.mode}, transform {self.v_tf.get()}, engine {engine}: {fps:.1f} fps average; "
                 f"model check {checked - nbad} of {checked} bit-exact" + (f", differing {bad}" if nbad else "")
                 + (f"; error: {self.stats['error']}" if self.stats["error"] else ""))
         VS.OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -268,6 +300,8 @@ class VideoGui:
         H, W = src.shape
         s = min(1.0, self.view_w / W)
         size = (max(1, int(W * s)), max(1, int(H * s)))
+        if self.mode == "bayer":                 # display only: one RGB pixel per 2x2 cell, made on the PC
+            src, out = VS.preview_rgb(src), VS.preview_rgb(out)
         a = Image.fromarray(src).resize(size, Image.BILINEAR)
         b = Image.fromarray(out).resize(size, Image.BILINEAR)
         self.photo_in = ImageTk.PhotoImage(a)
@@ -281,6 +315,7 @@ def main(argv=None):
     ap.add_argument("--frames", default=str(VS.DEFAULT_FRAMES))
     ap.add_argument("--size", type=VS.parse_size, default=(800, 480))
     ap.add_argument("--transform", default="spin")
+    ap.add_argument("--mode", choices=VS.MODES, default="gray", help="gray or bayer (step 10.5)")
     ap.add_argument("--screenshot", default="", help="(testing) load frames, play 3 s, save a screenshot, quit")
     a = ap.parse_args(argv)
     try:                                         # sharp text and true pixel sizes on scaled Windows displays

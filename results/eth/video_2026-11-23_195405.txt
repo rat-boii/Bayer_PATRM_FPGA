@@ -1,0 +1,10 @@
+video: 100 frames from data/gen/burst_800x480_rgb at 800x480, mode bayer, transform spin, engine fpga, loops 1
+streamed 100 frames in 2.33 s: 43.0 fps (fpga, bayer, 800x480, round trip, one frame at a time)
+  upload      median    0.15 ms  min    0.07  max    0.99
+  board_rx    median    6.31 ms  min    4.33  max   28.27
+  board_job   median   10.32 ms  min    6.08  max   11.08
+  engine      median    8.08 ms  min    3.85  max    8.63
+  download    median    3.37 ms  min    2.82  max   23.31
+  round_trip  median   20.41 ms  min   14.13  max   47.32
+checked against the model: 100 of 100 frames, 100 bit-exact
+VIDEO PASS
