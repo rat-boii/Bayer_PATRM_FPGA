@@ -67,6 +67,8 @@ Phase 5 Bayer Option A
 Phase 6 Bayer Option B
 - 6.1 design: one coord_gen + per-lane constant T_p - T_R (D6); one row-pair fetch + deinterleave; 4 lanes; merge_writer full bursts; buffer covers union of footprints. 6.2 RTL; output == Option A == model. 6.3 timing closure (~32 DSP of 220, estimate); fallback A. 6.4 board; build "B" reports.
 
+6.1 design review: [four-lane design and reproducible checks](step-6.1-bayer-b.md). Step 6.1 PASSED. Limited fallback adopted for oversized footprints; 42 model frames bit-exact. Compare frame cycles with the earlier rectangular path in 6.2 and post-route timing in 6.3 before retaining the fallback for deployment.
+
 Phase 7 Proof of acceleration
 - 7.1 measured PL clock vs global timer (within 0.1%). 7.2 run_all.py --measure: sizes x transforms x {gray,A,B} x {ARM -O2,-O3,PL} -> CSV (cycles, ms PL and end-to-end, Mpixel/s, fps, bytes, GB/s, stalls, match). 7.3 utilization/timing/power from builds without ILA (power = estimate). 7.4 analyze.py: speedup, A vs B, bandwidth vs HP limit, comparison with paper (25 fps ~128 Mpixel/s at the paper's 2448x2095 W x H image; ARM 157.68 ms).
 

@@ -1,7 +1,7 @@
 # Grayscale engine: modules and interfaces (step 2.2)
 
 Scope: the GRAYSCALE engine (BUILD_TYPE 0, MODES = 0b001) in sections 0-17; Bayer Option A (MODE 1) in section 18
-(step 5.1); Option B is a hook (section 14), detailed in step 6.1. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
+(step 5.1); Option B design and verification are linked in section 14. Registers: `spec/regs.json`. DDR, interrupt, driver sequence: `spec/memory_map.md`.
 Block / fetch schedule: `model/memmodel.py` (docstring = the rules), vectors `data/vectors/sched_*.txt`.
 Bit-exact reference for every pixel: `model/patrm.py`. Figure: `docs/figures/patrm_gray_top.tex`.
 
@@ -774,8 +774,8 @@ All counters are cleared at the end of the cycle in which `start_accept` = 1 and
   bayer_seq with b = (b11, b12, T_px, b21, b22, T_py) from the T registers (D12) and plane size (W/2, H/2) for D1;
   memory row 2x + o_row, column 2y + o_col; WSTRB-masked writes into the interleaved buffer (D19).
 - **Option B** (MODE 2): four lanes share one coord_gen; lane p adds T_p - T_R (register difference, D6).
-  A block holds up to 3 plane rows = 6 memory rows (step 1.4), so the buffer needs more read copies; to be
-  designed in 6.1.
+  The six physical rows seen in step 1.4 are workload-specific. Legal transforms can also exceed a single
+  512-byte column window. See the [step 6.1 design and verification](../docs/step-6.1-bayer-b.md) for the fetch policy and its verification status.
 - Shared now: the T registers, MODE, BUILD_ID.MODES, and the plane-row / plane-column parameters of the planner.
 
 ## 15. Timing at 100 MHz (10 ns; whole engine MEASURED in step 3.8, module rows from the module runs)
