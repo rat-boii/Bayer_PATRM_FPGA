@@ -14,7 +14,9 @@ Blocks   Output pixels are scanned row by row, v = 0 .. Wo-1. A pixel is valid b
            (c) span v is valid and adding it would make the block's aligned byte span exceed SPAN_MAX.
          span = ceil8(max column + 1) - floor8(min column) over the block's valid pixels, in source-row bytes
          (Bayer A: full-resolution columns 2y + o_col; Bayer B: union of the lanes). One column range per block,
-         shared by all its rows. A single pixel always fits (span <= 16 <= SPAN_MAX).
+         shared by all its rows. A single gray or A pixel always fits (span <= 16 <= SPAN_MAX).
+         For B this module predicts the rectangular baseline. An oversized B tile or tall rectangle uses the
+         physical windows of model/bayer_b_design.py in steps 6.1 and 6.2.
 Rows     A block with valid pixels needs source rows x0 and x1 = min(x0 + 1, H - 1); at the bottom edge
          (x0 = H - 1) that is ONE row, and r3/r4 are read from the same row (their weight is 0 by D1).
          Columns: y1 = min(y0 + 1, W - 1), so the range never passes the row end (W is a multiple of 8).

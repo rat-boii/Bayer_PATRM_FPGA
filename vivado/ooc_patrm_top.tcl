@@ -30,11 +30,13 @@ set sa_dir     $out                                        ;# standalone module 
 set variant    gray
 # vivado.bat on Windows splits "variant=bayer_a" at the "=", so the script receives "variant" "bayer_a" (as build.tcl)
 foreach {k v} [regsub -all {=} [join $argv " "] " "] {
-    if {$k eq "variant" && ($v eq "gray" || $v eq "bayer_a")} { set variant $v } \
+    if {$k eq "variant" && $v in {gray bayer_a bayer_b}} { set variant $v } \
     elseif {$k eq "out" && $v ne ""}                           { set out [file normalize $v] } \
-    else { error "unknown argument '$k $v' (use variant=gray|bayer_a, out=<folder>)" }
+    else { error "unknown argument '$k $v' (use variant=gray|bayer_a|bayer_b, out=<folder>)" }
 }
-if {$variant eq "bayer_a"} {
+if {$variant eq "bayer_b"} {
+    set modes 7; set build_type 2; set prefix patrm_top_bayer_b
+} elseif {$variant eq "bayer_a"} {
     set modes 3; set build_type 1; set prefix patrm_top_bayer_a
 } else {
     set modes 1; set build_type 0; set prefix patrm_top
@@ -52,7 +54,7 @@ set instances {
 
 set srcs {}
 foreach {inst mod} $instances { lappend srcs [file join $repo rtl $mod.v] }
-lappend srcs [file join $repo rtl patrm_top.v]
+foreach mod {bayer_geometry bayer_store bayer_merge bayer_lanes patrm_top} { lappend srcs [file join $repo rtl $mod.v] }
 read_verilog $srcs                                         ;# list: the repo path may contain spaces
 read_xdc -mode out_of_context [list [file join $script_dir ooc_100mhz.xdc]]
 synth_design -top patrm_top -part $part -mode out_of_context -include_dirs [list [file join $repo rtl]] \

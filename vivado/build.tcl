@@ -25,7 +25,7 @@ set src_base   0x10000000                                  ;# spec/memory_map.md
 set dst_base   0x18000000
 set buf_size   0x01000000
 set rtl_names  {axil_regs ctrl_fsm bayer_seq block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
-                bilinear_interp out_fifo axi_wr_master patrm_top}
+                bilinear_interp out_fifo axi_wr_master bayer_geometry bayer_store bayer_merge bayer_lanes patrm_top}
 
 array set opt {ila 0 bd_only 0 sim 0}
 # vivado.bat on Windows splits "ila=1" at the "=", so the script receives "ila" "1"; both forms are accepted

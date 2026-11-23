@@ -22,7 +22,8 @@ class Window:
 class Rows:
     """Replay physical reads. Only data held by the previous fetching group may be reused."""
 
-    def __init__(self, source, base):
+    def __init__(self, source, base, trace=None):
+        self.trace = trace
         self.source = source
         self.width = source.shape[1]
         self.base = base
@@ -53,6 +54,8 @@ class Rows:
                 for a, beats in mm.split_bursts(addr + start, addr + end):
                     assert 1 <= beats <= 16 and a // 4096 == (a + 8 * beats - 1) // 4096
                     data.extend(self.source[row, a-addr:a-addr + 8*beats].tobytes())
+                    if self.trace is not None:
+                        self.trace.append((a, beats))
                     self.read_beats += beats
                     self.read_bursts += 1
                 assert len(data) == end - start
@@ -151,12 +154,12 @@ def tile_windows(tile, width, height):
     return windows
 
 
-def run(source, b, length=64, src=mm.SRC_ADDR, dst=mm.DST_ADDR):
+def run(source, b, length=64, src=mm.SRC_ADDR, dst=mm.DST_ADDR, trace=None):
     height, width = source.shape
     ps = mm.build_passes('B', width, height, b)[0]
     blocks = mm.make_blocks(ps, length)
     bounds = rectangular_windows(ps, blocks)
-    memory = Rows(source, src)
+    memory = Rows(source, src, trace)
     writer = Writer(width, height, dst)
     shifts = bayer.plane_shifts(b)
     for index, tiles in enumerate(coordinate_groups(b, blocks, shifts)):

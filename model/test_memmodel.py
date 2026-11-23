@@ -395,8 +395,8 @@ class Step22(unittest.TestCase):
         for ln in lines:
             report(8, "  " + ln)
         report(8, f"  control: scale 0.1 without rule (c) would need {nofc} B for one block")
-        report(8, "  Bayer B is not covered by this bound: a B block holds up to 3 plane rows = 6 memory rows "
-                  "(step 1.4 table), so its buffer bound is 6 x SPAN_MAX; detailed in step 6.1")
+        report(8, "  Gray/A slot bound checked here. For B, test_bayer_b_design checks the bounded windows "
+                  "and the per-tile fallback for oversized rectangles.")
 
     def test_9_schedule(self):
         """schedule(): totals match pass_reads, every neighbour byte is in the block's slots, ring rule holds."""

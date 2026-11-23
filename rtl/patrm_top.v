@@ -341,8 +341,39 @@ module patrm_top #(
     wire [OUT_CNT_W-1:0] wq_count;
     wire                 wr_beat, wr_frame_done, wr_err;
 
+
+
+    wire mode_b = ((MODES & 4)!=0) && cfg_mode==2;
+    wire b_cmd_valid,b_wq_valid,b_rd_stall,b_wr_stall;
+    wire [31:0] b_cmd_addr;
+    wire [6:0] b_cmd_words,b_wq_count;
+    wire [4:0] b_cmd_slot;
+    wire [63:0] b_wq_data;
+    generate if ((MODES & 4)!=0) begin: option_b
+`ifdef TB_RECT_ONLY
+        localparam ENABLE_FALLBACK=0;
+`else
+        localparam ENABLE_FALLBACK=1;
+`endif
+        bayer_lanes #(.ENABLE_FALLBACK(ENABLE_FALLBACK)) engine(.aclk(aclk),.aresetn(aresetn),
+            .frame_start(frame_start && mode_b),.width(cfg_width),.height(cfg_height),.block_len(cfg_block_len),
+            .src(cfg_src_addr),.b11(cfg_b11),.b12(cfg_b12),.b21(cfg_b21),.b22(cfg_b22),
+            .tx({cfg_t_b_x,cfg_t_gb_x,cfg_t_gr_x,cfg_t_r_x}),.ty({cfg_t_b_y,cfg_t_gb_y,cfg_t_gr_y,cfg_t_r_y}),
+            .cmd_valid(b_cmd_valid),.cmd_ready(cmd_ready && mode_b),.cmd_addr(b_cmd_addr),.cmd_words(b_cmd_words),
+            .cmd_slot(b_cmd_slot),.rd_valid(rd_valid && mode_b),.rd_data(rd_data),.rd_word(rd_word),.rd_cmd_last(rd_cmd_last),
+            .wq_valid(b_wq_valid),.wq_ready(wq_ready && mode_b),.wq_data(b_wq_data),.wq_count(b_wq_count),
+            .rd_stall(b_rd_stall),.wr_stall(b_wr_stall));
+    end endgenerate
+
 `ifdef PATRM_FAULT_DONE_EARLY
-    wire frame_done = op_valid & op_ready & op_last;
+    // B fault injection: assert completion on the final accepted W beat, before BRESP.
+    reg [31:0] b_fault_bytes;
+    always @(posedge aclk) begin
+        if(!aresetn || frame_start) b_fault_bytes<=0;
+        else if(mode_b && m_axi_hp1_wvalid && m_axi_hp1_wready) b_fault_bytes<=b_fault_bytes+8;
+    end
+    wire b_early = m_axi_hp1_wvalid && m_axi_hp1_wready && b_fault_bytes+8 == cfg_width*cfg_height;
+    wire frame_done = mode_b ? b_early : (op_valid & op_ready & op_last);
 `else
     wire frame_done = wr_frame_done;
 `endif
@@ -388,7 +419,7 @@ module patrm_top #(
     ctrl_fsm u_ctrl (
         .aclk(aclk), .aresetn(aresetn), .start_accept(start_accept), .busy(busy), .done_set(done_set),
         .frame_start(), .wr_frame_done(job_done),
-        .rd_beat(rd_beat), .wr_beat(wr_beat), .rd_stall(rd_stall), .wr_stall(wr_stall),
+        .rd_beat(rd_beat), .wr_beat(wr_beat), .rd_stall(mode_b ? b_rd_stall : rd_stall), .wr_stall(mode_b ? b_wr_stall : wr_stall),
         .rd_err(rd_err), .wr_err(wr_err), .bus_err(bus_err),
         .cnt_cycles(cnt_cycles), .cnt_bytes_rd(cnt_bytes_rd), .cnt_bytes_wr(cnt_bytes_wr),
         .cnt_rd_stall(cnt_rd_stall), .cnt_wr_stall(cnt_wr_stall));
@@ -397,7 +428,7 @@ module patrm_top #(
         .SIZE_BITS(SIZE_BITS), .CNT_BITS(CNT_BITS), .SLOT_BITS(SLOT_BITS), .SPAN_MAX(SPAN_MAX),
         .DESC_DEPTH(DESC_DEPTH), .FETCH_DEPTH(FETCH_DEPTH)
     ) u_planner (
-        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
+        .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start && !mode_b),
         .cfg_width(pass_width), .cfg_height(pass_height), .cfg_block_len(cfg_block_len),
         .cfg_b11(cfg_b11), .cfg_b12(cfg_b12), .cfg_b13(pass_b13), .cfg_b21(cfg_b21), .cfg_b22(cfg_b22), .cfg_b23(pass_b23),
         .cfg_stride2(pass_stride2), .cfg_o_row(pass_o_row), .cfg_o_col(pass_o_col),
@@ -429,7 +460,7 @@ module patrm_top #(
         .fetch_row_bot(fetch_row_bot), .fetch_slot_top(fetch_slot_top), .fetch_slot_bot(fetch_slot_bot),
         .fetch_top(fetch_top), .fetch_bot(fetch_bot), .fetch_s_col(fetch_s_col), .fetch_words(fetch_words),
         .cmd_valid(cmd_valid), .cmd_ready(cmd_ready), .cmd_addr(cmd_addr), .cmd_words(cmd_words), .cmd_slot(cmd_slot),
-        .rd_valid(rd_valid), .rd_data(rd_data), .rd_slot(rd_slot), .rd_word(rd_word), .rd_cmd_last(rd_cmd_last),
+        .rd_valid(rd_valid && !mode_b), .rd_data(rd_data), .rd_slot(rd_slot), .rd_word(rd_word), .rd_cmd_last(rd_cmd_last),
         .buf_we(buf_we), .buf_wbank(buf_wbank), .buf_waddr(buf_waddr), .buf_wdata(buf_wdata),
         .blocks_ready(blocks_ready), .blk_done(blk_done));
 
@@ -437,7 +468,8 @@ module patrm_top #(
         .RD_OUTSTANDING(RD_OUTSTANDING), .ID_W(AXI_ID_WIDTH), .SLOT_W(SLOT_BITS), .WORD_W(WORD_BITS), .WORDS_W(CNT_BITS)
     ) u_rd (
         .aclk(aclk), .aresetn(aresetn),
-        .cmd_valid(cmd_valid), .cmd_ready(cmd_ready), .cmd_addr(cmd_addr), .cmd_words(cmd_words), .cmd_slot(cmd_slot),
+        .cmd_valid(mode_b ? b_cmd_valid : cmd_valid), .cmd_ready(cmd_ready), .cmd_addr(mode_b ? b_cmd_addr : cmd_addr),
+        .cmd_words(mode_b ? b_cmd_words : cmd_words), .cmd_slot(mode_b ? b_cmd_slot : cmd_slot),
         .m_axi_hp0_arid(m_axi_hp0_arid), .m_axi_hp0_araddr(m_axi_hp0_araddr), .m_axi_hp0_arlen(m_axi_hp0_arlen),
         .m_axi_hp0_arsize(m_axi_hp0_arsize), .m_axi_hp0_arburst(m_axi_hp0_arburst),
         .m_axi_hp0_arlock(m_axi_hp0_arlock), .m_axi_hp0_arcache(m_axi_hp0_arcache),
@@ -491,7 +523,7 @@ module patrm_top #(
         .aclk(aclk), .aresetn(aresetn), .frame_start(frame_start),
         .cfg_dst_addr(cfg_dst_addr), .cfg_width(cfg_width), .cfg_height(pass_height),
         .cfg_stride2(pass_stride2), .cfg_o_row(pass_o_row), .cfg_wstrb(pass_wstrb),
-        .wq_valid(wq_valid), .wq_ready(wq_ready), .wq_data(wq_data), .wq_count(wq_count),
+        .wq_valid(mode_b ? b_wq_valid : wq_valid), .wq_ready(wq_ready), .wq_data(mode_b ? b_wq_data : wq_data), .wq_count(mode_b ? b_wq_count : wq_count),
         .m_axi_hp1_awid(m_axi_hp1_awid), .m_axi_hp1_awaddr(m_axi_hp1_awaddr), .m_axi_hp1_awlen(m_axi_hp1_awlen),
         .m_axi_hp1_awsize(m_axi_hp1_awsize), .m_axi_hp1_awburst(m_axi_hp1_awburst),
         .m_axi_hp1_awlock(m_axi_hp1_awlock), .m_axi_hp1_awcache(m_axi_hp1_awcache),

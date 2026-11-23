@@ -151,7 +151,9 @@ The Option A changes are specified in `spec/interface.md` section 18 (step 5.1) 
 | `rtl/axi_rd_master.v` | shared | none |
 | `rtl/axi_wr_master.v` | shared | A: WSTRB 55 / AA, row step 2W |
 | `rtl/patrm_top.v` | shared | MODES parameter selects the build |
-| `rtl/bayer_lanes.v` | B (planned, step 6) | four lanes, row-pair fetch |
+| `rtl/bayer_lanes.v`, `rtl/bayer_geometry.v` | B | shared coordinate scan, block planning, fallback and four interpolation lanes |
+| `rtl/bayer_store.v`, `rtl/bayer_merge.v` | B | bounded shared fetch and slot reuse, full-word RGGB row-pair output |
+| `scripts/gen_bayer_b_vectors.py` | B | model reference, transaction traces and rectangular-only comparison for tb_patrm_top |
 | `model/patrm.py` | shared | gray reference (bit-exact) |
 | `model/bayer.py` | A, B | Bayer reference: split, warp each plane, merge (bit-exact) |
 | `model/bayer_a.py`, `model/test_bayer_a.py` | A | Option A as the hardware does it, checked against `bayer.py` |

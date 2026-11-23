@@ -69,6 +69,8 @@ Phase 6 Bayer Option B
 
 6.1 design review: [four-lane design and reproducible checks](step-6.1-bayer-b.md). Step 6.1 PASSED. Limited fallback adopted for oversized footprints; 42 model frames bit-exact. Compare frame cycles with the earlier rectangular path in 6.2 and post-route timing in 6.3 before retaining the fallback for deployment.
 
+6.2 PASSED on 2026-11-23 (Vivado 2025.2, xsim, Verilog-2001). Combined build MODES=7 implemented. Twenty-two B frames plus two legacy frames matched all 135,552 output bytes. Exact HP0/HP1 transactions and both oversized cases pass. Twenty ordinary B jobs had identical cycles with fallback enabled and disabled. Four B-specific fault tests failed as intended. Whole regression passed 50 items, including gray Zynq VIP; the B model test and paired-cycle summary also passed separately. Device RTL elaboration passed. See [interface section 19](../spec/interface.md#19-bayer-option-b-rtl-step-62). Next: 6.3 post-route timing and resource measurements.
+
 Phase 7 Proof of acceleration
 - 7.1 measured PL clock vs global timer (within 0.1%). 7.2 run_all.py --measure: sizes x transforms x {gray,A,B} x {ARM -O2,-O3,PL} -> CSV (cycles, ms PL and end-to-end, Mpixel/s, fps, bytes, GB/s, stalls, match). 7.3 utilization/timing/power from builds without ILA (power = estimate). 7.4 analyze.py: speedup, A vs B, bandwidth vs HP limit, comparison with paper (25 fps ~128 Mpixel/s at the paper's 2448x2095 W x H image; ARM 157.68 ms).
 
