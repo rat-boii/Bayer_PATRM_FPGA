@@ -75,6 +75,8 @@ def main():
     ap.add_argument("--plusarg", action="append", default=[],
                     help="NAME=VALUE passed to the simulation as +NAME=VALUE (repeatable)")
     ap.add_argument("--gui", action="store_true", help="open the xsim GUI instead of batch mode")
+    ap.add_argument("--tclbatch", default="",
+                    help="with --gui: Tcl file xsim runs after opening (add waves, run), e.g. scripts/demo/demo_wave.tcl")
     args = ap.parse_args()
 
     sources = [Path(s).resolve() for s in args.sources]
@@ -110,6 +112,8 @@ def main():
                        "-s", snap, "work." + args.top], work)
 
     mode = ["--gui"] if args.gui else ["--runall"]
+    if args.gui and args.tclbatch:
+        mode += ["--tclbatch", Path(args.tclbatch).resolve().as_posix()]
     cmd = [str(xsim), snap] + mode + ["--log", "xsim.log"]
     plus = []
     for pa in args.plusarg:

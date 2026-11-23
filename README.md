@@ -723,6 +723,10 @@ vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl -tclargs variant=ba
 ```
 (2,620 LUT, 3,612 FF, 8 RAMB36, 17 DSP48E1, WNS +1.238 ns). The board bitstream with Option A is step 5.3.
 
+## Demo in the Vivado GUI
+
+For the review: [docs/vivado-demo.md](docs/vivado-demo.md) shows the block design, implemented design and reports in the Vivado GUI, and a single-image transformation testbench in the Vivado simulator (`python scripts/demo/run_demo_sim.py`).
+
 ## Step 10.0: Ethernet feasibility (lwIP echo server builds)
 
 Ethernet (GEM0 = ENET0, on-board RJ45 PHY) is enabled in the verified XSA, and AMD's lwIP 2.2 echo server builds for

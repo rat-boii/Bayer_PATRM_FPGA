@@ -827,8 +827,9 @@ module tb_patrm_top;
         $display("  total %0d frames, %0d output bytes compared with the model", tot_f, tot_b);
         $display("  b: %0d lock / W1C frames, %0d polled frames; c: %0d rejected starts; d: %0d bus-error frames; e: counters checked in %0d frames (RD_STALL != 0 in %0d, WR_STALL != 0 in %0d); g: %0d resets",
                  n_lock, n_poll, n_bad_starts, n_buserr, n_counter_frames, n_rs_frames, n_ws_frames, n_resets);
-        // a complete run must have exercised both stall counters
-        if (nfail == 0 && !have_case && (n_rs_frames == 0 || n_ws_frames == 0))
+        // a complete run must have exercised both stall counters (suite coverage, not a per-frame check: a one-case
+        // demo run, scripts/demo/run_demo_sim.py, passes +SINGLE_CASE; every per-frame check still applies)
+        if (nfail == 0 && !have_case && !$test$plusargs("SINGLE_CASE") && (n_rs_frames == 0 || n_ws_frames == 0))
             record_fail("the run never produced a non-zero RD_STALL and WR_STALL");
         u_mem.report;
         $display("errors: checks %0d, unused HP channels %0d, AR outside source %0d, AW outside output %0d, WSTRB %0d, interrupt with IRQ_EN = 0 %0d, AXI %0d",
