@@ -1,7 +1,9 @@
 # Step 5.3: Option A integration for Rev D (laptop portion)
 
-Status: LAPTOP PORTION VERIFIED (23 November 2026). This does not complete step 5.3: no Option A board test has been run.
-The next board session must pass the checks below before a step-5.3 tag is made.
+Status: PASSED (23 November 2026). Laptop portion as below; board session on ZedBoard Rev D with the 2026.1 rebuild
+(results/hw/bayer_a/rev_d): Bayer run_all 66 of 66 PASS, gray-on-A run_all 33 of 33 PASS, interrupt, polling,
+repetition and mixed gray/Bayer jobs all JOB PASS. Details: results/hw/bayer_a/rev_d/README.md. UART logs were not
+captured (results are read from DDR); the job logs are in results/board/step53_bayer_a/.
 
 ## Scope
 

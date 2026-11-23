@@ -1,0 +1,47 @@
+run_job: image D:\MASTERS\RC_project\data\gen\rggb_chart_128x96.raw
+run_job: transform rot15, 128 x 96, b = (63303, 16962, -971013, -16962, 63303, 947494)
+run_job: N = 10, BLOCK_LEN 64, interrupt, link jtag, mode bayer_a, predicted BYTES_RD 85144, BYTES_WR 24576
+run_job: job D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/job.tcl
+run_job: 128 x 96, N = 10, source D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/source.raw, output D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/readback.bin
+RUN: connect
+RUN: targets
+RUN: targets -set -nocase -filter {name =~ "APU*"}
+VALUE SEQ 0x00000002
+RUN: mwr -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/source.raw 0x10000000 3072 ;# source image
+RUN: mwr -force 0x18000000 0xA5A5A5A5 4096 ;# fill the output area
+RUN: mwr -force 0x1F000000 0 ;# descriptor magic = 0
+RUN: mwr -force 0x1F000008 {0x00000001 0x00000001 0x00000001 0x00000080 0x00000060 0x00000040 0x10000000 0x18000000 0x0000000A 0x000007D0 0x0000F747 0x00004242 0xFFF12EFB 0xFFFFBDBE 0x0000F747 0x000E7526 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000} ;# descriptor body
+RUN: mwr -force 0x1F000004 0x00000002 ;# descriptor seq
+RUN: mwr -force 0x1F000000 0x424F4A50 ;# descriptor magic: the job starts now
+run_job: result seen after 2 reads
+RUN: mrd -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/result.bin 0x1F001000 32
+RUN: mrd -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_rot15_128x96/readback.bin 0x18000000 4096
+RUN: disconnect
+run_job: DONE
+
+--- result
+sequence       job 2, result 2
+result code    0 (OK)
+wait mode      interrupt
+BUILD_ID       0x00403101
+STATUS at DONE 0x00000002: BUSY=0 DONE=1 ERROR=0 ERR_CODE=0 (NONE)
+frames         10 of 10 completed
+interrupts     11 handled since the application started, 0 without DONE
+CYCLES         17586  (175.9 us at 100 MHz); over N = 10: min 17581, avg 17591, max 17610
+BYTES_RD       85144  (memmodel 85144: same)
+BYTES_WR       24576  (bus bytes 24576: same)
+RD_STALL       4951
+WR_STALL       0
+differing rows 0 of 96
+differing bytes 0 of 12288  (0 of them still hold the 0xA5 fill)
+first mismatch none
+LAST ROW (row 95): MATCHES the model
+after the image 0 of 4096 guard bytes changed
+files          D:\MASTERS\RC_project\build\board\job_bayer_a_chart_rot15_128x96
+timer          325000000 Hz
+engine time    min 176.169 us, avg 176.280 us, max 176.483 us
+end-to-end     min 220.129 us, avg 220.335 us, max 220.704 us
+throughput     69.71 Mpix/s (engine time, average)
+frame rate     5672.8 fps from engine time, 4538.5 fps end to end
+run time       2 s
+JOB PASS

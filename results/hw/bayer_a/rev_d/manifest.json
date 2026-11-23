@@ -1,6 +1,6 @@
 {
   "date": "2026-11-23",
-  "status": "LAPTOP_VERIFIED_BOARD_PENDING",
+  "status": "BOARD_VERIFIED",
   "board": "ZedBoard Rev D",
   "base_commit": "2cf14b0b9c4d4fda6476ee9768b651fdbfef952f",
   "branch": "main",
@@ -15,7 +15,7 @@
   "wns_ns": 1.049,
   "whs_ns": 0.051,
   "regression_items": 52,
-  "hardware_tested": false,
+  "hardware_tested": true,
   "artifacts": {
     "patrm_bayer_a.bit": {
       "bytes": 4045769,
@@ -58,5 +58,14 @@
     "scripts/board/run_all.py": "1a71b7f0fadd0ed7fc691dc558ef190f4f68a307cae71ad52ca14a94931565ec"
   },
   "enet0_mdio": "MIO 52 .. 53",
-  "note": "Rebuilt 2026-11-23 from merged main (steps 5.3, 6.1, 6.2 + Phase 10) with the ENET0 MDIO fix; replaces the 2025.2 build of the teammate (WNS +0.938, binaries not in git). App built with -DFPU_HARD_FLOAT_ABI_ENABLED=1."
+  "note": "Rebuilt 2026-11-23 from merged main (steps 5.3, 6.1, 6.2 + Phase 10) with the ENET0 MDIO fix; replaces the 2025.2 build of the teammate (WNS +0.938, binaries not in git). App built with -DFPU_HARD_FLOAT_ABI_ENABLED=1.",
+  "board_verification": {
+    "date": "2026-11-23",
+    "board": "ZedBoard Rev D",
+    "link": "jtag",
+    "bayer_a_run_all": "66 of 66 PASS (results/board/run_all_revd_bayer_a_bayer_a.csv)",
+    "gray_on_a_run_all": "33 of 33 PASS (results/board/run_all_revd_bayer_a_gray.csv)",
+    "single_jobs": "identity 64x64 --load, rot15 128x96 N=10, rot37 128x96 --poll, 5 mixed gray/Bayer jobs back to back: all JOB PASS (results/board/step53_bayer_a/)",
+    "artifact_hashes_checked": true
+  }
 }

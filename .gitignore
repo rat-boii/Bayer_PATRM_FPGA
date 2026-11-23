@@ -67,6 +67,9 @@ docs/*Tracker*.docx
 !results/hw/rev D/*.bit
 !results/hw/rev D/*.xsa
 !results/hw/rev D/*.elf
+!results/hw/bayer_a/rev_d/*.bit
+!results/hw/bayer_a/rev_d/*.xsa
+!results/hw/bayer_a/rev_d/*.elf
 !results/hw/patrm_app.elf
 !results/hw/patrm_app_o3.elf
 !results/hw/rev D/hardware_build.log

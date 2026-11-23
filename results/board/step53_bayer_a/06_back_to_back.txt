@@ -1,0 +1,45 @@
+=== chart rot15 128 96 --mode bayer_a
+run_job: N = 1, BLOCK_LEN 64, interrupt, link jtag, mode bayer_a, predicted BYTES_RD 85144, BYTES_WR 24576
+BUILD_ID       0x00403101
+frames         1 of 1 completed
+interrupts     34 handled since the application started, 0 without DONE
+BYTES_RD       85144  (memmodel 85144: same)
+differing bytes 0 of 12288  (0 of them still hold the 0xA5 fill)
+after the image 0 of 4096 guard bytes changed
+JOB PASS
+=== photo rot37 480 272 --mode gray
+run_job: N = 1, BLOCK_LEN 64, interrupt, link jtag, mode gray, predicted BYTES_RD 730056, BYTES_WR 130560
+BUILD_ID       0x00403101
+frames         1 of 1 completed
+interrupts     35 handled since the application started, 0 without DONE
+BYTES_RD       730056  (memmodel 730056: same)
+differing bytes 0 of 130560  (0 of them still hold the 0xA5 fill)
+after the image 0 of 4096 guard bytes changed
+JOB PASS
+=== chart rot90 480 272 --mode bayer_a
+run_job: N = 1, BLOCK_LEN 64, interrupt, link jtag, mode bayer_a, predicted BYTES_RD 739840, BYTES_WR 261120
+BUILD_ID       0x00403101
+frames         1 of 1 completed
+interrupts     36 handled since the application started, 0 without DONE
+BYTES_RD       739840  (memmodel 739840: same)
+differing bytes 0 of 130560  (0 of them still hold the 0xA5 fill)
+after the image 0 of 4096 guard bytes changed
+JOB PASS
+=== photo rot15 128 96 --mode gray
+run_job: N = 1, BLOCK_LEN 64, interrupt, link jtag, mode gray, predicted BYTES_RD 54376, BYTES_WR 12288
+BUILD_ID       0x00403101
+frames         1 of 1 completed
+interrupts     37 handled since the application started, 0 without DONE
+BYTES_RD       54376  (memmodel 54376: same)
+differing bytes 0 of 12288  (0 of them still hold the 0xA5 fill)
+after the image 0 of 4096 guard bytes changed
+JOB PASS
+=== photo combined 800 480 --mode bayer_a --n 5
+run_job: N = 5, BLOCK_LEN 64, interrupt, link jtag, mode bayer_a, predicted BYTES_RD 2229120, BYTES_WR 768000
+BUILD_ID       0x00403101
+frames         5 of 5 completed
+interrupts     42 handled since the application started, 0 without DONE
+BYTES_RD       2229120  (memmodel 2229120: same)
+differing bytes 0 of 384000  (0 of them still hold the 0xA5 fill)
+after the image 0 of 4096 guard bytes changed
+JOB PASS

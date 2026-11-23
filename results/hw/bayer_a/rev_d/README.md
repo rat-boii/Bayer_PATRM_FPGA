@@ -1,7 +1,19 @@
 # Bayer Option A - Rev D laptop build, 23 November 2026
 
-Status: **laptop checks passed; board verification pending**. Step 5.3 is not complete,
-and no step-5.3 tag has been made. These files have not been loaded on an FPGA.
+Status: **board-verified on ZedBoard Rev D, 23 November 2026 (step 5.3 passed)**. The .bit, .xsa, .elf and ps7_init.tcl
+here are the exact files run on the board (SHA-256 checked against manifest.json before the commit).
+
+## Board results (step 5.3, JTAG link)
+
+- run_all --mode bayer_a --rev d --images chart,photo: **RUN_ALL PASS, 66 of 66** (480x272, 800x480, 2448x2048 x
+  chart, photo x 11 transforms): every output bit-exact with model/bayer.py, BYTES_RD = four-pass memmodel prediction,
+  BYTES_WR = 2 W H, last row correct, guard bytes untouched, BUILD_ID 0x00403101. results/board/run_all_revd_bayer_a_bayer_a.*
+- run_all --variant bayer_a --mode gray --rev d: **RUN_ALL PASS, 33 of 33**; CYCLES within 0.07 % of the gray bitstream
+  (inside the run-to-run spread). results/board/run_all_revd_bayer_a_gray.*
+- Single jobs: interrupt (--load), N = 10 repetition, polling (interrupt count unchanged), and five gray / Bayer jobs
+  alternating without reloading: all JOB PASS. results/board/step53_bayer_a/
+- Bayer engine time (N = 1): 2448x2048 identity 50.14 ms (19.9 fps), rot15 73.4 ms, rot37 109.8 ms, rot90 132.9 ms;
+  800x480 identity 3.85 ms. UART output was not captured (not needed for the checks; results come from DDR).
 
 ## Current build (rebuilt 2026-11-23 on main)
 
@@ -14,8 +26,7 @@ so Ethernet works without scripts/eth/mdio_mio.tcl. The application is built wit
 - BUILD: all checks passed. Post-route WNS +1.049 ns, WHS +0.051 ns, 0 failing endpoints.
 - Whole design: 2,989 LUT, 4,071 FF, 8 RAMB36, 17 DSP48E1 (summary.txt).
 - patrm_app.elf: 308,220 bytes, PATRM_APP BUILD OK. Regression on the merged sources: 52 of 52 PASS.
-- The .bit / .xsa / .elf are not in git (results/**/*.bit etc. are ignored) until the board has verified them;
-  manifest.json holds their sizes and SHA-256.
+- The .bit / .xsa / .elf are tracked in git since the board verified them; manifest.json holds their sizes and SHA-256.
 
 ## Earlier build of the teammate (2025.2, replaced)
 
@@ -50,9 +61,6 @@ patrm_bayer_a.bit configures the PL; patrm_bayer_a.xsa exports the hardware for 
 ps7_init.tcl initializes the matching PS/DDR; patrm_app.elf accepts gray and A jobs.
 Keep this set together. Other reports use the same scope as summary.txt.
 
-## Next board session
+## Board session
 
-Follow docs/step-5.3-revd-offline.md. Require all Bayer outputs bit-exact with model/bayer.py,
-all four-pass read counts correct, BYTES_WR=2*W*H, last rows/guards correct, interrupts and
-polling, repeated jobs and the gray regression on this A build. Save UART logs and CSVs.
-Only then mark step 5.3 passed. The verified older grayscale bundle is unchanged.
+Done 2026-11-23, see "Board results" above. Procedure: docs/step-5.3-revd-offline.md.

@@ -1,0 +1,97 @@
+run_job: image D:\MASTERS\RC_project\data\gen\rggb_chart_64x64.raw
+run_job: transform identity, 64 x 64, b = (65536, 0, 0, 0, 65536, 0)
+run_job: N = 1, BLOCK_LEN 64, interrupt, link jtag, mode bayer_a, predicted BYTES_RD 8192, BYTES_WR 8192
+run_job: job D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/job.tcl
+run_job: 64 x 64, N = 1, source D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/source.raw, output D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/readback.bin
+RUN: connect
+attempting to launch hw_server
+
+****** Xilinx hw_server v2026.1
+  **** Build date : May 29 2026 at 14:55:19
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+INFO: hw_server application started
+INFO: Use Ctrl-C to exit hw_server application
+
+
+
+****** Xilinx hw_server v2026.1
+
+  **** Build date : May 29 2026 at 14:55:19
+
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+
+
+INFO: hw_server application started
+
+INFO: Use Ctrl-C to exit hw_server application
+
+
+
+
+INFO: To connect to this hw_server instance use url: TCP:127.0.0.1:3121
+
+
+
+RUN: targets
+RUN: targets -set -nocase -filter {name =~ "APU*"}
+RUN: rst -system
+RUN: after 3000
+RUN: targets -set -nocase -filter {name =~ "xc7z020*"}
+RUN: fpga -file D:/MASTERS/RC_project/results/hw/bayer_a/rev_d/patrm_bayer_a.bit
+RUN: targets -set -nocase -filter {name =~ "APU*"}
+RUN: configparams force-mem-access 1
+RUN: source D:/MASTERS/RC_project/results/hw/bayer_a/rev_d/ps7_init.tcl
+RUN: ps7_init
+RUN: ps7_post_config
+RUN: mwr -force 0x1F000000 0 24 ;# clear the job descriptor
+RUN: mwr -force 0x1F001000 0 32 ;# clear the result record
+RUN: targets -set -nocase -filter {name =~ "*A9*#0"}
+RUN: rst -processor
+RUN: dow D:/MASTERS/RC_project/results/hw/bayer_a/rev_d/patrm_app.elf
+RUN: configparams force-mem-access 0
+RUN: con
+RUN: targets -set -nocase -filter {name =~ "APU*"}
+VALUE SEQ 0x00000001
+RUN: mwr -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/source.raw 0x10000000 1024 ;# source image
+RUN: mwr -force 0x18000000 0xA5A5A5A5 2048 ;# fill the output area
+RUN: mwr -force 0x1F000000 0 ;# descriptor magic = 0
+RUN: mwr -force 0x1F000008 {0x00000001 0x00000001 0x00000001 0x00000040 0x00000040 0x00000040 0x10000000 0x18000000 0x00000001 0x000007D0 0x00010000 0x00000000 0x00000000 0x00000000 0x00010000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000 0x00000000} ;# descriptor body
+RUN: mwr -force 0x1F000004 0x00000001 ;# descriptor seq
+RUN: mwr -force 0x1F000000 0x424F4A50 ;# descriptor magic: the job starts now
+run_job: result seen after 2 reads
+RUN: mrd -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/result.bin 0x1F001000 32
+RUN: mrd -force -bin -file D:/MASTERS/RC_project/build/board/job_bayer_a_chart_identity_64x64/readback.bin 0x18000000 2048
+RUN: disconnect
+run_job: DONE
+
+--- result
+sequence       job 1, result 1
+result code    0 (OK)
+wait mode      interrupt
+BUILD_ID       0x00403101
+STATUS at DONE 0x00000002: BUSY=0 DONE=1 ERROR=0 ERR_CODE=0 (NONE)
+frames         1 of 1 completed
+interrupts     1 handled since the application started, 0 without DONE
+CYCLES         4569  (45.7 us at 100 MHz); over N = 1: min 4569, avg 4569, max 4569
+BYTES_RD       8192  (memmodel 8192: same)
+BYTES_WR       8192  (bus bytes 8192: same)
+RD_STALL       169
+WR_STALL       0
+differing rows 0 of 64
+differing bytes 0 of 4096  (0 of them still hold the 0xA5 fill)
+first mismatch none
+LAST ROW (row 63): MATCHES the model
+after the image 0 of 4096 guard bytes changed
+files          D:\MASTERS\RC_project\build\board\job_bayer_a_chart_identity_64x64
+timer          325000000 Hz
+engine time    min 46.480 us, avg 46.480 us, max 46.480 us
+end-to-end     min 68.529 us, avg 68.529 us, max 68.529 us
+throughput     88.12 Mpix/s (engine time, average)
+frame rate     21514.6 fps from engine time, 14592.4 fps end to end
+run time       10 s
+JOB PASS
