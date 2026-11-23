@@ -1,4 +1,7 @@
-"""Run one grayscale job through the ARM test application and compare the output with the model (step 4.2).
+"""Run one gray/Bayer A job through the ARM application (steps 4.2 / 5.3).
+
+    --mode bayer_a --rev d selects the separate Option A Rev D bundle; input is raw RGGB.
+    Named Bayer images use data/gen/rggb_<name>_<W>x<H>.raw (e.g. chart).
 
     python scripts/board/run_job.py <image> <transform> <W> <H> [options]
     python scripts/board/run_job.py mixed identity 64 64 --load     program the board, start the application, run the job
@@ -55,11 +58,14 @@ def write_job_tcl(f):
 
 
 def prepare(a):
+    mode = getattr(a, "mode", "gray")
+    if a.sw and mode != "gray":
+        raise J.JobError("the ARM software baseline is grayscale only")
     a.timeout = math.ceil(a.n * a.timeout_ms / 1000) + RESULT_MARGIN_S
     irq = not (a.poll or a.sw)                     # a software job does not use the engine or its interrupt
-    f = RF.load_frame(a, irq_en=1 if irq else 0, prefix="jobsw" if a.sw else "job")
+    f = RF.load_frame(a, irq_en=1 if irq else 0, prefix="jobsw" if a.sw else ("job" if mode == "gray" else "job_bayer_a"))
     f.update(repeat=a.n, irq=irq, sw=a.sw, elf=a.elf, result_file=f["run_dir"] / "result.bin",
-             descriptor=J.encode_job(1, a.W, a.H, "gray", f["b"], RF.BLOCK_LEN, repeat=a.n, timeout_ms=a.timeout_ms,
+             descriptor=J.encode_job(1, a.W, a.H, mode, f["b"], RF.BLOCK_LEN, repeat=a.n, timeout_ms=a.timeout_ms,
                                      irq=irq, block_len_max=MM.BLOCK_LEN_MAX, sw=a.sw))
     write_job_tcl(f)
     return f
@@ -89,8 +95,11 @@ def report(f, seq):
     if r["flags"] != J.decode_job(f["descriptor"])["flags"]:
         fails.append(f"result flags 0x{r['flags']:X} differ from the job's")
     print(f"BUILD_ID       0x{r['build_id']:08X}")
-    if r["build_id"] != RF.BUILD_ID_EXPECTED:
-        fails.append(f"BUILD_ID is not 0x{RF.BUILD_ID_EXPECTED:08X}")
+    expected_id = f["build_id"]
+    # The Option A build also supports gray jobs; accept either known build for a gray job.
+    valid_ids = (expected_id,) if f["mode"] != "gray" else (expected_id, 0x00403101)
+    if r["build_id"] not in valid_ids:
+        fails.append(f"BUILD_ID 0x{r['build_id']:08X} does not support the requested {f['mode']} build")
     print(f"STATUS at DONE {RF.status_text(r['status'])}")
     print(f"frames         {r['runs']} of {n} completed")
     print(f"interrupts     {r['irq_count']} handled since the application started, {r['irq_spurious']} without DONE")
@@ -141,22 +150,28 @@ def main(argv=None):
     ap.add_argument("transform")
     ap.add_argument("W", type=int)
     ap.add_argument("H", type=int)
+    ap.add_argument("--rev", choices=("c", "d"), default=None, help="select board bundle; default remains Rev C")
+    ap.add_argument("--mode", choices=("gray", "bayer_a"), default="gray")
     ap.add_argument("--n", type=int, default=1, help="frames to run (N > 1 for timing)")
     ap.add_argument("--poll", action="store_true", help="the application polls STATUS (IRQ_EN = 0)")
     ap.add_argument("--load", action="store_true", help="program the bitstream, set up the PS, load and start the ELF")
     ap.add_argument("--sw", action="store_true", help="run the frame with the ARM software baseline (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     ap.add_argument("--timeout-ms", type=int, default=J.JOB_TIMEOUT_MS_DEFAULT, help="DONE timeout per frame, on the ARM")
-    ap.add_argument("--bit", default=str(HW_DIR / "patrm_gray.bit"), help="bitstream for --load")
-    ap.add_argument("--init", default=str(HW_DIR / "ps7_init.tcl"), help="ps7_init script for --load")
-    ap.add_argument("--elf", default=str(HW_DIR / "patrm_app.elf"), help="application for --load")
+    ap.add_argument("--bit", default=None, help="bitstream for --load")
+    ap.add_argument("--init", default=None, help="ps7_init script for --load")
+    ap.add_argument("--elf", default=None, help="application for --load")
     a = ap.parse_args(argv)
+    bundle = (HW_DIR / "bayer_a" / f"rev_{a.rev or 'c'}") if a.mode == "bayer_a" else (HW_DIR / "rev D" if a.rev == "d" else HW_DIR)
+    a.bit = a.bit or str(bundle / f"patrm_{a.mode}.bit")
+    a.init = a.init or str(bundle / "ps7_init.tcl")
+    a.elf = a.elf or str((bundle if a.mode == "bayer_a" else HW_DIR) / "patrm_app.elf")
     try:
         f = prepare(a)
         print(f"run_job: image {f['image']}")
         print(f"run_job: transform {a.transform}, {a.W} x {a.H}, b = {f['b']}")
         print(f"run_job: N = {a.n}, BLOCK_LEN {RF.BLOCK_LEN}, {'ARM software baseline' if a.sw else ('polling' if a.poll else 'interrupt')}, "
-              f"predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {a.W * a.H}")
+              f"mode {f['mode']}, predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {f['bytes_wr']}")
         f["out_file"].unlink(missing_ok=True)
         f["result_file"].unlink(missing_ok=True)
         start = time.time()

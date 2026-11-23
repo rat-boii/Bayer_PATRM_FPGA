@@ -5,6 +5,7 @@
 #   vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl
 #   vivado -mode batch -source ../../../vivado/ooc_patrm_top.tcl -tclargs variant=bayer_a      (step 5.2)
 #   ... -tclargs out=<folder>          reports into another folder (e.g. a re-check that must not replace results/ooc)
+# Step 6.3 uses variant=bayer_b (all three modes), or variant=bayer_b_rect for the rectangular-only control.
 # variant=gray (default): MODES 1, BUILD_TYPE 0, reports patrm_top_*; variant=bayer_a: MODES 3, BUILD_TYPE 1, reports
 # patrm_top_bayer_a_*. The per-module standalone numbers are always read from results/ooc/<module>_summary.txt.
 #
@@ -30,12 +31,12 @@ set sa_dir     $out                                        ;# standalone module 
 set variant    gray
 # vivado.bat on Windows splits "variant=bayer_a" at the "=", so the script receives "variant" "bayer_a" (as build.tcl)
 foreach {k v} [regsub -all {=} [join $argv " "] " "] {
-    if {$k eq "variant" && $v in {gray bayer_a bayer_b}} { set variant $v } \
+    if {$k eq "variant" && $v in {gray bayer_a bayer_b bayer_b_rect}} { set variant $v } \
     elseif {$k eq "out" && $v ne ""}                           { set out [file normalize $v] } \
-    else { error "unknown argument '$k $v' (use variant=gray|bayer_a|bayer_b, out=<folder>)" }
+    else { error "unknown argument '$k $v' (use variant=gray|bayer_a|bayer_b|bayer_b_rect, out=<folder>)" }
 }
-if {$variant eq "bayer_b"} {
-    set modes 7; set build_type 2; set prefix patrm_top_bayer_b
+if {$variant in {bayer_b bayer_b_rect}} {
+    set modes 7; set build_type 2; set prefix patrm_top_$variant
 } elseif {$variant eq "bayer_a"} {
     set modes 3; set build_type 1; set prefix patrm_top_bayer_a
 } else {
@@ -55,6 +56,7 @@ set instances {
 set srcs {}
 foreach {inst mod} $instances { lappend srcs [file join $repo rtl $mod.v] }
 foreach mod {bayer_geometry bayer_store bayer_merge bayer_lanes patrm_top} { lappend srcs [file join $repo rtl $mod.v] }
+if {$variant eq "bayer_b_rect"} { set_property verilog_define TB_RECT_ONLY [current_fileset] }
 read_verilog $srcs                                         ;# list: the repo path may contain spaces
 read_xdc -mode out_of_context [list [file join $script_dir ooc_100mhz.xdc]]
 synth_design -top patrm_top -part $part -mode out_of_context -include_dirs [list [file join $repo rtl]] \
@@ -181,6 +183,7 @@ puts $f "LUTmem = LUTRAM + SRL. slack = worst setup path ending in that module, 
 puts $f "* = no row in Vivado's hierarchical report, counted from the instance's leaf cells (before LUT combining)."
 puts $f [format "%-12s %-16s | %5s %6s %5s %4s %4s | %5s %6s %5s %4s %4s | %8s %8s" instance module LUT LUTmem FF BRAM DSP saLUT saMem saFF saBR saDSP "slack" saWNS]
 set sum_lut 0; set sum_ff 0; set sum_dsp 0; set sum_sa_lut 0; set sum_sa_ff 0
+if {$build_type == 2} { lappend instances option_b.engine bayer_lanes }
 foreach {inst mod} $instances {
     if {[info exists H($inst)]} { set r $H($inst); set tag $inst } else { set r [row_from_cells $inst]; set tag "$inst*" }
     set lut  [hget $r {Total LUTs}]
@@ -267,3 +270,14 @@ foreach pat {s_axi_* m_axi_hp0_* m_axi_hp1_* aresetn} {
 close $f
 
 puts "OOC SUMMARY patrm_top LUT=[lindex [util_row $util {Slice LUTs}] 0] FF=[lindex [util_row $util {Slice Registers}] 0] LATCHES=$latches_synth/[count_latches] WNS=$wns TNS=$tns WHS=$whs MDRV=$mdrv"
+
+# Step 6.3 sign-off follows report generation so a failed route keeps its evidence.
+if {$build_type == 2} {
+    foreach value [list $wns $whs] {
+        if {![string is double -strict $value]} { error "STEP 6.3 FAIL: missing numeric timing slack" }
+    }
+    if {$wns < 0 || $whs < 0 || $latches_synth || [count_latches] || $mdrv} {
+        error "STEP 6.3 FAIL: WNS=$wns WHS=$whs latches=$latches_synth/[count_latches] MDRV=$mdrv"
+    }
+    puts "STEP 6.3 PASS: setup and hold met at 100 MHz"
+}

@@ -23,7 +23,7 @@ GENERATORS = [("gen_images", ["-m", "model.gen_images"]),
     (f"gen_{n}", [f"scripts/gen_{n}_vectors.py"])
     for n in ("axil", "coord_gen", "axi_rd", "out_path", "block_planner", "fetch_path", "patrm_top", "bayer_b", "system")]
 MODEL_TESTS = ("test_patrm", "test_step1_2", "test_bayer", "test_memmodel", "test_interface", "test_regs",
-               "test_job_layout", "test_patrm_sw", "test_bayer_a")
+               "test_job_layout", "test_patrm_sw", "test_bayer_a", "test_patrm_drv", "test_bayer_jobs")
 # board runners without a board: arguments, model data and the XSDB scripts up to "nothing was done"
 DRY_RUNS = [("dry_run_frame", ["scripts/board/run_frame.py", "mixed", "identity", "64", "64", "--dry-run"]),
             ("dry_run_job", ["scripts/board/run_job.py", "mixed", "identity", "64", "64", "--dry-run"]),

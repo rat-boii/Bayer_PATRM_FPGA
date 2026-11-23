@@ -96,7 +96,10 @@ For every job:
 passes (R, Gr, Gb, B) and DONE and the interrupt come once, after the last pass. B13 / B23 are not used (write them as
 in gray; the passes take T_p_X / T_p_Y). Every output byte is written by exactly one pass with masked writes, so the
 output needs no pre-fill. The counters cover the whole job; BYTES_WR = 2 x W x H (masked beats count 8 bytes).
-The step 4.2 driver still accepts GRAY only; Option A jobs are enabled in step 5.3.
+The step 5.3 driver accepts GRAY and Option A when the matching BUILD_ID.MODES bit is set; it still rejects
+Option B. It computes all T_p on the ARM with 64-bit intermediates and floor division by two, checks the full
+transform and every plane against D4, then writes all eight T registers. The descriptor layout is unchanged.
+This integration is laptop-tested; Option A hardware verification remains pending.
 
 ## 5. Job descriptor and result record (step 4.2)
 
@@ -111,7 +114,7 @@ Job descriptor, 96 bytes at 0x1F00_0000:
 | 0x00 | magic | 0x424F4A50 ("PJOB" in memory) |
 | 0x04 | seq | job number, not 0, different from the previous job |
 | 0x08 | layout | 1 |
-| 0x0C | mode | MODE value. The step 4.2 driver accepts GRAY only |
+| 0x0C | mode | MODE value. The driver accepts GRAY and Option A if supported by BUILD_ID.MODES |
 | 0x10 | flags | bit 0: wait for the interrupt (else poll STATUS). bit 1: the ARM wrote the source, flush it. bit 2: software job (step 4.4), see below. Other bits: rejected with BAD_JOB |
 | 0x14, 0x18 | width, height | W, H |
 | 0x1C | block_len | BLOCK_LEN |

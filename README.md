@@ -743,3 +743,16 @@ xsdb scripts/board/repeat48.tcl 10
 
 This checks debugger-to-DDR access, not full DDR coverage, reset recovery or
 the accelerator's PL-to-DDR data path. The standalone PDF report is not in Git.
+
+## Step 5.3: Option A on Rev D (laptop integration; board verification pending)
+
+See [the step 5.3 instructions](docs/step-5.3-revd-offline.md) for builds, offline tests and
+the later board checklist. `vivado/build.tcl -tclargs variant=bayer_a rev=d` selects
+MODES=3 / BUILD_TYPE=1 and the Rev D DDR part; artifacts go to `results/hw/bayer_a/rev_d/`.
+The no-argument gray/Rev C build remains unchanged. Set `PATRM_VARIANT=bayer_a` and
+`PATRM_REV=d` when building the matching application with sw/patrm_app/build_vitis.py.
+`run_job.py --mode bayer_a --rev d` and `run_all.py --mode bayer_a --rev d` select the
+Bayer reference and bundle; `run_all.py --variant bayer_a --mode gray --rev d` checks gray
+on the A build. Named Bayer inputs are `chart` or `photo` from generated `rggb_*.raw` files.
+New offline checks: `python -m model.test_patrm_drv` and `python -m model.test_bayer_jobs`.
+No Option A board result is claimed; step 5.3 is not complete until the board checks pass.

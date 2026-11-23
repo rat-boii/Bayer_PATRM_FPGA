@@ -1,4 +1,7 @@
-# Block design, bitstream and XSA of the grayscale engine on the ZedBoard (step 4.1; also step 0.2a).
+# Block design, bitstream and XSA of the gray / Bayer Option A engine (steps 4.1, 5.3).
+# Extra arguments: variant=gray|bayer_a (default gray), rev=c|d (default c).
+# Option A outputs: results/hw/bayer_a/rev_c|rev_d/patrm_bayer_a.{bit,xsa}, ps7_init.tcl and reports.
+# Example: vivado -mode batch -source ../../vivado/build.tcl -tclargs variant=bayer_a rev=d
 # Batch and reproducible: the project is created from nothing under build/vivado/<name>, nothing is edited by hand.
 #
 # Run from build/vivado (keeps Vivado's .jou/.log out of the repo):
@@ -27,19 +30,37 @@ set buf_size   0x01000000
 set rtl_names  {axil_regs ctrl_fsm bayer_seq block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
                 bilinear_interp out_fifo axi_wr_master bayer_geometry bayer_store bayer_merge bayer_lanes patrm_top}
 
-array set opt {ila 0 bd_only 0 sim 0}
+array set opt {ila 0 bd_only 0 sim 0 variant gray rev c}
 # vivado.bat on Windows splits "ila=1" at the "=", so the script receives "ila" "1"; both forms are accepted
 set args_text [regsub -all {=} [join $argv " "] " "]
 foreach {k v} $args_text {
-    if {![info exists opt($k)] || ($v ne "0" && $v ne "1")} { error "unknown argument '$k $v' (use ila=0|1, bd_only=0|1, sim=0|1)" }
+    if {![info exists opt($k)]} { error "unknown argument '$k' (use ila, bd_only, sim, variant=gray|bayer_a, rev=c|d)" }
+    if {$k in {ila bd_only sim} && $v ni {0 1}} { error "$k must be 0 or 1" }
+    if {$k eq "variant" && $v ni {gray bayer_a}} { error "variant must be gray or bayer_a" }
+    if {$k eq "rev" && $v ni {c d}} { error "rev must be c or d" }
     set opt($k) $v
 }
 if {$opt(ila) && $opt(sim)} { error "sim=1 simulates the design without the ILA; do not combine it with ila=1" }
-set name   [expr {$opt(ila) ? "patrm_gray_ila" : ($opt(sim) ? "patrm_gray_sim" : "patrm_gray")}]
-set prj    [file join $repo build vivado $name]
-set out    [file join $repo results hw]
+# Preserve the existing gray/Rev C defaults (D18); explicit Rev D selects its own DDR part.
+set ddr_part [expr {$opt(rev) eq "d" ? "MT41K128M16 JT-125" : "MT41J128M16 HA-15E"}]
+set modes [expr {$opt(variant) eq "bayer_a" ? 3 : 1}]
+set build_type [expr {$opt(variant) eq "bayer_a" ? 1 : 0}]
+set artifact "patrm_$opt(variant)"
+if {$opt(ila)} { append artifact _ila }
+set name $artifact
+if {$opt(variant) ne "gray" || $opt(rev) ne "c"} { append name "_rev$opt(rev)" }
+if {$opt(sim)} { append name _sim }
+set prj [file join $repo build vivado $name]
+set out [file join $repo results hw]
+if {$opt(variant) ne "gray"} {
+    set out [file join $out $opt(variant) "rev_$opt(rev)"]
+} elseif {$opt(rev) eq "d"} {
+    set out [file join $out {rev D}]
+}
 file mkdir $out
 proc note {s} { puts "BUILD: $s" }
+note "variant $opt(variant), Rev $opt(rev), MODES $modes, BUILD_TYPE $build_type, DDR $ddr_part"
+note "output directory $out"
 proc hex32 {v} { return [format 0x%08X [expr {$v & 0xFFFFFFFF}]] }
 proc n_msg {sev} { return [get_msg_config -count -severity $sev] }
 
@@ -106,6 +127,15 @@ set rst [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset proc_sys_res
 set ic  [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_gp0]
 set_property CONFIG.NUM_MI 1 $ic
 set eng [create_bd_cell -type module -reference $eng_module patrm_0]
+set_property -dict [list CONFIG.BUILD_TYPE $build_type CONFIG.MODES $modes] $eng
+proc check_engine {eng modes build_type} {
+    foreach {key want} [list MODES $modes BUILD_TYPE $build_type] {
+        set got [get_property CONFIG.$key $eng]
+        if {$got != $want} { error "CHECK FAILED engine $key: $got, expected $want" }
+        note "CHECK OK engine $key = $got"
+    }
+}
+check_engine $eng $modes $build_type
 
 # one clock: FCLK_CLK0
 connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] \
@@ -198,6 +228,7 @@ foreach k {1 2 3 4} { reset_msg_config -quiet -id PSU-$k -default_severity }
 note "validate_bd_design: $v_err errors, $v_other other critical warnings, $v_known known preset critical warnings (PSU-1..4), $v_warn warnings"
 if {$v_err || $v_other} { error "CHECK FAILED validate_bd_design: $v_err errors, $v_other critical warnings besides PSU-1..4" }
 check_ddr $ps $ddr_part "after validate_bd_design"
+check_engine $eng $modes $build_type
 save_bd_design
 
 set p_names {PCW_UIPARAM_DDR_PARTNO PCW_UIPARAM_DDR_MEMORY_TYPE PCW_UIPARAM_DDR_FREQ_MHZ PCW_UIPARAM_ACT_DDR_FREQ_MHZ
@@ -271,14 +302,14 @@ open_run impl_1
 set run_dir [get_property DIRECTORY [get_runs impl_1]]
 set bit [file join $run_dir system_wrapper.bit]
 if {![file exists $bit]} { error "CHECK FAILED bitstream: $bit not found" }
-file copy -force $bit [file join $out $name.bit]
+file copy -force $bit [file join $out $artifact.bit]
 set ltx [file join $run_dir system_wrapper.ltx]
 if {[file exists $ltx]} {
-    file copy -force $ltx [file join $out $name.ltx]
+    file copy -force $ltx [file join $out $artifact.ltx]
 } elseif {$opt(ila)} {
     error "CHECK FAILED ILA: probes file $ltx not found"
 }
-write_hw_platform -fixed -include_bit -force -file [file join $out $name.xsa]
+write_hw_platform -fixed -include_bit -force -file [file join $out $artifact.xsa]
 if {!$opt(ila)} {
     set init [glob -nocomplain [file join $prj $name.gen sources_1 bd system ip *processing_system7* ps7_init.tcl]]
     if {[llength $init] != 1} { error "CHECK FAILED ps7_init.tcl: found '$init'" }
@@ -350,6 +381,8 @@ proc row_from_cells {inst} {
 set f [open [rname summary.txt] w]
 puts $f "build         $name (block design + PS7, $part, Vivado [version -short], post-route)"
 puts $f "board part    $board_part"
+puts $f "variant       $opt(variant), Rev $opt(rev), BUILD_TYPE $build_type, MODES $modes"
+puts $f "verification  laptop build only; board verification is a separate check"
 puts $f "D18 DDR part  [get_property CONFIG.PCW_UIPARAM_DDR_PARTNO [get_bd_cells -quiet processing_system7_0]] (read back after set_property and after validate_bd_design)"
 puts $f "validate      $v_err errors, $v_other other critical warnings (tool warning counter +$v_warn); NOT fully clean: $v_known known critical warnings PSU-1..4 (negative DQS_TO_CLK_DELAY_0..3 from the Digilent preset, accepted 2026-11-18)"
 foreach r {synth_1 impl_1} {
@@ -454,8 +487,8 @@ puts $f "PS7 settings:"
 foreach l $ps_lines { puts $f $l }
 close $f
 
-note "OUTPUT xsa [file join $out $name.xsa]"
-note "OUTPUT bit [file join $out $name.bit]"
+note "OUTPUT xsa [file join $out $artifact.xsa]"
+note "OUTPUT bit [file join $out $artifact.bit]"
 puts "BUILD SUMMARY $name WNS=$wns TNS=$tns WHS=$whs ARESETN_OK=$r_ok"
 if {![string is double -strict $wns] || $wns < 0} { error "CHECK FAILED timing: WNS = $wns" }
 if {![string is double -strict $whs] || $whs < 0} { error "CHECK FAILED timing: WHS = $whs" }
