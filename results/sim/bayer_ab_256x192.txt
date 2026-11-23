@@ -1,0 +1,14 @@
+Option A vs Option B, simulation, 256x192, BLOCK_LEN 64, memory latency 20, no back-pressure (scripts/compare_bayer_ab.py)
+
+transform     gray cyc     A cyc     B cyc    B/A  A px/clk  B px/clk  A BYTES_RD  B BYTES_RD  A RD_STALL  B RD_STALL
+identity         49315     49868     54473   1.09     0.986     0.902      201696      100848         228       29798
+mirror_cols      49315     49868     54855   1.10     0.986     0.896      201696      103904         228       30180
+rot5             49303     49764    181500   3.65     0.988     0.271      254880      142688         124      155280
+rot15            51937     65510    380191   5.80     0.750     0.129      343928      203728       15880      351168
+rot37            84623     93846    537037   5.72     0.524     0.092      390304      244512       44263      502538
+rot90           108427    103384    521859   5.05     0.475     0.094      368640      221184       53931      488064
+scale0p8         49317     49860     48163   0.97     0.986     1.021      155648       77824         220       23408
+scale1p25        49313     49844     52707   1.06     0.986     0.933      172032       86016         204       28032
+combined         49301     51298    319232   6.22     0.958     0.154      283296      182800        1658      291360
+
+B/A < 1: Option B faster. TEST PASS (every frame bit-exact)

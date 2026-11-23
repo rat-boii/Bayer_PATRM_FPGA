@@ -78,3 +78,4 @@ docs/*Tracker*.docx
 # Vivado runtime profiling output
 dfx_runtime.txt
 data/vectors_demo/
+data/vectors_ab/
