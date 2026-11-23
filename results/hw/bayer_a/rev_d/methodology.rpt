@@ -1,9 +1,9 @@
-Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
-| Tool Version : Vivado v.2025.2 (win64) Build 6299465 Fri Nov 14 19:35:11 GMT 2025
-| Date         : Mon Nov 23 09:46:19 2026
-| Host         : LAPTOP-QA0271O4 running 64-bit major release  (build 9200)
-| Command      : report_methodology -file C:/Users/tusha/Projects/Bayer_PATRM_FPGA/results/hw/bayer_a/rev_d/methodology.rpt
+| Tool Version : Vivado v.2026.1 (win64) Build 6511674 Tue Jun 16 11:02:23 MDT 2026
+| Date         : Mon Nov 23 17:01:34 2026
+| Host         : Retro_big_bro running 64-bit major release  (build 9200)
+| Command      : report_methodology -file D:/MASTERS/RC_project/results/hw/bayer_a/rev_d/methodology.rpt
 | Design       : system_wrapper
 | Device       : xc7z020clg484-1
 | Speed File   : -1

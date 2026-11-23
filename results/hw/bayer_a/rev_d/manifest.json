@@ -2,59 +2,61 @@
   "date": "2026-11-23",
   "status": "LAPTOP_VERIFIED_BOARD_PENDING",
   "board": "ZedBoard Rev D",
-  "base_commit": "9319cf0d4c8fe944f6f5f85919ef473057808087",
-  "branch": "codex/step-5-3-revd-offline",
-  "uncommitted_source_changes": true,
-  "tools": "Vivado/Vitis 2025.2; Arm GNU Toolchain 15.3.1",
+  "base_commit": "2cf14b0b9c4d4fda6476ee9768b651fdbfef952f",
+  "branch": "main",
+  "uncommitted_source_changes": false,
+  "tools": "Vivado/Vitis 2026.1; Arm GNU Toolchain 14.2.Rel1",
   "variant": "bayer_a",
   "modes": 3,
   "build_type": 1,
   "expected_build_id": "0x00403101",
   "ddr_part": "MT41K128M16 JT-125",
   "fclk_mhz": 100,
-  "wns_ns": 0.938,
-  "whs_ns": 0.055,
-  "regression_items": 43,
+  "wns_ns": 1.049,
+  "whs_ns": 0.051,
+  "regression_items": 52,
   "hardware_tested": false,
   "artifacts": {
     "patrm_bayer_a.bit": {
-      "bytes": 4045690,
-      "sha256": "2c4c24ee89e5aa65f8d41558bbce2df07ea179f59b65e746d5630f3880106f4f"
+      "bytes": 4045769,
+      "sha256": "7006f38882793a9688a950f10655bb8a550637701e6c0630f8489bcf3738e3e3"
     },
     "patrm_bayer_a.xsa": {
-      "bytes": 540927,
-      "sha256": "af48ba50b6749e7d3cf45b68dd597e230995a68d89a64aca3a46120fc27df11b"
+      "bytes": 540203,
+      "sha256": "df53d367b7030f4df7fc6f9db3a34c091846498a17ca21705db909a4abf07a01"
     },
     "patrm_app.elf": {
-      "bytes": 309448,
-      "sha256": "ca9161474976e987f781f25b1984c61e08d42d875612bdc9484f12e682463598"
+      "bytes": 308220,
+      "sha256": "bdd5727526b16f2fba6c28cbf28775ebba5ee944adc7361185e39a3c48381fe3"
     },
     "ps7_init.tcl": {
       "bytes": 35921,
-      "sha256": "74ba1c5e868affba7f83032ed29cf96a0fe0b53d0461e1b199d41c67041d4eb8"
+      "sha256": "fc601a932ad7b6b23fe20ce35cf8a62bc4d357d4c2d95ce0167a5438b0389b83"
     }
   },
   "source_sha256": {
     "rtl/axil_regs.v": "fa55c78f96f900c9e290d9b7ea35239b316987a929ee90a3275e79e9399d6965",
     "rtl/axi_rd_master.v": "527c001782bdd4b7f9e429e77e794937ec1db73ac129602f8bcd72f0d50257cd",
     "rtl/axi_wr_master.v": "fe87b37701e870e7a3254d10e32916d7132868b9f2ab9b848734cf05409426b3",
-    "rtl/bayer_seq.v": "54946c854a8b3b0fe1d460cd74080e5a8c7d4c496bab20fcbd9fc3dc86de6183",
-    "rtl/bilinear_interp.v": "19d17dd321928b52d445374634e3730be0b0b4472d00b7fdc3b5cf8d5ad6fd64",
+    "rtl/bayer_seq.v": "ccae853165a33e67c6ff2114e4b3f5119d78eeca5e1188afb0a33aed879f115b",
+    "rtl/bilinear_interp.v": "8f35f42e28edcd3f771b8862cf7fbcf9be8d6153ecdebf0e655a9de21ab472d9",
     "rtl/block_planner.v": "fbeb26de410898200ae244f8edb08b678b51fa3b36979db9cc6cb2dcffc6b053",
-    "rtl/coord_gen.v": "4de5bfbf49f4ec5bee0e73d390d1464fc5a123e91ef2354bbd05462cf6f9c501",
+    "rtl/coord_gen.v": "8fdd2e822584d25809f760777633abdd9ed079d547a4da807007748bd6b78917",
     "rtl/ctrl_fsm.v": "612bf282dfc8369021afa9e5d6d7fb2596b5f9879c4ca1cf3e620a9289710a11",
-    "rtl/line_buf.v": "6e852b80131170b335b6293efc68ff2d877e19415cc3b3f636756779b297b065",
+    "rtl/line_buf.v": "f13a9406e03bf5830ac2ae1ed21f925ca177ea40688f06023b614642915f3d48",
     "rtl/out_fifo.v": "519a9f25eec5f8d56b5cff51ef492435fd90d80337f2f5a50ee9719459b5487a",
-    "rtl/patrm_top.v": "9ccbe3b5d03ad7388aaf61f350f2b3793826ef6defc02eab23c79f003ba932b3",
+    "rtl/patrm_top.v": "d1d39a2d13d36e478da70610d85f3dea1783e08d52b2874bbaed7d645bbf7a4c",
     "rtl/pixel_fetch.v": "88d9d6396a1ae06adb4cf47d512016a76a60812cb1209d7146cc0a531838f06e",
     "rtl/prefetch_ctrl.v": "8ed0c0b7526d436662b5c67c149ee5bb13dc15f2e571d28f3460d059c4f1ab2f",
-    "vivado/build.tcl": "7ec9398650b84a03a9400252878f88c744bd3e4491fa132fb3008f224753bbbe",
-    "sw/patrm_drv/patrm_drv.c": "6e5d8ab287887720426db7e786d4877730d7043f87ff2a707aebe4bc4d8f5256",
-    "sw/patrm_app/main.c": "79a783ef31e6177f517550dee4377d486d58cb2766a9e573672e864a8c5ff9e6",
-    "sw/patrm_app/build_vitis.py": "1c47edf84fa88416f13f221638c03556cf236a2e373d2e86e65625a775caad06",
-    "sw/patrm_sw/patrm_sw.c": "9c22e221a2cc55ddfad8b24ddba18446bb1e6fcf6967566e546a71263931076e",
-    "scripts/board/run_frame.py": "e7eab60c7c8fe56655e7c172028308cc45ead2005e6d2ff62c6dc461d83efa06",
-    "scripts/board/run_job.py": "b6d5fd2c88a25687b64db1acee2e2127368ad071d35f81f991e7690578df4917",
-    "scripts/board/run_all.py": "af192716dca9a5bbf64efbac0be30d0abec91c33967c47a5b0aea85c2b32ab0c"
-  }
+    "vivado/build.tcl": "8e0690ca953dae13ba23e075fb1c1e382bbc11fc2391d20a074cdc958dd23eb9",
+    "sw/patrm_drv/patrm_drv.c": "9508f5f7f1396c725d3f60ee991b5cb4f8edbd0e617e4d789a8fa1c610afcb1f",
+    "sw/patrm_app/main.c": "ae9d2dfabdc8d38aaa5d9f1c262b9b5a147e01ff466ac7ecd1c37f7af4e4e119",
+    "sw/patrm_app/build_vitis.py": "fb56bb8458bdb992d527ab47c06b155a7750f649a3b10bf88d60ecb4967a6e81",
+    "sw/patrm_sw/patrm_sw.c": "9f6c1a303ac84f2993b1632a11d3701916e964103184badc9af568afdaecf145",
+    "scripts/board/run_frame.py": "521f76a1c1b7f14d67ad3517c1f22934385fa5522eccf9f122a0a33253d74382",
+    "scripts/board/run_job.py": "578b034660ef9215a6c0f0c3f7715746aee6e5c238adb67fa9ebac7527e39f5b",
+    "scripts/board/run_all.py": "1a71b7f0fadd0ed7fc691dc558ef190f4f68a307cae71ad52ca14a94931565ec"
+  },
+  "enet0_mdio": "MIO 52 .. 53",
+  "note": "Rebuilt 2026-11-23 from merged main (steps 5.3, 6.1, 6.2 + Phase 10) with the ENET0 MDIO fix; replaces the 2025.2 build of the teammate (WNS +0.938, binaries not in git). App built with -DFPU_HARD_FLOAT_ABI_ENABLED=1."
 }
