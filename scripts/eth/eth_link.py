@@ -26,6 +26,7 @@ REQ_MAGIC = 0x4854_4550                       # "PETH" in memory
 RSP_MAGIC = 0x5254_4550                       # "PETR" in memory
 VERSION = 1
 FLAG_FILL = 0x1
+FLAG_QUIET = 0x2                              # no UART line per job (step 10.3)
 FILL_BYTE = 0xA5
 STATUS = {0: "OK", 1: "BAD_HEADER", 2: "BAD_SIZES"}
 REQ_FMT = "<8I"                               # magic version src_bytes out_bytes flags reserved[3]
@@ -41,8 +42,9 @@ class LinkError(Exception):
     pass
 
 
-def encode_request(src_bytes, out_bytes, fill=True):
-    return struct.pack(REQ_FMT, REQ_MAGIC, VERSION, src_bytes, out_bytes, FLAG_FILL if fill else 0, 0, 0, 0)
+def encode_request(src_bytes, out_bytes, fill=True, quiet=False):
+    flags = (FLAG_FILL if fill else 0) | (FLAG_QUIET if quiet else 0)
+    return struct.pack(REQ_FMT, REQ_MAGIC, VERSION, src_bytes, out_bytes, flags, 0, 0, 0)
 
 
 def decode_response(data):
@@ -75,12 +77,12 @@ class JobLink:
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.sock.settimeout(timeout)
 
-    def run(self, descriptor, src=None, out_bytes=0, fill=True):
+    def run(self, descriptor, src=None, out_bytes=0, fill=True, quiet=False):
         """Send one job; returns (response header dict, result record bytes, output bytes, PC timings dict).
         src None or b'' keeps the source already on the board."""
         src = src or b""
         t0 = time.perf_counter()
-        self.sock.sendall(encode_request(len(src), out_bytes, fill) + descriptor)
+        self.sock.sendall(encode_request(len(src), out_bytes, fill, quiet) + descriptor)
         if src:
             self.sock.sendall(src)
         t_sent = time.perf_counter()
@@ -147,7 +149,8 @@ def selftest():
     text = HEADER_C.read_text(encoding="utf-8")
     defs = {k: int(v, 0) for k, v in re.findall(r"#define\s+(PATRM_ETH_\w+)\s+(0x[0-9A-Fa-f]+|\d+)U?", text)}
     want = {"PATRM_ETH_PORT": JOB_PORT, "PATRM_ETH_REQ_MAGIC": REQ_MAGIC, "PATRM_ETH_RSP_MAGIC": RSP_MAGIC,
-            "PATRM_ETH_VERSION": VERSION, "PATRM_ETH_FLAG_FILL": FLAG_FILL, "PATRM_ETH_FILL_BYTE": FILL_BYTE,
+            "PATRM_ETH_VERSION": VERSION, "PATRM_ETH_FLAG_FILL": FLAG_FILL, "PATRM_ETH_FLAG_QUIET": FLAG_QUIET,
+            "PATRM_ETH_FILL_BYTE": FILL_BYTE,
             "PATRM_ETH_OK": 0, "PATRM_ETH_BAD_HEADER": 1, "PATRM_ETH_BAD_SIZES": 2}
     bad = [f"{k}: C {defs.get(k)} != Python {v}" for k, v in want.items() if defs.get(k) != v]
     if struct.pack("<I", REQ_MAGIC) != b"PETH" or struct.pack("<I", RSP_MAGIC) != b"PETR":

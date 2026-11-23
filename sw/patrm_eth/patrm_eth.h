@@ -11,7 +11,7 @@
  * src_bytes > 0 must equal width x height and needs the descriptor flag SRC_CPU (the ARM writes the source).
  * out_bytes = bytes of the output area sent back from dst_addr (0 = none; W x H + 4096 for the guard check).
  * Flag FILL: the board fills those out_bytes with 0xA5 before the job, as the JTAG runner does, so bytes the engine
- * never wrote and writes past the image (guard) are visible.
+ * never wrote and writes past the image (guard) are visible. Flag QUIET: no UART line per job (video streaming).
  */
 #ifndef PATRM_ETH_H
 #define PATRM_ETH_H
@@ -23,6 +23,8 @@
 #define PATRM_ETH_RSP_MAGIC       0x52544550U   /* "PETR" in memory */
 #define PATRM_ETH_VERSION         1U
 #define PATRM_ETH_FLAG_FILL       0x1U
+#define PATRM_ETH_FLAG_QUIET      0x2U          /* step 10.3: no "RESULT ..." UART line (about 17 ms at 115200 baud) */
+#define PATRM_ETH_FLAGS_KNOWN     (PATRM_ETH_FLAG_FILL | PATRM_ETH_FLAG_QUIET)
 #define PATRM_ETH_FILL_BYTE       0xA5U
 
 /* response status (protocol level; the job's own result is the rc in the result record) */

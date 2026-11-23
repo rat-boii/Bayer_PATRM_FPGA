@@ -2,7 +2,7 @@
 
 For the teammate (and the coding agent he uses: Claude Code or Codex) who builds the PC GUI and the Ethernet link.
 
-**Status 2026-11-23:** not handed over after all; we do Phase 10 ourselves on `main`. This file stays as the Phase 10 brief. The branch advice in section 2 applies only if someone else takes it later.
+**Status 2026-11-23:** not handed over after all; we do Phase 10 ourselves on `main`. Steps 10.0-10.3 are done (README sections 10.0-10.3); the GUI is `scripts/eth/video_gui.py`. This file stays as the Phase 10 brief. The branch advice in section 2 applies only if someone else takes it later.
 Written 2026-11-22, at commit `step-5.2`. **Read `CLAUDE.md` first**: its rules apply to this work too (model is the
 reference, bit-exact checks, one step at a time, label estimates, never change a fixed decision without asking).
 

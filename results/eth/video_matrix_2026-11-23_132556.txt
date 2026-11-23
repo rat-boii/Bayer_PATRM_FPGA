@@ -1,0 +1,17 @@
+video_matrix (step 10.3), 2026-11-23 13:25, frames data/gen/burst_800x480 (cover-cropped to each size), 100 frames per run, one frame at a time, every frame checked
+
+size     transform engine     fps  engine ms  board job ms  round trip ms  bit-exact
+800x480  identity  fpga      41.1       3.84          6.09          18.78  100 of 100
+800x480  identity  arm       25.7      25.70         27.77          36.95  100 of 100
+800x480  spin      fpga      40.6       7.44          9.69          18.32  100 of 100
+800x480  spin      arm       27.5      22.20         24.31          34.25  100 of 100
+640x480  identity  fpga      52.2       3.07          4.91          12.16  100 of 100
+640x480  identity  arm       31.3      20.57         22.31          29.95  100 of 100
+640x480  spin      fpga      45.4       6.15          7.99          17.79  100 of 100
+640x480  spin      arm       34.6      18.41         20.16          27.29  100 of 100
+480x272  identity  fpga      95.3       1.31          2.11           6.79  100 of 100
+480x272  identity  arm       67.5       8.74          9.55          12.50  100 of 100
+480x272  spin      fpga      91.2       2.46          3.26           7.42  100 of 100
+480x272  spin      arm       71.2       7.18          7.98          12.12  100 of 100
+
+VIDEO_MATRIX PASS

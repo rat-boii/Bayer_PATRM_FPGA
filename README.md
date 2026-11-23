@@ -834,6 +834,32 @@ agree in 4 of 33 cases (-0.25 % .. +0.01 %); Ethernet against them: 3 of 33 (-0.
 BYTES_WR are identical in all 33 cases in every comparison.
 Decided 2026-11-23: Step 10.2's CYCLES check is "within the JTAG run-to-run spread"; it passes. The spread is per-frame noise (no drift, no effect on the output); report speed as min / avg / max over N frames (`--n`).
 
+## Step 10.3: video GUI (frames streamed through the engine over Ethernet)
+
+![video GUI](docs/img/step10_3_video_gui.png)
+```
+python scripts/eth/make_burst.py                    # test burst: 100 frames 800x480 -> data/gen/burst_800x480/
+python scripts/eth/video_gui.py                     # the GUI (Load board, Load frames, Play)
+python scripts/eth/video_stream.py --size 640x480 --transform sweep:-30:30 --engine arm    # headless run
+python scripts/eth/video_matrix.py                  # fps table, FPGA vs ARM -> results/eth/video_matrix_*.txt
+```
+Any folder of PNG/JPG frames works (`--frames` or Browse); frames are converted to grayscale and cover-cropped to
+W x H before streaming. Transforms: `spin`, `sweep:A:B`, `zoom:S1:S2` or a name from model/transforms.json. Every
+output frame is compared with the model in background processes; the GUI shows "model check k of N bit-exact".
+
+Measured 2026-11-23 (results/eth/video_matrix_2026-11-23_132556.txt), 100 frames per run, 1200 of 1200 bit-exact,
+stream fps = frames through the board one at a time:
+
+| size | identity FPGA | identity ARM | spin FPGA | spin ARM | engine ms identity FPGA / ARM |
+|---|---|---|---|---|---|
+| 480x272 | 95.3 | 67.5 | 91.2 | 71.2 | 1.31 / 8.74 |
+| 640x480 | 52.2 | 31.3 | 45.4 | 34.6 | 3.07 / 20.57 |
+| 800x480 | 41.1 | 25.7 | 40.6 | 27.5 | 3.84 / 25.70 |
+
+The engine is 3-7x faster than the ARM, but at these sizes the stream is limited by moving the frames (800x480: round
+trip about 18 ms, of which the engine 4-7 ms). 60 fps at 800x480 would need the upload of the next frame to overlap the
+engine run (not done yet).
+
 ## Temporary Rev D board: verified build and 48-word DDR test
 
 The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are

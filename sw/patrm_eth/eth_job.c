@@ -101,7 +101,7 @@ static u32_t check_request(void)
 	const patrm_eth_req_t *h = &jc.hdr;
 	const patrm_job_desc_t *d = &jc.desc;
 	if (h->magic != PATRM_ETH_REQ_MAGIC || h->version != PATRM_ETH_VERSION ||
-	    (h->flags & ~PATRM_ETH_FLAG_FILL) != 0U) {
+	    (h->flags & ~PATRM_ETH_FLAGS_KNOWN) != 0U) {
 		return PATRM_ETH_BAD_HEADER;
 	}
 	if (h->src_bytes != 0U) {
@@ -252,22 +252,21 @@ int transfer_data(void)
 		if (init_rc != PATRM_RC_OK) {
 			patrm_jobrun_header(&dev, &r, jc.desc.seq, init_rc);
 		} else {
+			/* The output goes back by DMA straight from DDR, so DDR must hold it; the ARM never reads it. The fill
+			 * is written through the cache and flushed; the driver cleans and invalidates the image area itself
+			 * before START (patrm_run) and the software baseline flushes its output (patrm_jobrun). */
 			if (out > 0U && (jc.hdr.flags & PATRM_ETH_FLAG_FILL) != 0U) {
 				memset(dst, PATRM_ETH_FILL_BYTE, out);
-			}
-			if (out > 0U) {
 				Xil_DCacheFlushRange((INTPTR)dst, (INTPTR)out);
 				dsb();
 			}
 			patrm_jobrun(&dev, &jc.desc, &r);
-			if (out > 0U) {
-				Xil_DCacheInvalidateRange((INTPTR)dst, (INTPTR)out);
-				dsb();
-			}
 		}
 		u32_t job_us = ticks_to_us(patrm_now() - t0);
 		jc.jobs++;
-		patrm_jobrun_print(&r);
+		if ((jc.hdr.flags & PATRM_ETH_FLAG_QUIET) == 0U) {
+			patrm_jobrun_print(&r);
+		}
 		build_response(PATRM_ETH_OK, &r, job_us);
 		send_more();
 	}
