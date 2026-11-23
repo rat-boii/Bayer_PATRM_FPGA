@@ -1,0 +1,4 @@
+CYCLES         7353095  (73530.9 us at 100 MHz); over N = 10: min 7352029, avg 7353153, max 7354543
+JOB PASS
+CYCLES         7353978  (73539.8 us at 100 MHz); over N = 10: min 7351458, avg 7353268, max 7354525
+JOB PASS

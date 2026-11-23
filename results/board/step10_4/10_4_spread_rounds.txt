@@ -1,0 +1,24 @@
+=== round 1 jtag
+CYCLES         7366229  (73662.3 us at 100 MHz); over N = 10: min 7365013, avg 7365948, max 7366905
+JOB PASS
+=== round 1 eth
+CYCLES         7366860  (73668.6 us at 100 MHz); over N = 10: min 7366126, avg 7366587, max 7367119
+JOB PASS
+=== round 2 jtag
+CYCLES         7363918  (73639.2 us at 100 MHz); over N = 10: min 7362616, avg 7363913, max 7364718
+JOB PASS
+=== round 2 eth
+CYCLES         7365499  (73655.0 us at 100 MHz); over N = 10: min 7365183, avg 7365934, max 7366924
+JOB PASS
+=== round 3 jtag
+CYCLES         7367756  (73677.6 us at 100 MHz); over N = 10: min 7366509, avg 7367255, max 7368394
+JOB PASS
+=== round 3 eth
+CYCLES         7341316  (73413.2 us at 100 MHz); over N = 10: min 7340715, avg 7341463, max 7342121
+JOB PASS
+=== round 4 jtag
+CYCLES         7342022  (73420.2 us at 100 MHz); over N = 10: min 7341177, avg 7341903, max 7342351
+JOB PASS
+=== round 4 eth
+CYCLES         7340569  (73405.7 us at 100 MHz); over N = 10: min 7340569, avg 7341494, max 7342241
+JOB PASS

@@ -32,6 +32,10 @@
     "ps7_init.tcl": {
       "bytes": 35921,
       "sha256": "fc601a932ad7b6b23fe20ce35cf8a62bc4d357d4c2d95ce0167a5438b0389b83"
+    },
+    "patrm_eth.elf": {
+      "bytes": 1010912,
+      "sha256": "f1dffd9eb3a76824682da46795cc9a72336a587893a1c8d3c93f4086423b888c"
     }
   },
   "source_sha256": {
@@ -66,6 +70,7 @@
     "bayer_a_run_all": "66 of 66 PASS (results/board/run_all_revd_bayer_a_bayer_a.csv)",
     "gray_on_a_run_all": "33 of 33 PASS (results/board/run_all_revd_bayer_a_gray.csv)",
     "single_jobs": "identity 64x64 --load, rot15 128x96 N=10, rot37 128x96 --poll, 5 mixed gray/Bayer jobs back to back: all JOB PASS (results/board/step53_bayer_a/)",
-    "artifact_hashes_checked": true
+    "artifact_hashes_checked": true,
+    "ethernet_step_10_4": "patrm_eth.elf (Vitis 2026.1, PATRM_VARIANT=bayer_a): Bayer 66 of 66 and gray-on-A 33 of 33 PASS over Ethernet; MIO 52/53 = MDIO from ps7_init"
   }
 }

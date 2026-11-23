@@ -71,9 +71,6 @@ def prepare(a):
     a.timeout = math.ceil(a.n * a.timeout_ms / 1000) + RESULT_MARGIN_S
     a.link = getattr(a, "link", "jtag")              # callers that build their own Namespace (model/test_bayer_jobs.py)
     eth = a.link == "eth"
-    if eth and mode != "gray":
-        # patrm_eth.elf is built from the gray XSA and the gray bitstream; a Bayer A Ethernet build does not exist yet
-        raise J.JobError("--link eth supports gray jobs only (no Ethernet application for the Bayer A build yet)")
     # a software job does not use the engine or its interrupt; over Ethernet the engine is polled (lwIP owns the GIC)
     irq = not (a.poll or a.sw or eth)
     f = RF.load_frame(a, irq_en=1 if irq else 0, prefix=run_prefix(a.sw, a.link, mode))
@@ -93,7 +90,8 @@ def run_eth(f, a):
     import eth_link as EL
     if a.load:
         print(f"run_job: loading {a.bit}, {a.elf} (Ethernet application)")
-        EL.load_board(a.bit, a.init, a.elf)
+        # the Bayer A bundle has the build.tcl MDIO fix: check it instead of patching the pins (step 10.4)
+        EL.load_board(a.bit, a.init, a.elf, mdio="check" if "bayer_a" in Path(a.bit).as_posix() else "fix")
         print(f"run_job: job port reachable after {EL.wait_ready(a.ip):.1f} s")
     with EL.JobLink(a.ip, timeout=a.timeout + 30) as link:
         rsp, result, out, t = link.run(f["descriptor"], f["src_bytes"], f["out_bytes"], fill=True)
@@ -201,7 +199,7 @@ def main(argv=None):
     ap.add_argument("--bit", default=None, help="bitstream for --load")
     ap.add_argument("--init", default=None, help="ps7_init script for --load")
     ap.add_argument("--elf", default=None,
-                    help="application for --load (default: patrm_app.elf of the bundle; with --link eth patrm_eth.elf)")
+                    help="application for --load (default: patrm_app.elf of the bundle; with --link eth patrm_eth.elf of the bundle)")
     ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
                     help="jtag: XSDB mailbox (step 4.2); eth: Ethernet job service (step 10.2, engine polled)")
     ap.add_argument("--ip", default="192.168.1.10", help="board address for --link eth")
@@ -210,7 +208,7 @@ def main(argv=None):
     a.bit = a.bit or str(bundle / f"patrm_{a.mode}.bit")
     a.init = a.init or str(bundle / "ps7_init.tcl")
     if a.link == "eth":
-        a.elf = a.elf or str(HW_DIR / "patrm_eth.elf")
+        a.elf = a.elf or str((bundle if a.mode == "bayer_a" else HW_DIR) / "patrm_eth.elf")
     else:
         a.elf = a.elf or str((bundle if a.mode == "bayer_a" else HW_DIR) / "patrm_app.elf")
     try:

@@ -15,6 +15,8 @@ Checks: every template .c file compiled with the required flags, no compiler war
 0x0F00_0000 (spec/memory_map.md section 1). Copies the ELF to results/hw/patrm_eth.elf (not tracked). `vitis -s` can exit 0 after a failure: the build succeeded only if the last line is PATRM_ETH BUILD OK.
 
 XSA: environment variable PATRM_XSA if set; else results/hw/patrm_gray.xsa; else the tracked Rev D bundle.
+Step 10.4: PATRM_VARIANT=bayer_a PATRM_REV=d builds from results/hw/bayer_a/rev_d/patrm_bayer_a.xsa and writes
+results/hw/bayer_a/rev_d/patrm_eth.elf (gray and Bayer A jobs; MDIO already on MIO 52/53 in that XSA).
 """
 import json
 import os
@@ -33,12 +35,25 @@ from amd_tools import irq_saves_vfp          # noqa: E402
 os.environ["PATH"] = str(Path(os.environ["XILINX_VIVADO"]) / "bin") + os.pathsep + os.environ["PATH"]
 
 REPO = Path(__file__).resolve().parents[2]
-XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
-if not os.environ.get("PATRM_XSA") and not XSA.is_file():
-    XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
-WORKSPACE = REPO / "build" / "vitis" / "patrm_eth"
-ELF_OUT = REPO / "results" / "hw" / "patrm_eth.elf"
-PLATFORM = "patrm_eth_plat"
+# Step 10.4: PATRM_VARIANT=bayer_a (PATRM_REV=d) builds the same application from the Bayer A XSA into its own
+# workspace, and writes results/hw/bayer_a/rev_<rev>/patrm_eth.elf next to that bundle. The gray default is unchanged.
+VARIANT = os.environ.get("PATRM_VARIANT", "gray")
+REV = os.environ.get("PATRM_REV", "d").lower()
+if VARIANT not in ("gray", "bayer_a") or REV not in ("c", "d"):
+    raise ValueError("PATRM_VARIANT must be gray|bayer_a; PATRM_REV must be c|d")
+if VARIANT == "bayer_a":
+    A_DIR = REPO / "results" / "hw" / "bayer_a" / f"rev_{REV}"
+    XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else A_DIR / "patrm_bayer_a.xsa"
+    WORKSPACE = REPO / "build" / "vitis" / f"patrm_eth_bayer_a_rev{REV}"
+    ELF_OUT = A_DIR / "patrm_eth.elf"
+    PLATFORM = f"patrm_eth_bayer_a_rev{REV}_plat"
+else:
+    XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
+    if not os.environ.get("PATRM_XSA") and not XSA.is_file():
+        XSA = REPO / "results" / "hw" / "rev D" / "patrm_gray.xsa"
+    WORKSPACE = REPO / "build" / "vitis" / "patrm_eth"
+    ELF_OUT = REPO / "results" / "hw" / "patrm_eth.elf"
+    PLATFORM = "patrm_eth_plat"
 DOMAIN = "standalone_a9_0"
 APP = "patrm_eth"
 TEMPLATE = "lwip_echo_server"

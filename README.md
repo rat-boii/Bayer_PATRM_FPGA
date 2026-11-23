@@ -887,7 +887,7 @@ xsdb scripts/board/repeat48.tcl 10
 This checks debugger-to-DDR access, not full DDR coverage, reset recovery or
 the accelerator's PL-to-DDR data path. The standalone PDF report is not in Git.
 
-## Step 5.3: Option A on Rev D (laptop integration; board verification pending)
+## Step 5.3: Option A on Rev D (board-verified 2026-11-23)
 
 See [the step 5.3 instructions](docs/step-5.3-revd-offline.md) for builds, offline tests and
 the later board checklist. `vivado/build.tcl -tclargs variant=bayer_a rev=d` selects
@@ -898,4 +898,21 @@ The no-argument gray/Rev C build remains unchanged. Set `PATRM_VARIANT=bayer_a` 
 Bayer reference and bundle; `run_all.py --variant bayer_a --mode gray --rev d` checks gray
 on the A build. Named Bayer inputs are `chart` or `photo` from generated `rggb_*.raw` files.
 New offline checks: `python -m model.test_patrm_drv` and `python -m model.test_bayer_jobs`.
-No Option A board result is claimed; step 5.3 is not complete until the board checks pass.
+Board result 2026-11-23 (JTAG): Bayer set 66 of 66 and gray-on-A 33 of 33 RUN_ALL PASS, bit-exact; interrupt, polling,
+repetition and mixed gray/Bayer jobs pass. Details: results/hw/bayer_a/rev_d/README.md.
+
+## Step 10.4: Ethernet on the Bayer A bitstream
+
+The Ethernet application (step 10.2) built from the Bayer A XSA runs gray and Bayer A jobs; its ELF sits with the A bundle.
+The A XSA has the build.tcl MDIO fix, so the loader only checks MIO 52/53 (read-only, `mdio_mio.tcl --check`).
+```
+$env:PATRM_VARIANT='bayer_a'; $env:PATRM_REV='d'; vitis -s sw/patrm_eth/build_vitis.py   # -> results/hw/bayer_a/rev_d/patrm_eth.elf
+python scripts/board/run_job.py chart rot15 128 96 --mode bayer_a --rev d --link eth --load
+python scripts/board/run_all.py --mode bayer_a --rev d --images chart,photo --link eth
+python scripts/board/run_all.py --variant bayer_a --mode gray --rev d --link eth
+```
+Result 2026-11-23: Bayer 66 of 66 (135 s for the set, against 689 s over JTAG) and gray-on-A 33 of 33 RUN_ALL PASS,
+BYTES_RD / BYTES_WR identical to JTAG in all 99 cases; MIO 52/53 = 0x280 straight from ps7_init. CYCLES: Ethernet vs JTAG
+within 0.25 % in 97 of 99 cases; 2448x2048 rot15 +0.34 %, inside that case's own JTAG spread of 0.37 % (5 board loads x
+10 frames per link: each load lands at about 7.341 M, 7.353 M or 7.366 M cycles on either link; cause not investigated).
+Logs: results/board/step10_4/.

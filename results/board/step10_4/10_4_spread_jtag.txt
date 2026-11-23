@@ -1,0 +1,6 @@
+wait mode      interrupt
+CYCLES         7366412  (73664.1 us at 100 MHz); over N = 10: min 7366383, avg 7366869, max 7367594
+JOB PASS
+wait mode      polling
+CYCLES         7367233  (73672.3 us at 100 MHz); over N = 10: min 7366016, avg 7366990, max 7367950
+JOB PASS

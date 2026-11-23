@@ -100,7 +100,7 @@ def main(argv=None):
     ap.add_argument("--images", default="photo", help="comma list of image names from data/gen (default photo)")
     ap.add_argument("--n", type=int, default=1, help="frames per case (run_job --n)")
     ap.add_argument("--elf", default=None,
-                    help="ARM application (default: patrm_app.elf of the bundle; with --link eth results/hw/patrm_eth.elf)")
+                    help="ARM application (default: patrm_app.elf of the bundle; with --link eth patrm_eth.elf of the bundle)")
     ap.add_argument("--sw", action="store_true", help="ARM software baseline instead of the engine (step 4.4)")
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
@@ -115,13 +115,10 @@ def main(argv=None):
     variant = a.variant or a.mode
     if a.mode == "bayer_a" and variant != "bayer_a":
         ap.error("Bayer jobs need --variant bayer_a")
-    if a.link == "eth" and variant != "gray":
-        # results/hw/patrm_eth.elf is built from the gray XSA; there is no Ethernet build for the Bayer A bitstream yet
-        ap.error("--link eth runs on the gray build only (no Ethernet application for the Bayer A build yet)")
     hw = HW[a.rev] if variant == "gray" else ROOT / "results" / "hw" / "bayer_a" / f"rev_{a.rev}"
     if a.elf is None:                            # one default for every combination (merge of steps 5.3 and 10.2)
-        if a.link == "eth":
-            a.elf = str(ROOT / "results" / "hw" / "patrm_eth.elf")
+        if a.link == "eth":                     # step 10.4: the Bayer A bundle has its own patrm_eth.elf
+            a.elf = str((ROOT / "results" / "hw" if variant == "gray" else hw) / "patrm_eth.elf")
         else:
             a.elf = str((ROOT / "results" / "hw" if variant == "gray" else hw) / "patrm_app.elf")
     if a.sizes is None:

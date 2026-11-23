@@ -1,0 +1,140 @@
+run_all: 66 cases (3 sizes x 2 image(s) x 11 transforms), board Rev D, variant bayer_a, mode bayer_a, engine, bit D:\MASTERS\RC_project\results\hw\bayer_a\rev_d\patrm_bayer_a.bit, init D:\MASTERS\RC_project\results\hw\bayer_a\rev_d\ps7_init.tcl, elf D:\MASTERS\RC_project\results\hw\bayer_a\rev_d\patrm_eth.elf, N = 1
+[ 1/66] 480x272 chart identity    PASS   77.0 s  cycles 131262  engine 1313.012 us   (JOB PASS)
+[ 2/66] 480x272 chart mirror_cols PASS    0.3 s  cycles 131295  engine 1313.224 us   (JOB PASS)
+[ 3/66] 480x272 chart mirror_rows PASS    0.3 s  cycles 131301  engine 1313.440 us   (JOB PASS)
+[ 4/66] 480x272 chart rot5        PASS    0.3 s  cycles 131172  engine 1312.178 us   (JOB PASS)
+[ 5/66] 480x272 chart rot15       PASS    0.3 s  cycles 177418  engine 1774.560 us   (JOB PASS)
+[ 6/66] 480x272 chart rot37       PASS    0.3 s  cycles 244820  engine 2448.458 us   (JOB PASS)
+[ 7/66] 480x272 chart scale0p8    PASS    0.3 s  cycles 131294  engine 1313.390 us   (JOB PASS)
+[ 8/66] 480x272 chart scale1p25   PASS    0.2 s  cycles 131256  engine 1313.000 us   (JOB PASS)
+[ 9/66] 480x272 chart combined    PASS    0.2 s  cycles 139751  engine 1397.840 us   (JOB PASS)
+[10/66] 480x272 chart rot90       PASS    0.3 s  cycles 265414  engine 2654.480 us   (JOB PASS)
+[11/66] 480x272 chart rot180      PASS    0.3 s  cycles 131298  engine 1313.387 us   (JOB PASS)
+[12/66] 480x272 photo identity    PASS    0.2 s  cycles 131282  engine 1313.163 us   (JOB PASS)
+[13/66] 480x272 photo mirror_cols PASS    0.3 s  cycles 131255  engine 1313.009 us   (JOB PASS)
+[14/66] 480x272 photo mirror_rows PASS    0.2 s  cycles 131279  engine 1313.190 us   (JOB PASS)
+[15/66] 480x272 photo rot5        PASS    0.3 s  cycles 131176  engine 1312.160 us   (JOB PASS)
+[16/66] 480x272 photo rot15       PASS    0.3 s  cycles 177317  engine 1773.520 us   (JOB PASS)
+[17/66] 480x272 photo rot37       PASS    0.3 s  cycles 244915  engine 2449.495 us   (JOB PASS)
+[18/66] 480x272 photo scale0p8    PASS    0.2 s  cycles 131292  engine 1313.187 us   (JOB PASS)
+[19/66] 480x272 photo scale1p25   PASS    0.3 s  cycles 131272  engine 1313.000 us   (JOB PASS)
+[20/66] 480x272 photo combined    PASS    0.3 s  cycles 139760  engine 1398.030 us   (JOB PASS)
+[21/66] 480x272 photo rot90       PASS    0.3 s  cycles 265283  engine 2653.178 us   (JOB PASS)
+[22/66] 480x272 photo rot180      PASS    0.3 s  cycles 131252  engine 1312.806 us   (JOB PASS)
+[23/66] 800x480 chart identity    PASS    0.3 s  cycles 384734  engine 3847.680 us   (JOB PASS)
+[24/66] 800x480 chart mirror_cols PASS    0.3 s  cycles 384725  engine 3847.701 us   (JOB PASS)
+[25/66] 800x480 chart mirror_rows PASS    0.3 s  cycles 384724  engine 3847.698 us   (JOB PASS)
+[26/66] 800x480 chart rot5        PASS    0.3 s  cycles 384565  engine 3846.058 us   (JOB PASS)
+[27/66] 800x480 chart rot15       PASS    0.3 s  cycles 535950  engine 5359.889 us   (JOB PASS)
+[28/66] 800x480 chart rot37       PASS    0.4 s  cycles 757109  engine 7571.421 us   (JOB PASS)
+[29/66] 800x480 chart scale0p8    PASS    0.3 s  cycles 384743  engine 3847.889 us   (JOB PASS)
+[30/66] 800x480 chart scale1p25   PASS    0.3 s  cycles 384710  engine 3847.486 us   (JOB PASS)
+[31/66] 800x480 chart combined    PASS    0.3 s  cycles 417900  engine 4179.289 us   (JOB PASS)
+[32/66] 800x480 chart rot90       PASS    0.4 s  cycles 809312  engine 8093.480 us   (JOB PASS)
+[33/66] 800x480 chart rot180      PASS    0.3 s  cycles 384731  engine 3847.695 us   (JOB PASS)
+[34/66] 800x480 photo identity    PASS    0.3 s  cycles 384730  engine 3847.689 us   (JOB PASS)
+[35/66] 800x480 photo mirror_cols PASS    0.3 s  cycles 384726  engine 3847.667 us   (JOB PASS)
+[36/66] 800x480 photo mirror_rows PASS    0.3 s  cycles 384726  engine 3847.698 us   (JOB PASS)
+[37/66] 800x480 photo rot5        PASS    0.3 s  cycles 384562  engine 3846.009 us   (JOB PASS)
+[38/66] 800x480 photo rot15       PASS    0.3 s  cycles 535988  engine 5360.138 us   (JOB PASS)
+[39/66] 800x480 photo rot37       PASS    0.3 s  cycles 757598  engine 7576.261 us   (JOB PASS)
+[40/66] 800x480 photo scale0p8    PASS    0.3 s  cycles 384755  engine 3847.880 us   (JOB PASS)
+[41/66] 800x480 photo scale1p25   PASS    0.3 s  cycles 384703  engine 3847.458 us   (JOB PASS)
+[42/66] 800x480 photo combined    PASS    0.3 s  cycles 418162  engine 4181.996 us   (JOB PASS)
+[43/66] 800x480 photo rot90       PASS    0.4 s  cycles 809127  engine 8091.612 us   (JOB PASS)
+[44/66] 800x480 photo rot180      PASS    0.3 s  cycles 384733  engine 3847.698 us   (JOB PASS)
+[45/66] 2448x2048 chart identity    PASS    1.8 s  cycles 5014296  engine 50143.390 us   (JOB PASS)
+[46/66] 2448x2048 chart mirror_cols PASS    1.8 s  cycles 5014298  engine 50143.240 us   (JOB PASS)
+[47/66] 2448x2048 chart mirror_rows PASS    1.8 s  cycles 5014279  engine 50143.070 us   (JOB PASS)
+[48/66] 2448x2048 chart rot5        PASS    1.9 s  cycles 5014124  engine 50141.566 us   (JOB PASS)
+[49/66] 2448x2048 chart rot15       PASS    2.2 s  cycles 7368205  engine 73682.427 us   (JOB PASS)
+[50/66] 2448x2048 chart rot37       PASS    2.6 s  cycles 10999524  engine 109995.532 us   (JOB PASS)
+[51/66] 2448x2048 chart scale0p8    PASS    1.8 s  cycles 5014308  engine 50143.436 us   (JOB PASS)
+[52/66] 2448x2048 chart scale1p25   PASS    1.8 s  cycles 5014265  engine 50142.987 us   (JOB PASS)
+[53/66] 2448x2048 chart combined    PASS    2.1 s  cycles 5821863  engine 58219.015 us   (JOB PASS)
+[54/66] 2448x2048 chart rot90       PASS    2.7 s  cycles 13301843  engine 133018.695 us   (JOB PASS)
+[55/66] 2448x2048 chart rot180      PASS    1.8 s  cycles 5014281  engine 50143.083 us   (JOB PASS)
+[56/66] 2448x2048 photo identity    PASS    1.8 s  cycles 5014296  engine 50143.363 us   (JOB PASS)
+[57/66] 2448x2048 photo mirror_cols PASS    1.8 s  cycles 5014283  engine 50143.120 us   (JOB PASS)
+[58/66] 2448x2048 photo mirror_rows PASS    1.8 s  cycles 5014277  engine 50143.040 us   (JOB PASS)
+[59/66] 2448x2048 photo rot5        PASS    1.9 s  cycles 5014156  engine 50141.920 us   (JOB PASS)
+[60/66] 2448x2048 photo rot15       PASS    2.2 s  cycles 7369084  engine 73691.249 us   (JOB PASS)
+[61/66] 2448x2048 photo rot37       PASS    2.6 s  cycles 10998166  engine 109981.990 us   (JOB PASS)
+[62/66] 2448x2048 photo scale0p8    PASS    1.8 s  cycles 5014305  engine 50143.341 us   (JOB PASS)
+[63/66] 2448x2048 photo scale1p25   PASS    1.8 s  cycles 5014259  engine 50142.975 us   (JOB PASS)
+[64/66] 2448x2048 photo combined    PASS    2.1 s  cycles 5821621  engine 58216.476 us   (JOB PASS)
+[65/66] 2448x2048 photo rot90       PASS    2.8 s  cycles 13302659  engine 133026.981 us   (JOB PASS)
+[66/66] 2448x2048 photo rot180      PASS    1.8 s  cycles 5014286  engine 50143.240 us   (JOB PASS)
+
+run_all (step 4.3, engine), 2026-11-23 19:28, board Rev D, elf patrm_eth.elf, bitstream results/hw/bayer_a/rev_d/patrm_bayer_a.bit, ps7_init results/hw/bayer_a/rev_d/ps7_init.tcl, N = 1
+cases 66 of 66 run, 66 passed, 135 s; CSV results/board/run_all_revd_bayer_a_bayer_a_eth.csv; logs build/board/run_all_revd_bayer_a_bayer_a_eth
+
+size       transform   result    cycles    PL ms   PL fps  engine us end-to-end us  Mpix/s RD stall %
+480x272    identity    PASS      131262    1.313    761.8   1313.012      2103.424   99.44        0.2
+480x272    mirror_cols PASS      131295    1.313    761.6   1313.224      2098.030   99.42        0.2
+480x272    mirror_rows PASS      131301    1.313    761.6   1313.440      2100.356   99.40        0.2
+480x272    rot5        PASS      131172    1.312    762.4   1312.178      2096.941   99.50        0.1
+480x272    rot15       PASS      177418    1.774    563.6   1774.560      2553.861   73.57       26.2
+480x272    rot37       PASS      244820    2.448    408.5   2448.458      3230.516   53.32       46.5
+480x272    scale0p8    PASS      131294    1.313    761.6   1313.390      2095.335   99.41        0.2
+480x272    scale1p25   PASS      131256    1.313    761.9   1313.000      2090.769   99.44        0.2
+480x272    combined    PASS      139751    1.398    715.6   1397.840      2178.612   93.40        6.3
+480x272    rot90       PASS      265414    2.654    376.8   2654.480      3432.163   49.18       50.4
+480x272    rot180      PASS      131298    1.313    761.6   1313.387      2095.049   99.41        0.2
+480x272    identity    PASS      131282    1.313    761.7   1313.163      2093.104   99.42        0.2
+480x272    mirror_cols PASS      131255    1.313    761.9   1313.009      2092.812   99.44        0.2
+480x272    mirror_rows PASS      131279    1.313    761.7   1313.190      2094.215   99.42        0.2
+480x272    rot5        PASS      131176    1.312    762.3   1312.160      2092.495   99.50        0.1
+480x272    rot15       PASS      177317    1.773    564.0   1773.520      2554.707   73.62       26.1
+480x272    rot37       PASS      244915    2.449    408.3   2449.495      3230.680   53.30       46.5
+480x272    scale0p8    PASS      131292    1.313    761.7   1313.187      2095.280   99.42        0.2
+480x272    scale1p25   PASS      131272    1.313    761.8   1313.000      2095.378   99.44        0.2
+480x272    combined    PASS      139760    1.398    715.5   1398.030      2177.563   93.39        6.3
+480x272    rot90       PASS      265283    2.653    377.0   2653.178      3433.830   49.21       50.4
+480x272    rot180      PASS      131252    1.313    761.9   1312.806      2094.766   99.45        0.2
+800x480    identity    PASS      384734    3.847    259.9   3847.680      5904.781   99.80        0.1
+800x480    mirror_cols PASS      384725    3.847    259.9   3847.701      5927.326   99.80        0.1
+800x480    mirror_rows PASS      384724    3.847    259.9   3847.698      5924.701   99.80        0.1
+800x480    rot5        PASS      384565    3.846    260.0   3846.058      5860.086   99.84        0.0
+800x480    rot15       PASS      535950    5.359    186.6   5359.889      7407.673   71.64       28.3
+800x480    rot37       PASS      757109    7.571    132.1   7571.421      9603.246   50.72       49.2
+800x480    scale0p8    PASS      384743    3.847    259.9   3847.889      5914.412   99.79        0.1
+800x480    scale1p25   PASS      384710    3.847    259.9   3847.486      5931.215   99.81        0.1
+800x480    combined    PASS      417900    4.179    239.3   4179.289      6220.040   91.88        8.0
+800x480    rot90       PASS      809312    8.093    123.6   8093.480     10161.790   47.45       51.4
+800x480    rot180      PASS      384731    3.847    259.9   3847.695      5897.003   99.80        0.1
+800x480    identity    PASS      384730    3.847    259.9   3847.689      5896.240   99.80        0.1
+800x480    mirror_cols PASS      384726    3.847    259.9   3847.667      5902.064   99.80        0.1
+800x480    mirror_rows PASS      384726    3.847    259.9   3847.698      5894.092   99.80        0.1
+800x480    rot5        PASS      384562    3.846    260.0   3846.009      5903.953   99.84        0.0
+800x480    rot15       PASS      535988    5.360    186.6   5360.138      7398.249   71.64       28.3
+800x480    rot37       PASS      757598    7.576    132.0   7576.261      9640.467   50.68       49.3
+800x480    scale0p8    PASS      384755    3.848    259.9   3847.880      5897.283   99.80        0.1
+800x480    scale1p25   PASS      384703    3.847    259.9   3847.458      5885.089   99.81        0.1
+800x480    combined    PASS      418162    4.182    239.1   4181.996      6271.938   91.82        8.1
+800x480    rot90       PASS      809127    8.091    123.6   8091.612     10162.427   47.46       51.4
+800x480    rot180      PASS      384733    3.847    259.9   3847.698      5871.689   99.80        0.1
+2448x2048  identity    PASS     5014296   50.143     19.9  50143.390     73031.553   99.98        0.0
+2448x2048  mirror_cols PASS     5014298   50.143     19.9  50143.240     73359.738   99.98        0.0
+2448x2048  mirror_rows PASS     5014279   50.143     19.9  50143.070     73106.390   99.98        0.0
+2448x2048  rot5        PASS     5014124   50.141     19.9  50141.566     73079.836   99.99        0.0
+2448x2048  rot15       PASS     7368205   73.682     13.6  73682.427     96613.772   68.04       32.0
+2448x2048  rot37       PASS    10999524  109.995      9.1 109995.532    132845.064   45.58       54.4
+2448x2048  scale0p8    PASS     5014308   50.143     19.9  50143.436     73024.636   99.98        0.0
+2448x2048  scale1p25   PASS     5014265   50.143     19.9  50142.987     73079.252   99.98        0.0
+2448x2048  combined    PASS     5821863   58.219     17.2  58219.015     81152.904   86.11       13.9
+2448x2048  rot90       PASS    13301843  133.018      7.5 133018.695    155943.498   37.69       62.1
+2448x2048  rot180      PASS     5014281   50.143     19.9  50143.083     73066.932   99.98        0.0
+2448x2048  identity    PASS     5014296   50.143     19.9  50143.363     73091.553   99.98        0.0
+2448x2048  mirror_cols PASS     5014283   50.143     19.9  50143.120     73076.843   99.98        0.0
+2448x2048  mirror_rows PASS     5014277   50.143     19.9  50143.040     72992.661   99.98        0.0
+2448x2048  rot5        PASS     5014156   50.142     19.9  50141.920     73070.633   99.99        0.0
+2448x2048  rot15       PASS     7369084   73.691     13.6  73691.249     96601.901   68.03       32.0
+2448x2048  rot37       PASS    10998166  109.982      9.1 109981.990    132884.138   45.58       54.4
+2448x2048  scale0p8    PASS     5014305   50.143     19.9  50143.341     73081.673   99.98        0.0
+2448x2048  scale1p25   PASS     5014259   50.143     19.9  50142.975     73029.304   99.98        0.0
+2448x2048  combined    PASS     5821621   58.216     17.2  58216.476     81164.618   86.12       13.9
+2448x2048  rot90       PASS    13302659  133.027      7.5 133026.981    155962.141   37.69       62.1
+2448x2048  rot180      PASS     5014286   50.143     19.9  50143.240     73314.633   99.98        0.0
+
+RUN_ALL PASS

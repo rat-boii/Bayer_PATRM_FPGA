@@ -1,0 +1,33 @@
+run_job: image D:\MASTERS\RC_project\data\gen\rggb_chart_128x96.raw
+run_job: transform rot15, 128 x 96, b = (63303, 16962, -971013, -16962, 63303, 947494)
+run_job: N = 1, BLOCK_LEN 64, polling, link eth, mode bayer_a, predicted BYTES_RD 85144, BYTES_WR 24576
+run_job: loading D:\MASTERS\RC_project\results\hw\bayer_a\rev_d\patrm_bayer_a.bit, D:\MASTERS\RC_project\results\hw\bayer_a\rev_d\patrm_eth.elf (Ethernet application)
+run_job: job port reachable after 68.1 s
+ethernet       source 12288 B received by the board in 0.21 ms; job on the board 0.32 ms; output 16384 B downloaded in 0.44 ms; PC round trip 17.63 ms
+
+--- result
+sequence       job 1, result 1
+result code    0 (OK)
+wait mode      polling
+BUILD_ID       0x00403101
+STATUS at DONE 0x00000002: BUSY=0 DONE=1 ERROR=0 ERR_CODE=0 (NONE)
+frames         1 of 1 completed
+interrupts     0 handled since the application started, 0 without DONE
+CYCLES         17591  (175.9 us at 100 MHz); over N = 1: min 17591, avg 17591, max 17591
+BYTES_RD       85144  (memmodel 85144: same)
+BYTES_WR       24576  (bus bytes 24576: same)
+RD_STALL       4956
+WR_STALL       0
+differing rows 0 of 96
+differing bytes 0 of 12288  (0 of them still hold the 0xA5 fill)
+first mismatch none
+LAST ROW (row 95): MATCHES the model
+after the image 0 of 4096 guard bytes changed
+files          D:\MASTERS\RC_project\build\board\job_bayer_a_eth_chart_rot15_128x96
+timer          325000000 Hz
+engine time    min 176.261 us, avg 176.261 us, max 176.261 us
+end-to-end     min 259.467 us, avg 259.467 us, max 259.467 us
+throughput     69.71 Mpix/s (engine time, average)
+frame rate     5673.4 fps from engine time, 3854.1 fps end to end
+run time       79 s
+JOB PASS

@@ -28,6 +28,13 @@ so Ethernet works without scripts/eth/mdio_mio.tcl. The application is built wit
 - patrm_app.elf: 308,220 bytes, PATRM_APP BUILD OK. Regression on the merged sources: 52 of 52 PASS.
 - The .bit / .xsa / .elf are tracked in git since the board verified them; manifest.json holds their sizes and SHA-256.
 
+## Ethernet (step 10.4)
+
+patrm_eth.elf: the step 10.2 Ethernet job service built from this XSA (PATRM_VARIANT=bayer_a PATRM_REV=d
+vitis -s sw/patrm_eth/build_vitis.py; 0 warnings, VFP save checked, 1,010,912 bytes). Board 2026-11-23: Bayer run_all
+66 of 66 and gray-on-A 33 of 33 PASS over Ethernet, counters identical to JTAG; MIO 52/53 read 0x280 after ps7_init
+(the build.tcl MDIO fix works, no workaround). Logs: results/board/step10_4/.
+
 ## Earlier build of the teammate (2025.2, replaced)
 
 Build: Vivado/Vitis 2025.2, Arm GNU 15.3.1, 100 MHz, no ILA. Base source commit 9319cf0, local branch
@@ -58,7 +65,7 @@ Its laptop checks, kept as a record:
 ## Files
 
 patrm_bayer_a.bit configures the PL; patrm_bayer_a.xsa exports the hardware for Vitis;
-ps7_init.tcl initializes the matching PS/DDR; patrm_app.elf accepts gray and A jobs.
+ps7_init.tcl initializes the matching PS/DDR; patrm_app.elf (JTAG) and patrm_eth.elf (Ethernet) accept gray and A jobs.
 Keep this set together. Other reports use the same scope as summary.txt.
 
 ## Board session

@@ -117,9 +117,12 @@ def run_xsdb(script, args, timeout=300):
     return out
 
 
-def load_board(bit=REV_D / "patrm_gray.bit", init=REV_D / "ps7_init.tcl", elf=ETH_ELF):
-    """Program, ps7_init, load the ELF halted, route MDIO to MIO 52/53 (scripts/eth/mdio_mio.tcl: the Rev D XSA has
-    MDIO on EMIO), start core 0."""
+def load_board(bit=REV_D / "patrm_gray.bit", init=REV_D / "ps7_init.tcl", elf=ETH_ELF, mdio="fix"):
+    """Program, ps7_init, load the ELF halted, route MDIO to MIO 52/53 (scripts/eth/mdio_mio.tcl: the Rev D gray XSA
+    has MDIO on EMIO), start core 0. mdio="check" (step 10.4, builds with the vivado/build.tcl MDIO fix such as
+    results/hw/bayer_a/rev_d): write nothing, only require that ps7_init already set MIO 52/53 to MDIO."""
+    if mdio not in ("fix", "check"):
+        raise ValueError("mdio must be 'fix' or 'check'")
     for p in (bit, init, elf):
         if not Path(p).is_file():
             raise LinkError(f"missing {p}")
@@ -127,7 +130,7 @@ def load_board(bit=REV_D / "patrm_gray.bit", init=REV_D / "ps7_init.tcl", elf=ET
                    ["--bit", bit, "--init", init, "--elf", elf, "--no-run"])
     if "load_run: DONE" not in out:
         raise LinkError("load_run.tcl did not print 'load_run: DONE':\n" + out[-1500:])
-    out = run_xsdb(REPO / "scripts" / "eth" / "mdio_mio.tcl", ["--con"])
+    out = run_xsdb(REPO / "scripts" / "eth" / "mdio_mio.tcl", ["--con"] + (["--check"] if mdio == "check" else []))
     if "mdio_mio: DONE" not in out:
         raise LinkError("mdio_mio.tcl did not print 'mdio_mio: DONE':\n" + out[-1500:])
 
