@@ -1,0 +1,28 @@
+ping 192.168.1.10: OK ['1', '1', '1'] ms
+echo 1 MB run  1: identical  2.187 s  0.46 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  2: identical  2.489 s  0.40 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  3: identical  0.955 s  1.05 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  4: identical  4.045 s  0.25 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  5: identical  1.864 s  0.54 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  6: identical  4.354 s  0.23 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  7: identical  0.328 s  3.05 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  8: identical  0.941 s  1.06 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run  9: identical  1.254 s  0.80 MB/s each direction (send returned after 0.000 s)
+echo 1 MB run 10: identical  4.662 s  0.21 MB/s each direction (send returned after 0.000 s)
+echo 5 MB run  1: identical  8.438 s  0.59 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  2: identical  0.719 s  6.96 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  3: identical  5.965 s  0.84 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  4: identical  3.508 s  1.43 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  5: identical  1.342 s  3.72 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  6: identical  7.847 s  0.64 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  7: identical  2.263 s  2.21 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  8: identical  12.739 s  0.39 MB/s each direction (send returned after 0.002 s)
+echo 5 MB run  9: identical  1.650 s  3.03 MB/s each direction (send returned after 0.001 s)
+echo 5 MB run 10: identical  1.038 s  4.82 MB/s each direction (send returned after 0.002 s)
+GEM0 counters over all echo runs: frames_tx 57200; nonzero error counters: {'rx_overruns': 906}
+SUMMARY echo 1 MB: 10 of 10 identical; MB/s each direction min 0.21 median 0.54 max 3.05
+SUMMARY echo 5 MB: 10 of 10 identical; MB/s each direction min 0.39 median 2.21 max 6.96
+JTAG comparison (put_image / get_image, DDR 0x1000_0000; stops the echo server)
+JTAG 1 MB: PC->DDR 2.69 s (2.69 s/MB, 0.371 MB/s), DDR->PC 1.89 s (1.89 s/MB, 0.529 MB/s), read back identical
+JTAG 5 MB: PC->DDR 13.31 s (2.66 s/MB, 0.376 MB/s), DDR->PC 8.72 s (1.74 s/MB, 0.574 MB/s), read back identical
+ECHO TEST PASS

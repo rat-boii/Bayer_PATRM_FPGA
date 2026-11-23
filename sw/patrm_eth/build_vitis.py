@@ -2,9 +2,10 @@
 
     vitis -s sw/patrm_eth/build_vitis.py
 
-Feasibility only: shows that Vitis 2026.1 ships lwIP (lwip220, raw API, bare metal) and the lwip_echo_server template,
-and that they build for ps7_cortexa9_0 from our XSA with -Wall -Wextra -Werror (as sw/patrm_app/build_vitis.py).
-Our own Ethernet application (steps 10.1/10.2) will replace the template sources later.
+Step 10.0 showed that Vitis 2026.1 ships lwIP (lwip220, raw API, bare metal) and the lwip_echo_server template, and
+that they build for ps7_cortexa9_0 from our XSA with -Wall -Wextra -Werror (as sw/patrm_app/build_vitis.py).
+Step 10.1: the template's echo.c is replaced by sw/patrm_eth/echo.c (flow-controlled echo, nothing dropped), lwIP gets
+the buffer sizes of AMD's TCP perf template; after a DHCP timeout (about 12 s) the board is 192.168.1.10.
 
 Creates a new workspace in build/vitis/patrm_eth (an old one is deleted): a standalone platform from the XSA with
 lwip220 added to the BSP (settings from the template's own lwip_echo_server.yaml), then the app from the template.
@@ -41,11 +42,24 @@ PROGRAM_END = 0x0F00_0000
 REQUIRED_FLAGS = ("-Wall", "-Wextra", "-Werror", "-O2")
 SETTINGS = {"USER_COMPILE_WARNINGS_ALL": "-Wall", "USER_COMPILE_WARNINGS_EXTRA": "-Wextra",
             "USER_COMPILE_WARNINGS_AS_ERRORS": "-Werror", "USER_COMPILE_OPTIMIZATION_LEVEL": "-O2"}
-# BSP library settings, copied from the template's data/lwip_echo_server.yaml (depends_libs) in Vitis 2026.1.
+# BSP library settings (step 10.1): the buffer sizes of AMD's lwip_tcp_perf_server template
+# (data/lwip_tcp_perf_server.yaml, depends_libs, Vitis 2026.1). DHCP must stay on: create_app_component refuses the
+# template otherwise ("lwip220_dhcp: True expected"). On a direct cable there is no DHCP server, so the template's
+# main.c times out (240 ticks of 50 ms, about 12 s) and uses 192.168.1.10 / 255.255.255.0.
+# create_app_component also insists on the echo template's exact values (pbuf_pool_size 2048), so the platform is first
+# built with those (LIBS), the app is created, and then the BSP gets the perf sizes (PERF) and is built again.
 LIBS = {"lwip220": {"lwip220_api_mode": "RAW_API", "lwip220_dhcp": "true",
                     "lwip220_lwip_dhcp_does_acd_check": "true", "lwip220_ipv6_enable": "false",
                     "lwip220_pbuf_pool_size": "2048"},
-        "xiltimer": {"XILTIMER_en_interval_timer": "true"}}
+        # The template asks only for the interval timer, but XILTIMER_tick_timer defaults to None
+        # (XTIMER_NO_TICK_TIMER): then no 50 ms tick ever fires, lwIP timers never run and the template's DHCP wait
+        # never ends (found on the board in step 10.1). The A9 private timer needs nothing from the PL.
+        "xiltimer": {"XILTIMER_en_interval_timer": "true", "XILTIMER_tick_timer": "ps7_scutimer_0"}}
+PERF = {"lwip220_mem_size": "524288", "lwip220_memp_n_pbuf": "1024", "lwip220_memp_n_tcp_seg": "1024",
+        "lwip220_n_rx_descriptors": "512", "lwip220_n_tx_descriptors": "512",
+        "lwip220_pbuf_pool_size": "16384", "lwip220_tcp_snd_buf": "65535", "lwip220_tcp_wnd": "65535"}
+# Our sources that replace template files of the same name (the template's main.c and platform code stay).
+OUR_FILES = ["echo.c"]
 
 
 def remove_read_only(func, path, _exc):
@@ -180,6 +194,19 @@ def main():
 
         xpfm = client.find_platform_in_repos(PLATFORM)
         app = client.create_app_component(name=APP, platform=xpfm, domain=DOMAIN, template=TEMPLATE)
+        for name in OUR_FILES:
+            target = WORKSPACE / APP / "src" / name
+            if not target.is_file():
+                raise RuntimeError(f"template file {target} not found; the template layout changed")
+            shutil.copyfile(REPO / "sw" / "patrm_eth" / name, target)
+            print(f"replaced template {name} with sw/patrm_eth/{name}")
+        for key, value in PERF.items():
+            domain.set_config(option="lib", param=key, value=value, lib_name="lwip220")
+        got = {k: domain.get_config(option="lib", param=k, lib_name="lwip220")["value"] for k in PERF}
+        if got != PERF:
+            raise RuntimeError(f"lwIP perf settings not applied: {got}")
+        print(f"lwIP perf settings: {got}")
+        platform.build()
         for key, value in SETTINGS.items():
             app.set_app_config(key=key, values=value)
         app.set_app_config(key="USER_LINK_OTHER_FLAGS", values="-Wl,--no-warn-rwx-segments")

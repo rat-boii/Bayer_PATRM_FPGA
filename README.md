@@ -742,6 +742,40 @@ Vitis 2026.1 + GCC 14 needed three workarounds, all inside `sw/patrm_eth/build_v
 If a `vitis -s` run fails, its Vitis server (java, `RigelApp`) can stay alive and lock the workspace ("already in
 use" / `.lock` in use). Stop it in Task Manager (or `Stop-Process`) before the next run.
 
+## Step 10.1: Ethernet echo on the board, speed next to JTAG
+
+Laptop Ethernet: static 192.168.1.100 / 255.255.255.0, no gateway (Wi-Fi internet is not affected). Direct cable to
+the ZedBoard RJ45. Board: `sw/patrm_eth/echo.c` (flow-controlled TCP echo on port 7; AMD's template echo drops data
+when its send buffer is full).
+```
+vitis -s sw/patrm_eth/build_vitis.py                 # -> PATRM_ETH BUILD OK
+python scripts/eth/echo_test.py --load               # program + load + test -> ECHO TEST PASS, results/eth/echo_<date>_<time>.*
+```
+`--load` programs the Rev D bitstream, loads the ELF halted, runs `scripts/eth/mdio_mio.tcl` and starts the core. The
+board needs about 27 s to boot (PHY negotiation about 4 s, then the template's DHCP timeout about 12 s; there is no
+DHCP server on a direct cable) and then answers ping at 192.168.1.10.
+
+Two more problems found on the board:
+1. **MDIO on EMIO.** The current XSA has `PCW_ENET0_GRP_MDIO_IO = EMIO`, so MIO 52/53 (wired to the Marvell PHY) are
+   GPIO and lwIP cannot reach the PHY ("Auto negotiation timeout"). `scripts/eth/phy_regs.tcl` reads the PHY over
+   MDIO from XSDB; `scripts/eth/mdio_mio.tcl` switches MIO 52/53 to MDIO at run time (SLCR MIO_PIN = 0x280) as an
+   interim fix. Proper fix: `CONFIG.PCW_ENET0_GRP_MDIO_IO {MIO 52 .. 53}` in vivado/build.tcl at the next hardware
+   build (needs approval; it changes the PS setup only).
+2. **No tick timer.** xiltimer's `XILTIMER_tick_timer` defaults to None, so lwIP's timers never run and the DHCP
+   wait never ends. The build script sets `ps7_scutimer_0`.
+
+Measured 2026-11-23 (results/eth/echo_2026-11-23_104551.*), 10 runs per size, all identical:
+
+| link | 1 MB | 5 MB |
+|---|---|---|
+| Ethernet echo, MB/s each direction (min / median / max) | 0.21 / 0.54 / 3.05 | 0.39 / 2.21 / 6.96 |
+| JTAG PC -> DDR (put_image) | 0.371 MB/s (2.69 s/MB) | 0.376 MB/s (2.66 s/MB) |
+| JTAG DDR -> PC (get_image) | 0.529 MB/s (1.89 s/MB) | 0.574 MB/s (1.74 s/MB) |
+
+Ethernet is correct but not yet fast: GEM0 counted 906 receive overruns in those 20 runs (no FCS, symbol or resource
+errors). Each lost frame costs a TCP retransmission timeout, hence runs of 4 to 13 s. Runs without a loss reach about
+5 to 7 MB/s each way. `scripts/eth/gem_stats.tcl` reads the counters.
+
 ## Temporary Rev D board: verified build and 48-word DDR test
 
 The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are
