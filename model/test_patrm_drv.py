@@ -110,7 +110,20 @@ def main():
         b=tuple(rng.choice((-2147483648,2147483647,0,-1,1)) for _ in range(6))
         case('bayer_a',16,2,b)
     case('bayer_a',64,64,identity,modes=1,rc=J.RC['BAD_MODE'])
-    case(2,64,64,identity,modes=7,rc=J.RC['BAD_MODE'])
+    case(2,64,64,identity,modes=3,rc=J.RC['BAD_MODE'])     # MODE 2 needs the Option B build (MODES bit 2)
+    # step 6.4: Option B jobs on a MODES 7 build: same validation and register writes as model/job.py (T_p as for A)
+    for W,H in ((16,2),(64,64),(128,96),(480,272)):
+        for tf in load():
+            from model.memmodel import _b_for
+            case('bayer_b',W,H,tuple(_b_for(tf,W,H)),modes=7)
+    for tx in (-5,-3,-1,0,1,3,5):
+        case('bayer_b',64,64,(65537,-3,tx,-5,65535,-tx),modes=7)
+    rng_b=random.Random(6402)
+    for _ in range(150):
+        W,H=rng_b.choice(((16,2),(64,64),(128,96)))
+        case('bayer_b',W,H,tuple(rng_b.randint(-262144,262144) for _ in range(6)),modes=7)
+    for W,H in ((0,64),(60,64),(64,63)):
+        case('bayer_b',W,H,identity,modes=7,rc=J.RC['BAD_SIZE'])
     case(3,64,64,identity,modes=7,rc=J.RC['BAD_MODE'])
     for mode in ('gray','bayer_a'):
         for W,H in ((0,64),(64,0),(4097,2),(60,64)):

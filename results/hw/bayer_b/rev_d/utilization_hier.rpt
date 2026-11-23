@@ -1,0 +1,72 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2026.1 (win64) Build 6511674 Tue Jun 16 11:02:23 MDT 2026
+| Date         : Mon Nov 23 20:40:14 2026
+| Host         : Retro_big_bro running 64-bit major release  (build 9200)
+| Command      : report_utilization -hierarchical -file D:/MASTERS/RC_project/results/hw/bayer_b/rev_d/utilization_hier.rpt
+| Design       : system_wrapper
+| Device       : xc7z020clg484-1
+| Speed File   : -1
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------------------------+---------------------------------------------------------------------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+|                     Instance                     |                                            Module                                           | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | DSP Blocks |
++--------------------------------------------------+---------------------------------------------------------------------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+| system_wrapper                                   |                                                                                       (top) |      11575 |      11122 |     370 |   83 | 6411 |     42 |      0 |         54 |
+|   system_i                                       |                                                                                      system |      11575 |      11122 |     370 |   83 | 6411 |     42 |      0 |         54 |
+|     patrm_0                                      |                                                                            system_patrm_0_0 |      11203 |      10810 |     370 |   23 | 5952 |     42 |      0 |         54 |
+|       (patrm_0)                                  |                                                                            system_patrm_0_0 |          0 |          0 |       0 |    0 |    0 |      0 |      0 |          0 |
+|       inst                                       |                                                                  system_patrm_0_0_patrm_top |      11203 |      10810 |     370 |   23 | 5952 |     42 |      0 |         54 |
+|         option_b.engine                          |                                                                system_patrm_0_0_bayer_lanes |       8249 |       8107 |     138 |    4 | 2337 |     34 |      0 |         37 |
+|           (option_b.engine)                      |                                                                system_patrm_0_0_bayer_lanes |        182 |         94 |      88 |    0 |  547 |      0 |      0 |          0 |
+|           coords                                 |                                                                  system_patrm_0_0_coord_gen |       4311 |       4261 |      50 |    0 |  340 |      0 |      0 |          8 |
+|           interp[0].lane                         |                                                          system_patrm_0_0_bilinear_interp_0 |         77 |         76 |       0 |    1 |    5 |      0 |      0 |          7 |
+|           interp[1].lane                         |                                                          system_patrm_0_0_bilinear_interp_1 |         77 |         76 |       0 |    1 |    5 |      0 |      0 |          7 |
+|           interp[2].lane                         |                                                          system_patrm_0_0_bilinear_interp_2 |         77 |         76 |       0 |    1 |    5 |      0 |      0 |          7 |
+|           interp[3].lane                         |                                                          system_patrm_0_0_bilinear_interp_3 |         77 |         76 |       0 |    1 |    5 |      0 |      0 |          7 |
+|           merge_rows                             |                                                                system_patrm_0_0_bayer_merge |        178 |        178 |       0 |    0 |  131 |      2 |      0 |          0 |
+|           store                                  |                                                                system_patrm_0_0_bayer_store |       3850 |       3850 |       0 |    0 | 1299 |     32 |      0 |          1 |
+|             (store)                              |                                                                system_patrm_0_0_bayer_store |        471 |        471 |       0 |    0 | 1299 |      0 |      0 |          1 |
+|             banks[0].bank                        |                                                                   system_patrm_0_0_line_buf |        835 |        835 |       0 |    0 |    0 |      8 |      0 |          0 |
+|             banks[1].bank                        |                                                                 system_patrm_0_0_line_buf_4 |        828 |        828 |       0 |    0 |    0 |      8 |      0 |          0 |
+|             banks[2].bank                        |                                                                 system_patrm_0_0_line_buf_5 |        821 |        821 |       0 |    0 |    0 |      8 |      0 |          0 |
+|             banks[3].bank                        |                                                                 system_patrm_0_0_line_buf_6 |        896 |        896 |       0 |    0 |    0 |      8 |      0 |          0 |
+|         u_buf                                    |                                                   system_patrm_0_0_line_buf__parameterized0 |        128 |        128 |       0 |    0 |    0 |      8 |      0 |          0 |
+|         u_coord                                  |                                                  system_patrm_0_0_coord_gen__parameterized0 |        268 |        210 |      58 |    0 |  352 |      0 |      0 |          8 |
+|         u_ctrl                                   |                                                                   system_patrm_0_0_ctrl_fsm |         69 |         69 |       0 |    0 |  156 |      0 |      0 |          0 |
+|         u_fetch                                  |                                                                system_patrm_0_0_pixel_fetch |        109 |        109 |       0 |    0 |  231 |      0 |      0 |          0 |
+|         u_ofifo                                  |                                                                   system_patrm_0_0_out_fifo |        211 |        125 |      86 |    0 |   88 |      0 |      0 |          0 |
+|         u_planner                                |                                                              system_patrm_0_0_block_planner |        575 |        511 |      64 |    0 |  815 |      0 |      0 |          0 |
+|         u_prefetch                               |                                                              system_patrm_0_0_prefetch_ctrl |        418 |        394 |       6 |   18 |  860 |      0 |      0 |          2 |
+|         u_rd                                     |                                                              system_patrm_0_0_axi_rd_master |        117 |        103 |      14 |    0 |  191 |      0 |      0 |          0 |
+|         u_regs                                   |                                                                  system_patrm_0_0_axil_regs |        968 |        968 |       0 |    0 |  598 |      0 |      0 |          0 |
+|         u_seq                                    |                                                                  system_patrm_0_0_bayer_seq |         47 |         47 |       0 |    0 |   99 |      0 |      0 |          0 |
+|         u_wr                                     |                                                              system_patrm_0_0_axi_wr_master |        105 |        101 |       4 |    0 |  220 |      0 |      0 |          0 |
+|     axi_gp0                                      |                                                                            system_axi_gp0_0 |        355 |        296 |       0 |   59 |  426 |      0 |      0 |          0 |
+|       s00_couplers                               |                                                                     s00_couplers_imp_DBL2CY |        355 |        296 |       0 |   59 |  426 |      0 |      0 |          0 |
+|         auto_pc                                  |                                                                system_axi_gp0_imp_auto_pc_0 |        355 |        296 |       0 |   59 |  426 |      0 |      0 |          0 |
+|           inst                                   |          system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_axi_protocol_converter |        355 |        296 |       0 |   59 |  426 |      0 |      0 |          0 |
+|             gen_axilite.gen_b2s_conv.axilite_b2s |                             system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s |        355 |        296 |       0 |   59 |  426 |      0 |      0 |          0 |
+|               WR.aw_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_aw_channel |         70 |         70 |       0 |    0 |   74 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |              system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_cmd_translator |         31 |         31 |       0 |    0 |   56 |      0 |      0 |          0 |
+|               RD.ar_channel_0                    |                  system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_ar_channel |         59 |         59 |       0 |    0 |   70 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |            system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_cmd_translator_1 |         31 |         31 |       0 |    0 |   56 |      0 |      0 |          0 |
+|               RD.r_channel_0                     |                   system_axi_gp0_imp_auto_pc_0_axi_protocol_converter_v2_1_38_b2s_r_channel |         59 |         14 |       0 |   45 |   24 |      0 |      0 |          0 |
+|               SI_REG                             |                  system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axi_register_slice |        137 |        137 |       0 |    0 |  240 |      0 |      0 |          0 |
+|                 ar.ar_pipe                       |                 system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice |         48 |         48 |       0 |    0 |   58 |      0 |      0 |          0 |
+|                 aw.aw_pipe                       |               system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice_0 |         52 |         52 |       0 |    0 |   60 |      0 |      0 |          0 |
+|                 r.r_pipe                         | system_axi_gp0_imp_auto_pc_0_axi_register_slice_v2_1_37_axic_register_slice__parameterized2 |         27 |         27 |       0 |    0 |   92 |      0 |      0 |          0 |
++--------------------------------------------------+---------------------------------------------------------------------------------------------+------------+------------+---------+------+------+--------+--------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

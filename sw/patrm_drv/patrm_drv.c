@@ -256,9 +256,6 @@ patrm_rc_t patrm_validate(const patrm_dev_t *dev, const patrm_job_t *job)
     if ((job->mode > PATRM_MODE_BAYER_B) || (((dev->modes >> job->mode) & 1U) == 0U)) {
         return PATRM_RC_BAD_MODE;
     }
-    if (job->mode > PATRM_MODE_BAYER_A) {
-        return PATRM_RC_BAD_MODE;      /* Option B is not implemented yet */
-    }
     rc = check_size(job);
     if (rc != PATRM_RC_OK) {
         return rc;
@@ -287,7 +284,7 @@ static void program(const patrm_dev_t *dev, const patrm_job_t *job)
     };
     uint32_t i;
     int32_t t[8] = {0};
-    if (job->mode == PATRM_MODE_BAYER_A) {
+    if (job->mode != PATRM_MODE_GRAY) {   /* Option A and B (step 6.4): T_p per D2/D12; B lane offsets = T_p - T_R (D6) */
         (void)plane_shifts(job, t);       /* patrm_validate checked all eight values before any write */
     }
 

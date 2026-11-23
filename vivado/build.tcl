@@ -1,6 +1,7 @@
 # Block design, bitstream and XSA of the gray / Bayer Option A engine (steps 4.1, 5.3).
-# Extra arguments: variant=gray|bayer_a (default gray), rev=c|d (default c).
+# Extra arguments: variant=gray|bayer_a|bayer_b (default gray), rev=c|d (default c).
 # Option A outputs: results/hw/bayer_a/rev_c|rev_d/patrm_bayer_a.{bit,xsa}, ps7_init.tcl and reports.
+# Option B (step 6.3): variant=bayer_b builds MODES 7 (gray + A + B), BUILD_TYPE 2 -> results/hw/bayer_b/rev_c|rev_d/.
 # Example: vivado -mode batch -source ../../vivado/build.tcl -tclargs variant=bayer_a rev=d
 # Batch and reproducible: the project is created from nothing under build/vivado/<name>, nothing is edited by hand.
 #
@@ -34,17 +35,17 @@ array set opt {ila 0 bd_only 0 sim 0 variant gray rev c}
 # vivado.bat on Windows splits "ila=1" at the "=", so the script receives "ila" "1"; both forms are accepted
 set args_text [regsub -all {=} [join $argv " "] " "]
 foreach {k v} $args_text {
-    if {![info exists opt($k)]} { error "unknown argument '$k' (use ila, bd_only, sim, variant=gray|bayer_a, rev=c|d)" }
+    if {![info exists opt($k)]} { error "unknown argument '$k' (use ila, bd_only, sim, variant=gray|bayer_a|bayer_b, rev=c|d)" }
     if {$k in {ila bd_only sim} && $v ni {0 1}} { error "$k must be 0 or 1" }
-    if {$k eq "variant" && $v ni {gray bayer_a}} { error "variant must be gray or bayer_a" }
+    if {$k eq "variant" && $v ni {gray bayer_a bayer_b}} { error "variant must be gray, bayer_a or bayer_b" }
     if {$k eq "rev" && $v ni {c d}} { error "rev must be c or d" }
     set opt($k) $v
 }
 if {$opt(ila) && $opt(sim)} { error "sim=1 simulates the design without the ILA; do not combine it with ila=1" }
 # Preserve the existing gray/Rev C defaults (D18); explicit Rev D selects its own DDR part.
 set ddr_part [expr {$opt(rev) eq "d" ? "MT41K128M16 JT-125" : "MT41J128M16 HA-15E"}]
-set modes [expr {$opt(variant) eq "bayer_a" ? 3 : 1}]
-set build_type [expr {$opt(variant) eq "bayer_a" ? 1 : 0}]
+set modes      [dict get {gray 1 bayer_a 3 bayer_b 7} $opt(variant)]       ;# bit n = CTRL.MODE n built
+set build_type [dict get {gray 0 bayer_a 1 bayer_b 2} $opt(variant)]
 set artifact "patrm_$opt(variant)"
 if {$opt(ila)} { append artifact _ila }
 set name $artifact

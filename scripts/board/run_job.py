@@ -91,7 +91,7 @@ def run_eth(f, a):
     if a.load:
         print(f"run_job: loading {a.bit}, {a.elf} (Ethernet application)")
         # the Bayer A bundle has the build.tcl MDIO fix: check it instead of patching the pins (step 10.4)
-        EL.load_board(a.bit, a.init, a.elf, mdio="check" if "bayer_a" in Path(a.bit).as_posix() else "fix")
+        EL.load_board(a.bit, a.init, a.elf, mdio="check" if "/bayer_" in Path(a.bit).as_posix() else "fix")
         print(f"run_job: job port reachable after {EL.wait_ready(a.ip):.1f} s")
     with EL.JobLink(a.ip, timeout=a.timeout + 30) as link:
         rsp, result, out, t = link.run(f["descriptor"], f["src_bytes"], f["out_bytes"], fill=True)
@@ -134,8 +134,9 @@ def report(f, seq):
         fails.append(f"result flags 0x{r['flags']:X} differ from the job's")
     print(f"BUILD_ID       0x{r['build_id']:08X}")
     expected_id = f["build_id"]
-    # The Option A build also supports gray jobs; accept either known build for a gray job.
-    valid_ids = (expected_id,) if f["mode"] != "gray" else (expected_id, 0x00403101)
+    # a build supports every mode whose MODES bit is set: gray runs on all three, A on the A and B builds, B only on B
+    valid_ids = {"gray": tuple(RF.BUILD_IDS.values()), "bayer_a": (RF.BUILD_IDS["bayer_a"], RF.BUILD_IDS["bayer_b"]),
+                 "bayer_b": (RF.BUILD_IDS["bayer_b"],)}[f["mode"]]
     if r["build_id"] not in valid_ids:
         fails.append(f"BUILD_ID 0x{r['build_id']:08X} does not support the requested {f['mode']} build")
     print(f"STATUS at DONE {RF.status_text(r['status'])}")
@@ -189,7 +190,7 @@ def main(argv=None):
     ap.add_argument("W", type=int)
     ap.add_argument("H", type=int)
     ap.add_argument("--rev", choices=("c", "d"), default=None, help="select board bundle; default remains Rev C")
-    ap.add_argument("--mode", choices=("gray", "bayer_a"), default="gray")
+    ap.add_argument("--mode", choices=("gray", "bayer_a", "bayer_b"), default="gray")
     ap.add_argument("--n", type=int, default=1, help="frames to run (N > 1 for timing)")
     ap.add_argument("--poll", action="store_true", help="the application polls STATUS (IRQ_EN = 0)")
     ap.add_argument("--load", action="store_true", help="program the bitstream, set up the PS, load and start the ELF")
@@ -204,13 +205,14 @@ def main(argv=None):
                     help="jtag: XSDB mailbox (step 4.2); eth: Ethernet job service (step 10.2, engine polled)")
     ap.add_argument("--ip", default="192.168.1.10", help="board address for --link eth")
     a = ap.parse_args(argv)
-    bundle = (HW_DIR / "bayer_a" / f"rev_{a.rev or 'c'}") if a.mode == "bayer_a" else (HW_DIR / "rev D" if a.rev == "d" else HW_DIR)
+    bayer = a.mode in ("bayer_a", "bayer_b")
+    bundle = (HW_DIR / a.mode / f"rev_{a.rev or 'c'}") if bayer else (HW_DIR / "rev D" if a.rev == "d" else HW_DIR)
     a.bit = a.bit or str(bundle / f"patrm_{a.mode}.bit")
     a.init = a.init or str(bundle / "ps7_init.tcl")
     if a.link == "eth":
-        a.elf = a.elf or str((bundle if a.mode == "bayer_a" else HW_DIR) / "patrm_eth.elf")
+        a.elf = a.elf or str((bundle if bayer else HW_DIR) / "patrm_eth.elf")
     else:
-        a.elf = a.elf or str((bundle if a.mode == "bayer_a" else HW_DIR) / "patrm_app.elf")
+        a.elf = a.elf or str((bundle if bayer else HW_DIR) / "patrm_app.elf")
     try:
         if a.link == "eth" and a.dry_run:
             raise FrameError("--dry-run is for the XSDB path only")

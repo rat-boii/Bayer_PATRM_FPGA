@@ -42,10 +42,10 @@ REPO = Path(__file__).resolve().parents[2]
 # verified Rev D bundle that is tracked in git (results/hw/rev D/patrm_gray.xsa), so a fresh clone can build.
 VARIANT = os.environ.get("PATRM_VARIANT", "gray")
 REV = os.environ.get("PATRM_REV", "c").lower()
-if VARIANT not in ("gray", "bayer_a") or REV not in ("c", "d"):
-    raise ValueError("PATRM_VARIANT must be gray|bayer_a; PATRM_REV must be c|d")
+if VARIANT not in ("gray", "bayer_a", "bayer_b") or REV not in ("c", "d"):
+    raise ValueError("PATRM_VARIANT must be gray|bayer_a|bayer_b; PATRM_REV must be c|d")
 ARTIFACT_DIR = REPO / "results" / "hw"
-if VARIANT == "bayer_a":
+if VARIANT != "gray":                          # bayer_a (step 5.3) or bayer_b (step 6.4)
     ARTIFACT_DIR = ARTIFACT_DIR / VARIANT / f"rev_{REV}"
 XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else ARTIFACT_DIR / f"patrm_{VARIANT}.xsa"
 if VARIANT == "gray" and not os.environ.get("PATRM_XSA") and (REV == "d" or not XSA.is_file()):

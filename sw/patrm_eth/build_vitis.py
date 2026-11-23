@@ -39,14 +39,14 @@ REPO = Path(__file__).resolve().parents[2]
 # workspace, and writes results/hw/bayer_a/rev_<rev>/patrm_eth.elf next to that bundle. The gray default is unchanged.
 VARIANT = os.environ.get("PATRM_VARIANT", "gray")
 REV = os.environ.get("PATRM_REV", "d").lower()
-if VARIANT not in ("gray", "bayer_a") or REV not in ("c", "d"):
-    raise ValueError("PATRM_VARIANT must be gray|bayer_a; PATRM_REV must be c|d")
-if VARIANT == "bayer_a":
-    A_DIR = REPO / "results" / "hw" / "bayer_a" / f"rev_{REV}"
-    XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else A_DIR / "patrm_bayer_a.xsa"
-    WORKSPACE = REPO / "build" / "vitis" / f"patrm_eth_bayer_a_rev{REV}"
+if VARIANT not in ("gray", "bayer_a", "bayer_b") or REV not in ("c", "d"):
+    raise ValueError("PATRM_VARIANT must be gray|bayer_a|bayer_b; PATRM_REV must be c|d")
+if VARIANT != "gray":                          # bayer_a (step 10.4) or bayer_b (step 6.4)
+    A_DIR = REPO / "results" / "hw" / VARIANT / f"rev_{REV}"
+    XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else A_DIR / f"patrm_{VARIANT}.xsa"
+    WORKSPACE = REPO / "build" / "vitis" / f"patrm_eth_{VARIANT}_rev{REV}"
     ELF_OUT = A_DIR / "patrm_eth.elf"
-    PLATFORM = f"patrm_eth_bayer_a_rev{REV}_plat"
+    PLATFORM = f"patrm_eth_{VARIANT}_rev{REV}_plat"
 else:
     XSA = Path(os.environ["PATRM_XSA"]) if os.environ.get("PATRM_XSA") else REPO / "results" / "hw" / "patrm_gray.xsa"
     if not os.environ.get("PATRM_XSA") and not XSA.is_file():

@@ -45,6 +45,9 @@ RUN_ROOT = ROOT / "build" / "board"
 HW_DIR = ROOT / "results" / "hw"
 REG_BASE = J.REG_BASE                        # spec/memory_map.md section 2
 BUILD_ID_EXPECTED = 0x0040_1001
+# BUILD_ID of the build that a job of this mode needs (VERSION 1, BLOCK_LEN_MAX 64): gray build, Option A build
+# (MODES 3), Option B build (MODES 7, step 6.3). A build supports every mode whose MODES bit is set.
+BUILD_IDS = {"gray": BUILD_ID_EXPECTED, "bayer_a": 0x0040_3101, "bayer_b": 0x0040_7201}
 BLOCK_LEN = 64                               # driver default (D15)
 FILL_BYTE = 0xA5
 GUARD_BYTES = 4096                           # filled and checked after the output image
@@ -140,10 +143,16 @@ def load_frame(a, irq_en=0, prefix="frame"):
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "source.raw").write_bytes(src_bytes)
     (run_dir / "expected.raw").write_bytes(expected.tobytes())
-    passes = MM.build_passes("A" if mode == "bayer_a" else "gray", W, H, b)
-    predicted_rd = sum(MM.pass_reads(ps, MM.make_blocks(ps, BLOCK_LEN, MM.SPAN_MAX), W, "P1")["beats"]
-                       for ps in passes) * MM.BEAT
-    return dict(W=W, H=H, mode=mode, build_id=0x00403101 if mode == "bayer_a" else BUILD_ID_EXPECTED,
+    if mode == "bayer_b":                   # step 6.4: HP0 bytes of the Option B design model (sparse fallback incl.)
+        from model import bayer_b_design as BBD
+        _, reader, _ = BBD.run(src, b, BLOCK_LEN)
+        predicted_rd = reader.read_beats * MM.BEAT
+    else:
+        passes = MM.build_passes("A" if mode == "bayer_a" else "gray", W, H, b)
+        predicted_rd = sum(MM.pass_reads(ps, MM.make_blocks(ps, BLOCK_LEN, MM.SPAN_MAX), W, "P1")["beats"]
+                           for ps in passes) * MM.BEAT
+    # BYTES_WR: A writes every row in four passes with WSTRB halves (2 W H bus bytes); gray and B write each row once
+    return dict(W=W, H=H, mode=mode, build_id=BUILD_IDS[mode],
                 bytes_wr=W * H * (2 if mode == "bayer_a" else 1), b=b, writes=writes, src_bytes=src_bytes, expected=expected, image=image_path,
                 run_dir=run_dir, src_file=run_dir / "source.raw", out_file=run_dir / "readback.bin",
                 out_bytes=W * H + GUARD_BYTES, bit=a.bit, init=a.init, timeout=a.timeout,

@@ -93,8 +93,8 @@ def case_row(k, image, tf, W, H, code, seconds, a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rev", choices=("c", "d"), required=True, help="board revision: selects the bitstream and ps7_init")
-    ap.add_argument("--variant", choices=("gray", "bayer_a"), default=None, help="bitstream build; A also runs gray jobs")
-    ap.add_argument("--mode", choices=("gray", "bayer_a"), default="gray")
+    ap.add_argument("--variant", choices=("gray", "bayer_a", "bayer_b"), default=None, help="bitstream build; A also runs gray, B runs gray, A and B")
+    ap.add_argument("--mode", choices=("gray", "bayer_a", "bayer_b"), default="gray")
     ap.add_argument("--sizes", default=None, help=f"W x H list (default {DEFAULT_SIZES})")
     ap.add_argument("--transforms", default="", help="comma list (default: all of model/transforms.json)")
     ap.add_argument("--images", default="photo", help="comma list of image names from data/gen (default photo)")
@@ -113,9 +113,9 @@ def main(argv=None):
     if a.sw and a.mode != "gray":
         ap.error("--sw is grayscale only")
     variant = a.variant or a.mode
-    if a.mode == "bayer_a" and variant != "bayer_a":
-        ap.error("Bayer jobs need --variant bayer_a")
-    hw = HW[a.rev] if variant == "gray" else ROOT / "results" / "hw" / "bayer_a" / f"rev_{a.rev}"
+    if (a.mode == "bayer_a" and variant not in ("bayer_a", "bayer_b")) or (a.mode == "bayer_b" and variant != "bayer_b"):
+        ap.error(f"{a.mode} jobs need a build that has that mode (--variant bayer_a or bayer_b)")
+    hw = HW[a.rev] if variant == "gray" else ROOT / "results" / "hw" / variant / f"rev_{a.rev}"
     if a.elf is None:                            # one default for every combination (merge of steps 5.3 and 10.2)
         if a.link == "eth":                     # step 10.4: the Bayer A bundle has its own patrm_eth.elf
             a.elf = str((ROOT / "results" / "hw" if variant == "gray" else hw) / "patrm_eth.elf")
@@ -138,7 +138,7 @@ def main(argv=None):
     images = [i.strip() for i in a.images.split(",") if i.strip()]
     cases = [(img, tf, W, H) for (W, H) in sizes for img in images for tf in tfs]
 
-    tag = (f"rev{a.rev}" + (f"_bayer_a_{a.mode}" if variant == "bayer_a" else "") + ("_eth" if a.link == "eth" else "")
+    tag = (f"rev{a.rev}" + (f"_{variant}_{a.mode}" if variant != "gray" else "") + ("_eth" if a.link == "eth" else "")
            + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + ("_dry" if a.dry_run else ""))
     log_dir = RF.RUN_ROOT / f"run_all_{tag}"
     log_dir.mkdir(parents=True, exist_ok=True)
