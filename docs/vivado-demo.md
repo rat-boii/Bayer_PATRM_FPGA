@@ -76,3 +76,24 @@ Points to make: the same RTL is in the bitstream on the board; the board result 
 counters against the memory model's predictions.
 
 Close the simulator when done (its files are in `build/sim/tb_patrm_top/`, regenerated each run).
+
+### B2. The same testbench as a normal Vivado project (IDE with Sources and Flow Navigator)
+
+Shows the familiar Vivado workflow: a project with the engine RTL as Design Sources and the testbench as
+Simulation Sources, simulated with Run Behavioral Simulation.
+
+```
+python scripts/demo/make_demo_case.py                 # once (or --transform rot37)
+cd build/vivado
+vivado -mode gui -source ../../scripts/demo/vivado_tb_project.tcl
+```
+
+The script creates `build/vivado/patrm_tb_demo/patrm_tb_demo.xpr`, runs the behavioral simulation, adds the five wave
+groups and runs the frame: the Tcl console ends with `TEST PASS` (rot15: CYCLES 51,937, 49,152 bytes compared, 0
+errors). Click the wave tab, then Zoom Fit. To show it live in front of the examiner instead: open the .xpr, show
+Sources (`patrm_top` and its modules under Design Sources, `tb_patrm_top` under Simulation Sources), then Flow
+Navigator > Simulation > Run Simulation > Run Behavioral Simulation, then `source ../../scripts/demo/demo_wave.tcl`
+in the Tcl console. The +VEC_DIR / +SINGLE_CASE plusargs are already in the simulation settings.
+
+Start Vivado from a normal terminal or the Start menu. (A shell that sets `NoDefaultCurrentDirectoryInExePath`, as
+the Claude Code session does, makes Run Simulation fail with "'compile.bat' is not recognized".)
