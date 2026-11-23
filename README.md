@@ -776,6 +776,24 @@ Ethernet is correct but not yet fast: GEM0 counted 906 receive overruns in those
 errors). Each lost frame costs a TCP retransmission timeout, hence runs of 4 to 13 s. Runs without a loss reach about
 5 to 7 MB/s each way. `scripts/eth/gem_stats.tcl` reads the counters.
 
+## Step 10.1b: speed per direction
+
+The echo mixes both directions. The board also has a sink (port 5001, PC -> board) and a source (port 5002,
+board -> PC); `python scripts/eth/echo_test.py` runs all three (`--tests sink,source` for one direction only).
+
+Measured 2026-11-23 (results/eth/echo_2026-11-23_105757.*), 10 runs per size, all correct, MB/s min / median / max:
+
+| test | 1 MB | 5 MB | GEM0 errors |
+|---|---|---|---|
+| sink, PC -> board | 104.4 / 107.2 / 109.0 | 97.3 / 109.1 / 109.4 | none |
+| source, board -> PC | 93.2 / 97.2 / 98.6 | 97.4 / 98.8 / 99.3 | none |
+| echo, both at once | 0.21 / 0.79 / 3.12 | 0.26 / 2.23 / 6.80 | 1023 rx_overruns |
+| JTAG PC -> DDR | 0.381 | 0.394 | - |
+| JTAG DDR -> PC | 0.525 | 0.574 | - |
+
+Each direction alone runs near gigabit line rate, about 250x faster than JTAG. Receive overruns appear only when the
+board receives and sends at full rate at the same time; a PATRM job (upload, run, download) never does that.
+
 ## Temporary Rev D board: verified build and 48-word DDR test
 
 The matching Rev D bitstream, XSA, PS initialization and ARM bring-up ELF are

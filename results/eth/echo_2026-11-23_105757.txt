@@ -1,0 +1,74 @@
+ping 192.168.1.10: OK ['1', '1', '1'] ms
+echo 1 MB run  1: identical  4.044 s  0.25 MB/s each direction
+echo 1 MB run  2: identical  1.264 s  0.79 MB/s each direction
+echo 1 MB run  3: identical  1.257 s  0.80 MB/s each direction
+echo 1 MB run  4: identical  3.424 s  0.29 MB/s each direction
+echo 1 MB run  5: identical  0.639 s  1.57 MB/s each direction
+echo 1 MB run  6: identical  2.801 s  0.36 MB/s each direction
+echo 1 MB run  7: identical  4.667 s  0.21 MB/s each direction
+echo 1 MB run  8: identical  0.326 s  3.07 MB/s each direction
+echo 1 MB run  9: identical  3.426 s  0.29 MB/s each direction
+echo 1 MB run 10: identical  0.321 s  3.12 MB/s each direction
+echo 5 MB run  1: identical  6.280 s  0.80 MB/s each direction
+echo 5 MB run  2: identical  18.996 s  0.26 MB/s each direction
+echo 5 MB run  3: identical  1.025 s  4.88 MB/s each direction
+echo 5 MB run  4: identical  9.055 s  0.55 MB/s each direction
+echo 5 MB run  5: identical  2.245 s  2.23 MB/s each direction
+echo 5 MB run  6: identical  3.177 s  1.57 MB/s each direction
+echo 5 MB run  7: identical  1.649 s  3.03 MB/s each direction
+echo 5 MB run  8: identical  0.735 s  6.80 MB/s each direction
+echo 5 MB run  9: identical  4.436 s  1.13 MB/s each direction
+echo 5 MB run 10: identical  1.959 s  2.55 MB/s each direction
+GEM0 counters over the echo runs: frames_tx 58291; nonzero error counters: {'rx_overruns': 1023}
+SUMMARY echo 1 MB: 10 of 10 identical; MB/s min 0.21 median 0.79 max 3.12
+SUMMARY echo 5 MB: 10 of 10 identical; MB/s min 0.26 median 2.23 max 6.80
+sink 1 MB run  1: identical  0.009 s  107.23 MB/s PC->board
+sink 1 MB run  2: identical  0.009 s  106.41 MB/s PC->board
+sink 1 MB run  3: identical  0.009 s  108.95 MB/s PC->board
+sink 1 MB run  4: identical  0.009 s  106.28 MB/s PC->board
+sink 1 MB run  5: identical  0.009 s  105.49 MB/s PC->board
+sink 1 MB run  6: identical  0.009 s  107.99 MB/s PC->board
+sink 1 MB run  7: identical  0.009 s  107.93 MB/s PC->board
+sink 1 MB run  8: identical  0.009 s  106.15 MB/s PC->board
+sink 1 MB run  9: identical  0.010 s  104.41 MB/s PC->board
+sink 1 MB run 10: identical  0.009 s  108.64 MB/s PC->board
+sink 5 MB run  1: identical  0.046 s  108.90 MB/s PC->board
+sink 5 MB run  2: identical  0.046 s  109.16 MB/s PC->board
+sink 5 MB run  3: identical  0.046 s  107.54 MB/s PC->board
+sink 5 MB run  4: identical  0.046 s  109.41 MB/s PC->board
+sink 5 MB run  5: identical  0.051 s  97.26 MB/s PC->board
+sink 5 MB run  6: identical  0.046 s  107.78 MB/s PC->board
+sink 5 MB run  7: identical  0.047 s  107.32 MB/s PC->board
+sink 5 MB run  8: identical  0.046 s  109.09 MB/s PC->board
+sink 5 MB run  9: identical  0.046 s  109.42 MB/s PC->board
+sink 5 MB run 10: identical  0.046 s  109.43 MB/s PC->board
+GEM0 counters over the sink runs: frames_tx 21802; nonzero error counters: none
+SUMMARY sink 1 MB: 10 of 10 identical; MB/s min 104.41 median 107.23 max 108.95
+SUMMARY sink 5 MB: 10 of 10 identical; MB/s min 97.26 median 109.09 max 109.43
+source 1 MB run  1: identical  0.010 s  95.58 MB/s board->PC
+source 1 MB run  2: identical  0.010 s  97.16 MB/s board->PC
+source 1 MB run  3: identical  0.010 s  96.63 MB/s board->PC
+source 1 MB run  4: identical  0.011 s  93.19 MB/s board->PC
+source 1 MB run  5: identical  0.010 s  98.36 MB/s board->PC
+source 1 MB run  6: identical  0.010 s  98.33 MB/s board->PC
+source 1 MB run  7: identical  0.010 s  98.61 MB/s board->PC
+source 1 MB run  8: identical  0.010 s  97.04 MB/s board->PC
+source 1 MB run  9: identical  0.010 s  97.87 MB/s board->PC
+source 1 MB run 10: identical  0.011 s  94.85 MB/s board->PC
+source 5 MB run  1: identical  0.051 s  98.48 MB/s board->PC
+source 5 MB run  2: identical  0.051 s  97.57 MB/s board->PC
+source 5 MB run  3: identical  0.051 s  98.20 MB/s board->PC
+source 5 MB run  4: identical  0.051 s  97.40 MB/s board->PC
+source 5 MB run  5: identical  0.051 s  98.95 MB/s board->PC
+source 5 MB run  6: identical  0.050 s  99.14 MB/s board->PC
+source 5 MB run  7: identical  0.050 s  99.11 MB/s board->PC
+source 5 MB run  8: identical  0.051 s  98.08 MB/s board->PC
+source 5 MB run  9: identical  0.051 s  98.84 MB/s board->PC
+source 5 MB run 10: identical  0.050 s  99.31 MB/s board->PC
+GEM0 counters over the source runs: frames_tx 44197; nonzero error counters: none
+SUMMARY source 1 MB: 10 of 10 identical; MB/s min 93.19 median 97.16 max 98.61
+SUMMARY source 5 MB: 10 of 10 identical; MB/s min 97.40 median 98.84 max 99.31
+JTAG comparison (put_image / get_image, DDR 0x1000_0000; stops the echo server)
+JTAG 1 MB: PC->DDR 2.63 s (2.63 s/MB, 0.381 MB/s), DDR->PC 1.90 s (1.90 s/MB, 0.525 MB/s), read back identical
+JTAG 5 MB: PC->DDR 12.70 s (2.54 s/MB, 0.394 MB/s), DDR->PC 8.71 s (1.74 s/MB, 0.574 MB/s), read back identical
+ECHO TEST PASS

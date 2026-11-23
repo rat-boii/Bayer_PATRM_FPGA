@@ -7,11 +7,12 @@
 Board: sw/patrm_eth/echo.c (flow-controlled TCP echo, port 7), built by `vitis -s sw/patrm_eth/build_vitis.py`. With no
 DHCP server it takes 192.168.1.10 after about 12 s. Laptop: static 192.168.1.100/24 on the Ethernet adapter.
 
-Echo test: for 1 MB and 5 MB, 10 runs each, the PC opens a connection, one thread sends N random bytes while the main
-thread receives the echo. Pass = every echo identical to what was sent (10 of 10 per size). Speed: both directions
-carry N bytes at the same time, so per direction MB/s = N / T, T = first byte sent -> last echoed byte received
-(1 MB = 2^20 bytes). The send-only time (sendall returns) is also shown; it includes the PC's socket buffer, so it is
-only a rough upload figure.
+Tests (--tests, default all three), for 1 MB and 5 MB, 10 runs each (1 MB = 2^20 bytes):
+  echo    port 7: one thread sends N random bytes while the main thread receives the echo; pass = identical. Both
+          directions carry N bytes at the same time: MB/s each direction = N / T (first byte sent -> last echo byte).
+  sink    port 5001, PC -> board: send N random bytes, close; the board replies with its byte count; pass = count N.
+          MB/s = N / T (first byte sent -> count received, so every byte has reached the board).
+  source  port 5002, board -> PC: ask for N bytes; pass = every byte equals the board's pattern. MB/s = N / T.
 
 JTAG comparison (unless --no-jtag; the echo server is stopped by it): scripts/board/put_image.tcl and get_image.tcl move
 the same 1 MB and 5 MB files to/from DDR 0x1000_0000 and must read back identical; their s/MB is printed.
@@ -34,12 +35,16 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 from amd_tools import require_tool           # noqa: E402
 
 BOARD_IP = "192.168.1.10"
 PORT = 7
+SINK_PORT = 5001
+SOURCE_PORT = 5002
 MB = 1 << 20
 REV_D = REPO / "results" / "hw" / "rev D"
 ELF = REPO / "results" / "hw" / "patrm_eth_echo.elf"
@@ -171,6 +176,55 @@ def echo_once(data, timeout=60.0):
     return bytes(got), total, sent.get("t", float("nan"))
 
 
+def pattern_bytes(n):
+    """Source pattern of sw/patrm_eth/echo.c: byte i = p[i % 65536], p[k] = (k*31 + (k >> 8)) & 0xFF."""
+    k = np.arange(65536, dtype=np.uint32)
+    p = ((k * 31 + (k >> 8)) & 0xFF).astype(np.uint8)
+    return np.resize(p, n).tobytes()
+
+
+def sink_once(data, timeout=60.0):
+    """PC -> board: send data, close our side, the board answers with its byte count. Returns (count, s)."""
+    s = socket.create_connection((BOARD_IP, SINK_PORT), timeout=10)
+    s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    s.settimeout(timeout)
+    try:
+        t0 = time.perf_counter()
+        s.sendall(data)
+        s.shutdown(socket.SHUT_WR)
+        reply = b""
+        while len(reply) < 8:
+            chunk = s.recv(8 - len(reply))
+            if not chunk:
+                break
+            reply += chunk
+        total = time.perf_counter() - t0
+    finally:
+        s.close()
+    count = int.from_bytes(reply, "little") if len(reply) == 8 else -1
+    return count, total
+
+
+def source_once(n, timeout=60.0):
+    """board -> PC: ask for n bytes, receive them. Returns (bytes, s)."""
+    s = socket.create_connection((BOARD_IP, SOURCE_PORT), timeout=10)
+    s.settimeout(timeout)
+    got = bytearray()
+    try:
+        t0 = time.perf_counter()
+        s.sendall(n.to_bytes(4, "little"))
+        s.shutdown(socket.SHUT_WR)
+        while len(got) < n:
+            chunk = s.recv(1 << 18)
+            if not chunk:
+                break
+            got += chunk
+        total = time.perf_counter() - t0
+    finally:
+        s.close()
+    return bytes(got), total
+
+
 def jtag_round_trip(size, seed):
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     src = RUN_DIR / f"jtag_{size // MB}MB.bin"
@@ -194,6 +248,8 @@ def main(argv=None):
     ap.add_argument("--runs", type=int, default=10)
     ap.add_argument("--sizes", default="1,5", help="MB list (default 1,5)")
     ap.add_argument("--no-jtag", action="store_true")
+    ap.add_argument("--tests", default="echo,sink,source",
+                    help="echo (port 7), sink (PC->board, port 5001), source (board->PC, port 5002)")
     a = ap.parse_args(argv)
     sizes = [int(x) * MB for x in a.sizes.split(",")]
     rows, fails, lines = [], [], []
@@ -216,32 +272,48 @@ def main(argv=None):
         if not ok:
             raise TestError(f"{BOARD_IP} does not answer ping (cable, laptop IP 192.168.1.100/24, board booted?)")
 
-        gem_stats()                                      # clear the counters before the echo runs
-        for size in sizes:
-            for run in range(1, a.runs + 1):
-                data = random.Random(size * 1000 + run).randbytes(size)
-                got, total, send_s = echo_once(data)
-                same = got == data
-                if not same:
-                    first = next((i for i in range(min(len(got), len(data))) if got[i] != data[i]), min(len(got), len(data)))
-                    fails.append(f"{size // MB} MB run {run}: echo differs (got {len(got)} bytes, first difference at {first})")
-                rate = size / MB / total
-                rows.append({"test": "eth_echo", "MB": size // MB, "run": run, "identical": int(same),
-                             "total_s": f"{total:.4f}", "MBps_each_direction": f"{rate:.2f}",
-                             "send_only_s": f"{send_s:.4f}"})
-                say(f"echo {size // MB} MB run {run:2d}: {'identical' if same else 'DIFFERENT'}  {total:.3f} s  "
-                    f"{rate:.2f} MB/s each direction (send returned after {send_s:.3f} s)")
-
-        st = gem_stats()
-        errs = {k: v for k, v in st.items() if k.endswith(("errors", "overruns", "underruns")) and v}
-        say(f"GEM0 counters over all echo runs: frames_tx {st.get('frames_tx')}; nonzero error counters: "
-            f"{errs if errs else 'none'}")
-        for size in sizes:
-            ok_runs = [r for r in rows if r["test"] == "eth_echo" and r["MB"] == size // MB]
-            rates = sorted(float(r["MBps_each_direction"]) for r in ok_runs)
-            n_same = sum(r["identical"] for r in ok_runs)
-            say(f"SUMMARY echo {size // MB} MB: {n_same} of {len(ok_runs)} identical; MB/s each direction "
-                f"min {rates[0]:.2f} median {rates[len(rates) // 2]:.2f} max {rates[-1]:.2f}")
+        for test in a.tests.split(","):
+            gem_stats()                                  # clear the counters before this test
+            for size in sizes:
+                for run in range(1, a.runs + 1):
+                    send_s = float("nan")
+                    if test == "echo":
+                        data = random.Random(size * 1000 + run).randbytes(size)
+                        got, total, send_s = echo_once(data)
+                        same = got == data
+                        what = f"echo differs (got {len(got)} of {size} bytes)"
+                        unit = "MB/s each direction"
+                    elif test == "sink":
+                        data = random.Random(size * 1000 + run).randbytes(size)
+                        count, total = sink_once(data)
+                        same = count == size
+                        what = f"board counted {count} of {size} bytes"
+                        unit = "MB/s PC->board"
+                    elif test == "source":
+                        got, total = source_once(size)
+                        same = got == pattern_bytes(size)
+                        what = f"pattern differs (got {len(got)} of {size} bytes)"
+                        unit = "MB/s board->PC"
+                    else:
+                        raise TestError(f"unknown test {test} (echo, sink, source)")
+                    if not same:
+                        fails.append(f"{test} {size // MB} MB run {run}: {what}")
+                    rate = size / MB / total
+                    rows.append({"test": f"eth_{test}", "MB": size // MB, "run": run, "identical": int(same),
+                                 "total_s": f"{total:.4f}", "MBps_each_direction": f"{rate:.2f}",
+                                 "send_only_s": "" if send_s != send_s else f"{send_s:.4f}"})
+                    say(f"{test} {size // MB} MB run {run:2d}: {'identical' if same else 'DIFFERENT'}  "
+                        f"{total:.3f} s  {rate:.2f} {unit}")
+            st = gem_stats()
+            errs = {k: v for k, v in st.items() if k.endswith(("errors", "overruns", "underruns")) and v}
+            say(f"GEM0 counters over the {test} runs: frames_tx {st.get('frames_tx')}; nonzero error counters: "
+                f"{errs if errs else 'none'}")
+            for size in sizes:
+                ok_runs = [r for r in rows if r["test"] == f"eth_{test}" and r["MB"] == size // MB]
+                rates = sorted(float(r["MBps_each_direction"]) for r in ok_runs)
+                n_same = sum(r["identical"] for r in ok_runs)
+                say(f"SUMMARY {test} {size // MB} MB: {n_same} of {len(ok_runs)} identical; MB/s "
+                    f"min {rates[0]:.2f} median {rates[len(rates) // 2]:.2f} max {rates[-1]:.2f}")
 
         if not a.no_jtag:
             say("JTAG comparison (put_image / get_image, DDR 0x1000_0000; stops the echo server)")
