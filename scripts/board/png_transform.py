@@ -17,6 +17,8 @@ reduced to a multiple of 8 (D3) by resizing. W and H must be at most 4096. Outsi
     --dry-run      print every XSDB command and touch no board
     --rev d        use the temporary Rev D bundle in results/hw/rev D (default: the Rev C files in results/hw)
     --bit / --init explicit bitstream and ps7_init script (override --rev)
+    --no-program   do not program the FPGA or run ps7_init: use the bitstream already loaded (for example from the
+                   Vivado Hardware Manager). The PS must already be set up in this power cycle (one earlier normal run).
 
 Needs xsdb on PATH (or Vivado 2026.1 in C:\\AMDDesignTools). Run folder: build/board/frame_<name>_custom_<W>x<H>/.
 Exit code: 0 pass, 1 mismatch against the model, 2 error.
@@ -83,6 +85,9 @@ def main(argv=None):
     ap.add_argument("--timeout", type=int, default=10, help="seconds to wait for DONE")
     ap.add_argument("--model-only", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-program", action="store_true",
+                    help="keep the bitstream already in the FPGA (e.g. programmed from the Vivado Hardware Manager) and "
+                         "the PS setup of an earlier load in this power cycle")
     a = ap.parse_args(argv)
 
     try:
@@ -129,7 +134,7 @@ def main(argv=None):
         print(f"png_transform: predicted BYTES_RD {f['bytes_rd']}, BYTES_WR {W * H}")
         f["out_file"].unlink(missing_ok=True)
         start = time.time()
-        flags = ["--dry-run"] if a.dry_run else []
+        flags = (["--dry-run"] if a.dry_run else []) + (["--no-program"] if a.no_program else [])
         values = RF.parse_xsdb(RF.run_xsdb(f, flags), a.dry_run)
         if a.dry_run:
             print("png_transform: DRY RUN OK: nothing was done on a board")
