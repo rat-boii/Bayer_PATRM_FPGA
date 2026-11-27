@@ -360,7 +360,7 @@ module patrm_top #(
             .src(cfg_src_addr),.b11(cfg_b11),.b12(cfg_b12),.b21(cfg_b21),.b22(cfg_b22),
             .tx({cfg_t_b_x,cfg_t_gb_x,cfg_t_gr_x,cfg_t_r_x}),.ty({cfg_t_b_y,cfg_t_gb_y,cfg_t_gr_y,cfg_t_r_y}),
             .cmd_valid(b_cmd_valid),.cmd_ready(cmd_ready && mode_b),.cmd_addr(b_cmd_addr),.cmd_words(b_cmd_words),
-            .cmd_slot(b_cmd_slot),.rd_valid(rd_valid && mode_b),.rd_data(rd_data),.rd_word(rd_word),.rd_cmd_last(rd_cmd_last),
+            .cmd_slot(b_cmd_slot),.rd_valid(rd_valid && mode_b),.rd_data(rd_data),.rd_slot(rd_slot),.rd_word(rd_word),.rd_cmd_last(rd_cmd_last),
             .wq_valid(b_wq_valid),.wq_ready(wq_ready && mode_b),.wq_data(b_wq_data),.wq_count(b_wq_count),
             .rd_stall(b_rd_stall),.wr_stall(b_wr_stall));
     end endgenerate

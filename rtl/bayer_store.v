@@ -1,5 +1,9 @@
 // A physical group owns up to 16 row windows. Preserve previous-group slots
 // for P1 and allocate missing windows from the other slots until group seal.
+// Missed windows are issued back to back (axi_rd_master keeps up to RD_OUTSTANDING bursts in flight); each returned
+// beat is written by its own command's slot (rd_slot) at that window's first word + rd_word. fetch_idle = no issued
+// window still waiting for its last beat; bayer_lanes interpolates a group only then. Until 2026-11-27 the store
+// waited for each window's last beat before issuing the next (one read in flight), which made B latency-bound.
 module bayer_store(
     input aclk, aresetn, frame_start, group_start, group_seal,
     input window_valid, output window_ready, input [11:0] window_row,
@@ -7,7 +11,8 @@ module bayer_store(
     input [31:0] src, input [12:0] width,
     output cmd_valid, input cmd_ready, output [31:0] cmd_addr,
     output [6:0] cmd_words, output [4:0] cmd_slot,
-    input rd_valid, input [63:0] rd_data, input [5:0] rd_word, input rd_cmd_last,
+    input rd_valid, input [63:0] rd_data, input [4:0] rd_slot, input [5:0] rd_word, input rd_cmd_last,
+    output fetch_idle,
     input sample_en, input [383:0] samples, output [127:0] pixels
 );
     reg [4:0] count, prev_count;
@@ -15,7 +20,9 @@ module bayer_store(
     reg [9:0] first_tag [0:15], end_tag [0:15], prev_first [0:15], prev_end [0:15];
     reg [4:0] slots [0:15], prev_slots [0:15];
     reg [31:0] pinned, allocated;
-    reg waiting, hit;
+    reg hit;
+    reg [5:0] pending;                   // issued windows whose last beat has not arrived (at most 16 per group)
+    reg [5:0] slot_first [0:31];         // first word (mod 64) of the window held in each slot
     reg [4:0] chosen;
     integer i;
     always @* begin
@@ -33,26 +40,27 @@ module bayer_store(
                 hit=1; chosen=prev_slots[i];
             end
     end
-    reg [4:0] fill_slot;
-    reg [5:0] fill_start;
-    assign cmd_valid = window_valid && !waiting && !hit;
+    assign cmd_valid = window_valid && !hit;
     assign cmd_addr = src + window_row*width + (window_first*8);
     assign cmd_words = window_end-window_first;
     assign cmd_slot = chosen;
-    assign window_ready = waiting ? (rd_valid && rd_cmd_last) : hit;
+    assign window_ready = hit || cmd_ready;
+    wire issue = window_valid && !hit && cmd_ready;
+    wire retire = rd_valid && rd_cmd_last;
+    assign fetch_idle = pending==0;
     integer j;
     always @(posedge aclk) begin
         if(!aresetn || frame_start) begin
-            count<=0; prev_count<=0; waiting<=0; pinned<=0; allocated<=0;
+            count<=0; prev_count<=0; pending<=0; pinned<=0; allocated<=0;
         end else begin
             if(group_start) begin count<=0; allocated<=0; end
-            if(window_valid && !waiting && (hit || cmd_ready)) begin
+            if(window_valid && (hit || cmd_ready)) begin
                 row_tag[count]<=window_row; first_tag[count]<=window_first;
                 end_tag[count]<=window_end; slots[count]<=chosen;
                 allocated[chosen]<=1; count<=count+1'b1;
-                if(!hit) begin waiting<=1; fill_start<=window_first; fill_slot<=chosen; end
             end
-            if(waiting && rd_valid && rd_cmd_last) waiting<=0;
+            if(issue) slot_first[chosen]<=window_first[5:0];
+            pending<=pending+(issue ? 6'd1 : 6'd0)-(retire ? 6'd1 : 6'd0);
             if(group_seal && count!=0) begin
                 prev_count<=count; pinned<=allocated;
                 for(j=0;j<16;j=j+1) begin
@@ -62,7 +70,7 @@ module bayer_store(
             end
         end
     end
-    wire [5:0] fill_word = fill_start+rd_word;
+    wire [5:0] fill_word = slot_first[rd_slot]+rd_word;
     wire [9:0] raddr [0:15];
     wire [63:0] bank_q [0:15];
     genvar k;
@@ -85,8 +93,8 @@ module bayer_store(
     for(k=0;k<4;k=k+1) begin: banks
         localparam N=k*4;
         wire top_odd=samples[N*24+3], bot_odd=samples[(N+2)*24+3];
-        line_buf bank(.aclk(aclk),.we(rd_valid && waiting),.wbank(fill_word[0]),
-            .waddr({fill_slot,fill_word[5:1]}),.wdata(rd_data),.re(sample_en),
+        line_buf bank(.aclk(aclk),.we(rd_valid),.wbank(fill_word[0]),
+            .waddr({rd_slot,fill_word[5:1]}),.wdata(rd_data),.re(sample_en),
             .raddr_te(top_odd?raddr[N+1]:raddr[N]),.raddr_to(top_odd?raddr[N]:raddr[N+1]),
             .raddr_be(bot_odd?raddr[N+3]:raddr[N+2]),.raddr_bo(bot_odd?raddr[N+2]:raddr[N+3]),
             .rdata_te(bank_q[N]),.rdata_to(bank_q[N+1]),.rdata_be(bank_q[N+2]),.rdata_bo(bank_q[N+3]));

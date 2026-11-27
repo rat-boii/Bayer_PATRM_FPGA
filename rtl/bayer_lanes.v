@@ -5,7 +5,7 @@ module bayer_lanes #(parameter ENABLE_FALLBACK=1)(
     input [12:0] width,height,block_len,
     input [31:0] src,b11,b12,b21,b22, input [127:0] tx,ty,
     output cmd_valid,input cmd_ready,output [31:0] cmd_addr,output [6:0] cmd_words,
-    output [4:0] cmd_slot,input rd_valid,input [63:0] rd_data,input [5:0] rd_word,input rd_cmd_last,
+    output [4:0] cmd_slot,input rd_valid,input [63:0] rd_data,input [4:0] rd_slot,input [5:0] rd_word,input rd_cmd_last,
     output wq_valid,input wq_ready,output [63:0] wq_data,output [6:0] wq_count,
     output rd_stall,wr_stall
 );
@@ -77,6 +77,7 @@ module bayer_lanes #(parameter ENABLE_FALLBACK=1)(
                && samples[i*24+3+:21]<smallest) smallest={1'b0,samples[i*24+3+:21]};
     end
     wire window_ready;
+    wire fetch_idle;                     // every issued window of the group has returned its last beat
     wire sample_en;
     wire [127:0] pixels;
     bayer_store store(.aclk(aclk),.aresetn(aresetn),.frame_start(frame_start),
@@ -87,7 +88,8 @@ module bayer_lanes #(parameter ENABLE_FALLBACK=1)(
         .window_end(state==RECT?end_col:({1'b0,run_last[8:0]}+10'd1)),
         .src(src),.width(width),.cmd_valid(cmd_valid),.cmd_ready(cmd_ready),.cmd_addr(cmd_addr),
         .cmd_words(cmd_words),.cmd_slot(cmd_slot),.rd_valid(rd_valid),.rd_data(rd_data),
-        .rd_word(rd_word),.rd_cmd_last(rd_cmd_last),.sample_en(sample_en),.samples(samples),.pixels(pixels));
+        .rd_slot(rd_slot),.rd_word(rd_word),.rd_cmd_last(rd_cmd_last),.fetch_idle(fetch_idle),
+        .sample_en(sample_en),.samples(samples),.pixels(pixels));
     wire tile_ready,tile_valid;
     reg held;
     reg [3:0] ok_q;
@@ -157,7 +159,8 @@ module bayer_lanes #(parameter ENABLE_FALLBACK=1)(
                 end else state<=SPARSE;
             end
             SPARSE: if(window_ready) begin run_valid<=0; state<=SORT; end
-            SEAL: state<=EXECUTE;
+            // windows are issued back to back (bayer_store); interpolate only once all of them have returned
+            SEAL: if(fetch_idle) state<=EXECUTE;
             EXECUTE: if(sample_en) begin
                 if({1'b0,pos}+7'd1==count) begin
                     state<=last_block?IDLE:SCAN; pos<=0; count<=0; have_data<=0;
