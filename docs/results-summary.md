@@ -1,6 +1,6 @@
 # Bayer-PATRM: results summary (all measured numbers)
 
-Generated 2026-11-27 22:56 by `scripts/summarize_results.py` from the tracked result files. Do not edit by hand: re-run the script. Board: ZedBoard Rev D (XC7Z020-1), PL clock 100 MHz (step 7.1: measured 100.0025 MHz), ARM Cortex-A9 at 650 MHz. Sizes are W x H. 'Bit-exact' = 0 differing bytes against the Python model.
+Generated 2026-11-27 23:35 by `scripts/summarize_results.py` from the tracked result files. Do not edit by hand: re-run the script. Board: ZedBoard Rev D (XC7Z020-1), PL clock 100 MHz (step 7.1: measured 100.0025 MHz), ARM Cortex-A9 at 650 MHz. Sizes are W x H. 'Bit-exact' = 0 differing bytes against the Python model.
 
 ## 1. FPGA builds: resources, timing, power (post-route, whole design)
 
@@ -326,7 +326,7 @@ Source: `results/board/step7_1/clock_check_2026-11-27_205913.txt`.
 
 ## 7. Option B study (why it is not the better method)
 
-Simulation at equal clock, every frame bit-exact:
+Original B (one read in flight), simulation at equal clock, every frame bit-exact:
 
 ```
 Option A vs Option B, simulation, 256x192, BLOCK_LEN 64, memory latency 20, no back-pressure (scripts/compare_bayer_ab.py)
@@ -344,10 +344,33 @@ combined         49301     51298    319232   6.22     0.958     0.154      28329
 
 B/A < 1: Option B faster. TEST PASS (every frame bit-exact)
 ```
+Source: `results/sim/bayer_ab_256x192.txt`.
+
+After stage 1 (reads issued back to back, 2026-11-27), same settings, every frame bit-exact:
+
+```
+Option A vs Option B, simulation, 256x192, BLOCK_LEN 64, memory latency 20, no back-pressure (scripts/compare_bayer_ab.py)
+
+transform     gray cyc     A cyc     B cyc    B/A  A px/clk  B px/clk  A BYTES_RD  B BYTES_RD  A RD_STALL  B RD_STALL
+identity         49315     49868     41889   0.84     0.986     1.173      201696      100848         228       17214
+mirror_cols      49315     49868     42271   0.85     0.986     1.163      201696      103904         228       17596
+rot5             49303     49764     86790   1.74     0.988     0.566      254880      142688         124       58356
+rot15            51937     65510    159514   2.43     0.750     0.308      343928      203728       15880      128031
+rot37            84623     93846    261999   2.79     0.524     0.188      390304      244512       44263      225431
+rot90           108427    103384    318707   3.08     0.475     0.154      368640      221184       53931      283200
+scale0p8         49317     49860     38131   0.76     0.986     1.289      155648       77824         220       13376
+scale1p25        49313     49844     40035   0.80     0.986     1.228      172032       86016         204       15360
+combined         49301     51298    134038   2.61     0.958     0.367      283296      182800        1658      104044
+
+B/A < 1: Option B faster. TEST PASS (every frame bit-exact)
+```
+Source: `results/sim/bayer_ab_256x192_stage1.txt`.
+
+Team decision 2026-11-27: Option B is presented as a measured design study with the stage 1 result. B beats A when the transform has no rotation (b12 = 0: identity, mirror, scaling; B/A 0.76-0.85, half the bytes read) and loses on every rotation (B/A 1.7-3.1): the source row changes every 1-2 output pixels, each block pays one memory latency, and B does not fetch across blocks the way A's prefetch does. Not pursued: bigger B blocks (about A's speed on rotations) and A-style deep prefetch plus timing closure (estimated ceiling about 2-3x A).
 
 Hardware build at 100 MHz: WNS -46.129 ns, TNS -31963.963 (4392 failing of 22521 endpoints); 11575 LUT, 6411 FF, 42 BRAM36, 54 DSP (Option A: see section 1). Not loaded on the board.
 
-Why B is not faster (details: `results/hw/bayer_b/rev_d/README.md`, plan Progress 2026-11-23):
+Why the original B was not faster (details: `results/hw/bayer_b/rev_d/README.md`, plan Progress 2026-11-23):
 1. Serial window fetch: `bayer_store` requests one missing source window and waits for its last beat before the next, so DDR latency is paid per window; read stall 30-94 % of cycles (A keeps up to 8 reads in flight).
 2. Four lanes, but never more than about 1 output pixel per clock: the lanes starve waiting for data.
 3. Timing: the fallback's 16-step compare chain in one clock (86 logic levels, 55.7 ns) and mode multiplexers that also slow the shared gray/A paths; implied clock about 18 MHz (estimate).

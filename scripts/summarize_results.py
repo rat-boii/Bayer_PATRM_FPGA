@@ -217,18 +217,30 @@ def main():
     # 7. Option B
     w("## 7. Option B study (why it is not the better method)")
     w("")
-    p = R / "sim" / "bayer_ab_256x192.txt"
-    w("Simulation at equal clock, every frame bit-exact:")
-    w("")
-    w("```")
-    w(p.read_text(encoding="utf-8").rstrip())
-    w("```")
+    for label, name in (("Original B (one read in flight), simulation at equal clock, every frame bit-exact:",
+                         "bayer_ab_256x192.txt"),
+                        ("After stage 1 (reads issued back to back, 2026-11-27), same settings, every frame bit-exact:",
+                         "bayer_ab_256x192_stage1.txt")):
+        p = R / "sim" / name
+        if p.is_file():
+            w(label)
+            w("")
+            w("```")
+            w(p.read_text(encoding="utf-8").rstrip())
+            w("```")
+            w(f"Source: `{rel(p)}`.")
+            w("")
+    w("Team decision 2026-11-27: Option B is presented as a measured design study with the stage 1 result. B beats A "
+      "when the transform has no rotation (b12 = 0: identity, mirror, scaling; B/A 0.76-0.85, half the bytes read) and "
+      "loses on every rotation (B/A 1.7-3.1): the source row changes every 1-2 output pixels, each block pays one "
+      "memory latency, and B does not fetch across blocks the way A's prefetch does. Not pursued: bigger B blocks "
+      "(about A's speed on rotations) and A-style deep prefetch plus timing closure (estimated ceiling about 2-3x A).")
     s = summary_fields(R / "hw" / "bayer_b" / "rev_d")
     w("")
     w(f"Hardware build at 100 MHz: WNS {s['WNS']} ns, TNS {s['TNS']}; {s['LUT']} LUT, {s['FF']} FF, {s['BRAM']} BRAM36, "
       f"{s['DSP']} DSP (Option A: see section 1). Not loaded on the board.")
     w("")
-    w("Why B is not faster (details: `results/hw/bayer_b/rev_d/README.md`, plan Progress 2026-11-23):")
+    w("Why the original B was not faster (details: `results/hw/bayer_b/rev_d/README.md`, plan Progress 2026-11-23):")
     w("1. Serial window fetch: `bayer_store` requests one missing source window and waits for its last beat before the "
       "next, so DDR latency is paid per window; read stall 30-94 % of cycles (A keeps up to 8 reads in flight).")
     w("2. Four lanes, but never more than about 1 output pixel per clock: the lanes starve waiting for data.")
