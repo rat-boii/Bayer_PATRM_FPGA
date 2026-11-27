@@ -126,11 +126,15 @@ def load_board(bit=REV_D / "patrm_gray.bit", init=REV_D / "ps7_init.tcl", elf=ET
     for p in (bit, init, elf):
         if not Path(p).is_file():
             raise LinkError(f"missing {p}")
+    # mdio="check": nothing has to be written before the program starts, so core 0 is started inside load_run.tcl (same
+    # session as the download, as in the JTAG flow) and mdio_mio.tcl only reads. Starting it from a second XSDB session
+    # failed now and then (2026-11-27: "Already running" while core 0 sat halted at the ELF entry, board never booted).
+    run = mdio == "check"
     out = run_xsdb(REPO / "scripts" / "board" / "load_run.tcl",
-                   ["--bit", bit, "--init", init, "--elf", elf, "--no-run"])
+                   ["--bit", bit, "--init", init, "--elf", elf] + ([] if run else ["--no-run"]))
     if "load_run: DONE" not in out:
         raise LinkError("load_run.tcl did not print 'load_run: DONE':\n" + out[-1500:])
-    out = run_xsdb(REPO / "scripts" / "eth" / "mdio_mio.tcl", ["--con"] + (["--check"] if mdio == "check" else []))
+    out = run_xsdb(REPO / "scripts" / "eth" / "mdio_mio.tcl", ["--check"] if run else ["--con"])
     if "mdio_mio: DONE" not in out:
         raise LinkError("mdio_mio.tcl did not print 'mdio_mio: DONE':\n" + out[-1500:])
 
