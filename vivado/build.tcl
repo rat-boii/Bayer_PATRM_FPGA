@@ -3,6 +3,9 @@
 # Option A outputs: results/hw/bayer_a/rev_c|rev_d/patrm_bayer_a.{bit,xsa}, ps7_init.tcl and reports.
 # Option B (step 6.3): variant=bayer_b builds MODES 7 (gray + A + B), BUILD_TYPE 2 -> results/hw/bayer_b/rev_c|rev_d/.
 # Example: vivado -mode batch -source ../../vivado/build.tcl -tclargs variant=bayer_a rev=d
+# fclk=<MHz> (default 100, D8): reduced-clock experiment only, e.g. Option B, which does not close timing at 100 MHz
+# (team request 2026-11-27, one board test). Such a build gets the suffix _<f>mhz in its project and output folder
+# (results/hw/<variant>/rev_<r>_<f>mhz/), so no 100 MHz result is overwritten.
 # Batch and reproducible: the project is created from nothing under build/vivado/<name>, nothing is edited by hand.
 #
 # Run from build/vivado (keeps Vivado's .jou/.log out of the repo):
@@ -31,14 +34,15 @@ set buf_size   0x01000000
 set rtl_names  {axil_regs ctrl_fsm bayer_seq block_planner coord_gen prefetch_ctrl axi_rd_master line_buf pixel_fetch
                 bilinear_interp out_fifo axi_wr_master bayer_geometry bayer_store bayer_merge bayer_lanes patrm_top}
 
-array set opt {ila 0 bd_only 0 sim 0 variant gray rev c}
+array set opt {ila 0 bd_only 0 sim 0 variant gray rev c fclk 100}
 # vivado.bat on Windows splits "ila=1" at the "=", so the script receives "ila" "1"; both forms are accepted
 set args_text [regsub -all {=} [join $argv " "] " "]
 foreach {k v} $args_text {
-    if {![info exists opt($k)]} { error "unknown argument '$k' (use ila, bd_only, sim, variant=gray|bayer_a|bayer_b, rev=c|d)" }
+    if {![info exists opt($k)]} { error "unknown argument '$k' (use ila, bd_only, sim, variant=gray|bayer_a|bayer_b, rev=c|d, fclk=<MHz>)" }
     if {$k in {ila bd_only sim} && $v ni {0 1}} { error "$k must be 0 or 1" }
     if {$k eq "variant" && $v ni {gray bayer_a bayer_b}} { error "variant must be gray, bayer_a or bayer_b" }
     if {$k eq "rev" && $v ni {c d}} { error "rev must be c or d" }
+    if {$k eq "fclk" && (![string is integer -strict $v] || $v < 10 || $v > 150)} { error "fclk must be 10..150 MHz" }
     set opt($k) $v
 }
 if {$opt(ila) && $opt(sim)} { error "sim=1 simulates the design without the ILA; do not combine it with ila=1" }
@@ -51,16 +55,19 @@ if {$opt(ila)} { append artifact _ila }
 set name $artifact
 if {$opt(variant) ne "gray" || $opt(rev) ne "c"} { append name "_rev$opt(rev)" }
 if {$opt(sim)} { append name _sim }
+set fclk_mhz $opt(fclk)
+if {$fclk_mhz != 100 && $opt(variant) eq "gray"} { error "fclk other than 100 MHz is for the Bayer experiment builds only (D8)" }
+if {$fclk_mhz != 100} { append name "_${fclk_mhz}mhz" }
 set prj [file join $repo build vivado $name]
 set out [file join $repo results hw]
 if {$opt(variant) ne "gray"} {
-    set out [file join $out $opt(variant) "rev_$opt(rev)"]
+    set out [file join $out $opt(variant) "rev_$opt(rev)[expr {$fclk_mhz != 100 ? "_${fclk_mhz}mhz" : {}}]"]
 } elseif {$opt(rev) eq "d"} {
     set out [file join $out {rev D}]
 }
 file mkdir $out
 proc note {s} { puts "BUILD: $s" }
-note "variant $opt(variant), Rev $opt(rev), MODES $modes, BUILD_TYPE $build_type, DDR $ddr_part"
+note "variant $opt(variant), Rev $opt(rev), MODES $modes, BUILD_TYPE $build_type, DDR $ddr_part, FCLK0 $fclk_mhz MHz"
 note "output directory $out"
 proc hex32 {v} { return [format 0x%08X [expr {$v & 0xFFFFFFFF}]] }
 proc n_msg {sev} { return [get_msg_config -count -severity $sev] }
