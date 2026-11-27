@@ -1,0 +1,31 @@
+step 7.1 clock check, 2026-11-27 20:59:13: board Rev D, link eth, sizes 128x96, 480x272, 800x480, 1920x1080, 2448x2095, N = 10, global timer 3 samples 30 s apart, limit 0.1%
+
+--- 1. clock configuration (SLCR registers, through core 1)
+  ARM_PLL_CTRL    0x00027008
+  DDR_PLL_CTRL    0x00020008
+  IO_PLL_CTRL     0x0001E008
+  ARM_CLK_CTRL    0x1F000200
+  FPGA0_CLK_CTRL  0x00200500
+  CLK_621_TRUE    0x00000001
+  GT_CONTROL      0x00000001
+  PLLs (PS_CLK 33.333333 MHz): ARM 1300.000 MHz (FDIV 39), DDR 1066.667 MHz, IO 1000.000 MHz (FDIV 30)
+  CPU_6x4x 650.000 MHz (ARM PLL / 2), ratio 6:2:1, global timer = CPU_3x2x 325.000 MHz (enabled: yes)
+  FCLK0 100.000000 MHz (IO PLL / 5 / 2)
+
+--- 2. global timer against the PC clock
+  host 1795793357.400468 s (read window 1213 us), count 194598170364
+  host 1795793387.493865 s (read window 2223 us), count 204378419724
+  host 1795793417.602984 s (read window 7456 us), count 214165490838
+  measured 325.008111 MHz over 60.2 s, nominal 325.000000 MHz: +0.00250% (read-window bound +-0.01238%; the PC clock itself is typically within 0.01 %)
+
+--- 3. PL clock against the global timer (identity jobs, photo, N = 10)
+  128x96     CYCLES avg     12465 (min 12462, max 12470), engine avg     125.002 us, ratio 99.7184 cycles/us
+  480x272    CYCLES avg    130730 (min 130723, max 130738), engine avg    1307.681 us, ratio 99.9709 cycles/us
+  800x480    CYCLES avg    384165 (min 384161, max 384171), engine avg    3841.997 us, ratio 99.9910 cycles/us
+  1920x1080  CYCLES avg   2073780 (min 2073776, max 2073782), engine avg   20738.177 us, ratio 99.9982 cycles/us
+  2448x2095  CYCLES avg   5128743 (min 5128742, max 5128745), engine avg   51287.775 us, ratio 99.9993 cycles/us
+  line fit: engine time = CYCLES / 100.000025 MHz + 0.364 us (fixed START/poll overhead), largest residual 0.018 us
+  PL clock in global-timer time: 100.000025 MHz (+0.00003% from 100 MHz)
+  PL clock in PC time:           100.002521 MHz (+0.00252% from 100 MHz)
+
+CLOCK CHECK PASS

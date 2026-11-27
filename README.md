@@ -932,3 +932,27 @@ BYTES_RD / BYTES_WR identical to JTAG in all 99 cases; MIO 52/53 = 0x280 straigh
 within 0.25 % in 97 of 99 cases; 2448x2048 rot15 +0.34 %, inside that case's own JTAG spread of 0.37 % (5 board loads x
 10 frames per link: each load lands at about 7.341 M, 7.353 M or 7.366 M cycles on either link; cause not investigated).
 Logs: results/board/step10_4/.
+
+## Step 7.1: PL clock against the global timer
+
+```
+python scripts/board/clock_check.py --dry-run        # prints the XSDB script and the five jobs, touches no board
+python scripts/board/clock_check.py                  # board running an application (default --link eth, --rev d)
+python scripts/board/clock_check.py --link jtag      # the same through the JTAG application
+```
+Three checks, each within 0.1 % (results/board/step7_1/clock_check_<date>_<time>.txt, last line `CLOCK CHECK PASS`):
+1. **Configuration.** `scripts/board/clock_regs.tcl` reads the SLCR clock registers through core 1 (our programs never
+   start it; core 0 keeps running): FCLK0 must be 100 MHz and the global timer frequency must equal the `timer_hz` the
+   application converts with.
+2. **Global timer against the PC clock.** The same script samples the 64-bit global timer 3 times, 30 s apart, with the
+   PC time around each read; the slope is the timer frequency, measured independently of the board's crystal.
+3. **PL clock against the global timer.** Identity jobs at five sizes, N = 10 each. Engine time (START to DONE, global
+   timer) = CYCLES / f_PL + a fixed overhead; the line's slope gives f_PL without the overhead.
+
+The ZedBoard preset runs the CPU at 650 MHz (ARM PLL 1300 MHz / 2), so the **global timer is 325 MHz**, not the
+333 MHz of a 667 MHz CPU; the application already converts with 325,000,000 Hz. FCLK0 = IO PLL 1000 MHz / 5 / 2.
+
+Result 2026-11-27 (Rev D, Bayer A bitstream, Ethernet application): FCLK0 configured 100.000000 MHz; global timer
+325.0081 MHz against the PC clock (+0.0025 %, read-window bound +-0.012 %); PL clock 100.000025 MHz in global-timer
+time (+0.00003 %) and 100.0025 MHz in PC time (+0.0025 %); fixed START/poll overhead 0.36 us, largest residual of the
+five-point line 0.018 us. CLOCK CHECK PASS. So CYCLES / 100 MHz is the engine time to better than 0.01 %.
