@@ -170,6 +170,16 @@ connect_bd_intf_net [get_bd_intf_pins patrm_0/m_axi_hp0] [get_bd_intf_pins proce
 connect_bd_intf_net [get_bd_intf_pins patrm_0/m_axi_hp1] [get_bd_intf_pins processing_system7_0/S_AXI_HP1]
 # interrupt -> IRQ_F2P[0]
 connect_bd_net [get_bd_pins patrm_0/interrupt] [get_bd_pins processing_system7_0/IRQ_F2P]
+# Reduced-clock experiment builds (fclk != 100): rtl/patrm_top.v declares FREQ_HZ 100000000 on aclk and its three AXI
+# interfaces, so give them the PS's actual FCLK0 frequency (the divider result, e.g. 15151515 Hz), or validation fails.
+if {$fclk_mhz != 100} {
+    set f_act [get_property CONFIG.FREQ_HZ [get_bd_pins processing_system7_0/FCLK_CLK0]]
+    set_property -dict [list CONFIG.FREQ_HZ.VALUE_SRC USER CONFIG.FREQ_HZ $f_act] [get_bd_pins patrm_0/aclk]
+    foreach i {s_axi m_axi_hp0 m_axi_hp1} {
+        set_property -dict [list CONFIG.FREQ_HZ.VALUE_SRC USER CONFIG.FREQ_HZ $f_act] [get_bd_intf_pins patrm_0/$i]
+    }
+    note "reduced clock: patrm_0 aclk and AXI interfaces set to FREQ_HZ $f_act"
+}
 
 if {$opt(ila)} {                                           ;# debug option only (D9)
     set clk_port [create_bd_port -dir O -type clk ila_clk]  ;# to the native ILA in the top level (ila_wrapper.tcl)

@@ -105,6 +105,11 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="print every XSDB command, touch no board")
     ap.add_argument("--link", choices=("jtag", "eth"), default="jtag",
                     help="jtag: XSDB mailbox (step 4.3); eth: Ethernet job service (step 10.2)")
+    ap.add_argument("--hw", default=None,
+                    help="bundle folder instead of the default of --variant/--rev (e.g. results/hw/bayer_b/rev_d_15mhz, "
+                         "a reduced-clock build); its name is added to the result file names")
+    ap.add_argument("--timeout-ms", type=int, default=None,
+                    help="DONE timeout per frame on the ARM, passed to run_job (default: run_job's, 2000 ms)")
     a = ap.parse_args(argv)
     if a.link == "eth" and a.dry_run:
         print("RUN_ALL FAIL: --dry-run is for the XSDB path only")
@@ -116,6 +121,8 @@ def main(argv=None):
     if (a.mode == "bayer_a" and variant not in ("bayer_a", "bayer_b")) or (a.mode == "bayer_b" and variant != "bayer_b"):
         ap.error(f"{a.mode} jobs need a build that has that mode (--variant bayer_a or bayer_b)")
     hw = HW[a.rev] if variant == "gray" else ROOT / "results" / "hw" / variant / f"rev_{a.rev}"
+    if a.hw:
+        hw = Path(a.hw) if Path(a.hw).is_absolute() else ROOT / a.hw
     if a.elf is None:                            # one default for every combination (merge of steps 5.3 and 10.2)
         if a.link == "eth":                     # step 10.4: the Bayer A bundle has its own patrm_eth.elf
             a.elf = str((ROOT / "results" / "hw" if variant == "gray" else hw) / "patrm_eth.elf")
@@ -139,7 +146,7 @@ def main(argv=None):
     cases = [(img, tf, W, H) for (W, H) in sizes for img in images for tf in tfs]
 
     tag = (f"rev{a.rev}" + (f"_{variant}_{a.mode}" if variant != "gray" else "") + ("_eth" if a.link == "eth" else "")
-           + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + ("_dry" if a.dry_run else ""))
+           + (f"_sw_{Path(a.elf).stem}" if a.sw else "") + (f"_{hw.name}" if a.hw else "") + ("_dry" if a.dry_run else ""))
     log_dir = RF.RUN_ROOT / f"run_all_{tag}"
     log_dir.mkdir(parents=True, exist_ok=True)
     out_dir = log_dir if a.dry_run else ROOT / "results" / "board"   # a dry run writes nothing into results/
@@ -154,6 +161,8 @@ def main(argv=None):
             args += ["--load", "--bit", str(bit), "--init", str(init)]
         if a.sw:
             args.append("--sw")
+        if a.timeout_ms:
+            args += ["--timeout-ms", str(a.timeout_ms)]
         if a.dry_run:
             args.append("--dry-run")
         t0 = time.time()

@@ -20,6 +20,8 @@ BUILDS = [  # label, folder, note
     ("Grayscale, Rev D (Vivado 2025.2)", R / "hw" / "rev D", "board-verified gray bundle (steps 4.x, 10.2, 10.3)"),
     ("Bayer A, Rev D (Vivado 2026.1)", R / "hw" / "bayer_a" / "rev_d", "board-verified; runs gray and Bayer (5.3, 10.4, 10.5)"),
     ("Bayer B, Rev D (Vivado 2026.1)", R / "hw" / "bayer_b" / "rev_d", "TIMING FAILED at 100 MHz, not loaded (6.3)"),
+    ("Bayer B stage 1, Rev D, 11.9 MHz", R / "hw" / "bayer_b" / "rev_d_12mhz",
+     "reduced-clock experiment (D8 exception); board-tested, all modes bit-exact"),
 ]
 
 
@@ -248,6 +250,29 @@ def main():
       "also slow the shared gray/A paths; implied clock about 18 MHz (estimate).")
     w("4. Cost: about 3.9x the LUTs, 5x the BRAM and 3x the DSP of Option A for no speed gain.")
     w("")
+    pb = R / "board" / "run_all_revd_bayer_b_bayer_b_eth_rev_d_12mhz.csv"
+    pa = R / "board" / "run_all_revd_bayer_a_bayer_a_eth.csv"
+    if pb.is_file() and pa.is_file():
+        A = {(r["W"], r["H"], r["image"], r["transform"]): r for r in read_csv(pa)}
+        w("### Option B on the board (stage 1 RTL at 11.9 MHz) vs Option A (100 MHz), chart image")
+        w("")
+        w("Both bit-exact. CAUTION: at 11.9 MHz a DDR access costs about 8x fewer clocks than at 100 MHz, so the board's "
+          "B/A cycle ratio flatters B on the latency-bound rotations; the equal-clock comparison is the simulation above.")
+        w("")
+        w("| Size | Transform | A cycles | B cycles | B/A cycles | A ms (100 MHz) | B ms (11.9 MHz) | A BYTES_RD | B BYTES_RD | B RD stall % |")
+        w("|---|---|---|---|---|---|---|---|---|---|")
+        for r in read_csv(pb):
+            k = (r["W"], r["H"], r["image"], r["transform"])
+            if r["image"] != "chart" or k not in A:
+                continue
+            a_ = A[k]
+            w(f"| {r['W']}x{r['H']} | {r['transform']} | {a_['cycles']} | {r['cycles']} | "
+              f"{int(r['cycles']) / int(a_['cycles']):.2f} | {num(a_['engine_us']) / 1e3:.2f} | "
+              f"{num(r['engine_us']) / 1e3:.1f} | {a_['bytes_rd']} | {r['bytes_rd']} | {r['rd_stall_pct']} |")
+        w("")
+        w(f"Sources: `{rel(pb)}`, `{rel(pa)}`, `results/hw/bayer_b/rev_d_12mhz/README.md`. The same bitstream also ran "
+          "Bayer A (66/66) and gray (33/33) bit-exact.")
+        w("")
     OUT.write_text("\n".join(L) + "\n", encoding="utf-8")
     print(f"wrote {rel(OUT)} ({len(L)} lines)")
 

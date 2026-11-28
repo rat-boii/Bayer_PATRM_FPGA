@@ -1,6 +1,6 @@
 # Bayer-PATRM: results summary (all measured numbers)
 
-Generated 2026-11-27 23:35 by `scripts/summarize_results.py` from the tracked result files. Do not edit by hand: re-run the script. Board: ZedBoard Rev D (XC7Z020-1), PL clock 100 MHz (step 7.1: measured 100.0025 MHz), ARM Cortex-A9 at 650 MHz. Sizes are W x H. 'Bit-exact' = 0 differing bytes against the Python model.
+Generated 2026-11-28 14:21 by `scripts/summarize_results.py` from the tracked result files. Do not edit by hand: re-run the script. Board: ZedBoard Rev D (XC7Z020-1), PL clock 100 MHz (step 7.1: measured 100.0025 MHz), ARM Cortex-A9 at 650 MHz. Sizes are W x H. 'Bit-exact' = 0 differing bytes against the Python model.
 
 ## 1. FPGA builds: resources, timing, power (post-route, whole design)
 
@@ -10,6 +10,7 @@ Generated 2026-11-27 23:35 by `scripts/summarize_results.py` from the tracked re
 | Grayscale, Rev D (Vivado 2025.2) | 2670 | 311 | 3934 | 8 | 17 | 1345 | 0.779 | 0.024 | 1.753 / 1.566 / 0.014 | board-verified gray bundle (steps 4.x, 10.2, 10.3) |
 | Bayer A, Rev D (Vivado 2026.1) | 2989 | 311 | 4071 | 8 | 17 | 1430 | 1.049 | 0.051 | 1.766 / 1.566 / 0.024 | board-verified; runs gray and Bayer (5.3, 10.4, 10.5) |
 | Bayer B, Rev D (Vivado 2026.1) | 11575 | 453 | 6411 | 42 | 54 | 4175 | -46.129 | 0.001 | 1.877 / 1.566 / 0.073 | TIMING FAILED at 100 MHz, not loaded (6.3) |
+| Bayer B stage 1, Rev D, 11.9 MHz | 11199 | 457 | 6390 | 42 | 54 | 4125 | 8.391 | 0.024 | 1.722 / 1.557 / 0.008 | reduced-clock experiment (D8 exception); board-tested, all modes bit-exact |
 
 Device totals (XC7Z020): 53,200 LUT, 17,400 LUTRAM, 106,400 FF, 140 BRAM36, 220 DSP48E1, 13,300 slices. Power is a vectorless Vivado ESTIMATE; the PS7 (ARM, DDR controller) is about 1.57 W of the total. Sources: `results/hw/**/summary.txt`, `utilization.rpt`, `timing_summary.rpt`, `power.rpt`.
 
@@ -62,6 +63,9 @@ The bilinear interpolator and other small logic are flattened into the top level
 | `results/board/run_all_revd_bayer_a_gray.csv` | 33 | 33 | gray on Bayer A bitstream, FPGA engine, JTAG |
 | `results/board/run_all_revd_bayer_a_gray_eth.csv` | 33 | 33 | gray on Bayer A bitstream, FPGA engine, Ethernet |
 | `results/board/run_all_revd_bayer_a_gray_eth_sw_patrm_eth.csv` | 33 | 33 | gray on Bayer A bitstream, ARM software, Ethernet |
+| `results/board/run_all_revd_bayer_b_bayer_a_eth_rev_d_12mhz.csv` | 66 | 66 | gray bitstream, FPGA engine, Ethernet |
+| `results/board/run_all_revd_bayer_b_bayer_b_eth_rev_d_12mhz.csv` | 66 | 66 | gray bitstream, FPGA engine, Ethernet |
+| `results/board/run_all_revd_bayer_b_gray_eth_rev_d_12mhz.csv` | 33 | 33 | gray bitstream, FPGA engine, Ethernet |
 | `results/board/run_all_revd_eth.csv` | 33 | 33 | gray bitstream, FPGA engine, Ethernet |
 | `results/board/run_all_revd_jtag_rerun_2026-11-23.csv` | 33 | 33 | gray bitstream, FPGA engine, JTAG |
 | `results/board/run_all_revd_sw_patrm_app.csv` | 33 | 33 | gray bitstream, ARM software, JTAG |
@@ -375,4 +379,46 @@ Why the original B was not faster (details: `results/hw/bayer_b/rev_d/README.md`
 2. Four lanes, but never more than about 1 output pixel per clock: the lanes starve waiting for data.
 3. Timing: the fallback's 16-step compare chain in one clock (86 logic levels, 55.7 ns) and mode multiplexers that also slow the shared gray/A paths; implied clock about 18 MHz (estimate).
 4. Cost: about 3.9x the LUTs, 5x the BRAM and 3x the DSP of Option A for no speed gain.
+
+### Option B on the board (stage 1 RTL at 11.9 MHz) vs Option A (100 MHz), chart image
+
+Both bit-exact. CAUTION: at 11.9 MHz a DDR access costs about 8x fewer clocks than at 100 MHz, so the board's B/A cycle ratio flatters B on the latency-bound rotations; the equal-clock comparison is the simulation above.
+
+| Size | Transform | A cycles | B cycles | B/A cycles | A ms (100 MHz) | B ms (11.9 MHz) | A BYTES_RD | B BYTES_RD | B RD stall % |
+|---|---|---|---|---|---|---|---|---|---|
+| 480x272 | identity | 131294 | 106668 | 0.81 | 1.31 | 9.0 | 546336 | 273168 | 38.7 |
+| 480x272 | mirror_cols | 131292 | 108285 | 0.82 | 1.31 | 9.1 | 546336 | 286176 | 39.6 |
+| 480x272 | mirror_rows | 131258 | 123651 | 0.94 | 1.31 | 10.4 | 544320 | 409248 | 47.1 |
+| 480x272 | rot5 | 131171 | 185919 | 1.42 | 1.31 | 15.6 | 671304 | 375728 | 56.2 |
+| 480x272 | rot15 | 177267 | 309611 | 1.75 | 1.77 | 26.0 | 897152 | 533280 | 71.4 |
+| 480x272 | rot37 | 244794 | 482121 | 1.97 | 2.45 | 40.5 | 974752 | 608128 | 79.1 |
+| 480x272 | scale0p8 | 131326 | 100000 | 0.76 | 1.31 | 8.4 | 435456 | 217728 | 32.8 |
+| 480x272 | scale1p25 | 131264 | 101340 | 0.77 | 1.31 | 8.5 | 461312 | 230656 | 35.4 |
+| 480x272 | combined | 139754 | 268168 | 1.92 | 1.40 | 22.5 | 750680 | 486080 | 68.3 |
+| 480x272 | rot90 | 265160 | 459286 | 1.73 | 2.65 | 38.6 | 739840 | 443904 | 80.3 |
+| 480x272 | rot180 | 131269 | 126160 | 0.96 | 1.31 | 10.6 | 544320 | 428736 | 48.1 |
+| 800x480 | identity | 384720 | 329319 | 0.86 | 3.85 | 27.7 | 1624768 | 812384 | 37.5 |
+| 800x480 | mirror_cols | 384722 | 335081 | 0.87 | 3.85 | 28.1 | 1624768 | 858368 | 38.6 |
+| 800x480 | mirror_rows | 384718 | 371809 | 0.97 | 3.85 | 31.2 | 1621376 | 1217728 | 46.8 |
+| 800x480 | rot5 | 384560 | 553495 | 1.44 | 3.85 | 46.5 | 1975496 | 1108640 | 55.8 |
+| 800x480 | rot15 | 535562 | 922290 | 1.72 | 5.36 | 77.5 | 2658600 | 1581552 | 71.2 |
+| 800x480 | rot37 | 756919 | 1452128 | 1.92 | 7.57 | 122.0 | 2938560 | 1825152 | 79.1 |
+| 800x480 | scale0p8 | 384750 | 313145 | 0.81 | 3.85 | 26.3 | 1290240 | 645120 | 30.5 |
+| 800x480 | scale1p25 | 384700 | 316080 | 0.82 | 3.85 | 26.6 | 1367040 | 683520 | 34.0 |
+| 800x480 | combined | 417813 | 799111 | 1.91 | 4.18 | 67.1 | 2229120 | 1446336 | 68.1 |
+| 800x480 | rot90 | 809153 | 1434425 | 1.77 | 8.09 | 120.5 | 2304000 | 1382400 | 80.3 |
+| 800x480 | rot180 | 384720 | 380424 | 0.99 | 3.85 | 32.0 | 1621376 | 1286656 | 48.0 |
+| 2448x2048 | identity | 5014299 | 4584208 | 0.91 | 50.14 | 385.1 | 21288800 | 10644400 | 34.8 |
+| 2448x2048 | mirror_cols | 5014290 | 4662605 | 0.93 | 50.14 | 391.7 | 21288800 | 11266688 | 35.9 |
+| 2448x2048 | mirror_rows | 5014282 | 5214414 | 1.04 | 50.14 | 438.0 | 21278400 | 15964000 | 43.4 |
+| 2448x2048 | rot5 | 5014144 | 7306601 | 1.46 | 50.14 | 613.8 | 25880296 | 14513424 | 55.5 |
+| 2448x2048 | rot15 | 7366959 | 12316745 | 1.67 | 73.67 | 1034.6 | 35422000 | 21071904 | 71.2 |
+| 2448x2048 | rot37 | 10993365 | 20123911 | 1.83 | 109.93 | 1690.4 | 40789920 | 25369792 | 79.5 |
+| 2448x2048 | scale0p8 | 5014312 | 4315751 | 0.86 | 50.14 | 362.5 | 16857344 | 8428672 | 28.6 |
+| 2448x2048 | scale1p25 | 5014270 | 4368489 | 0.87 | 50.14 | 367.0 | 17629184 | 8814592 | 31.3 |
+| 2448x2048 | combined | 5821974 | 10659583 | 1.83 | 58.22 | 895.4 | 29700104 | 19291104 | 67.9 |
+| 2448x2048 | rot90 | 13295481 | 25152089 | 1.89 | 132.96 | 2112.8 | 41943040 | 25165824 | 83.6 |
+| 2448x2048 | rot180 | 5014287 | 5331579 | 1.06 | 50.14 | 447.9 | 21278400 | 16897280 | 44.6 |
+
+Sources: `results/board/run_all_revd_bayer_b_bayer_b_eth_rev_d_12mhz.csv`, `results/board/run_all_revd_bayer_a_bayer_a_eth.csv`, `results/hw/bayer_b/rev_d_12mhz/README.md`. The same bitstream also ran Bayer A (66/66) and gray (33/33) bit-exact.
 
