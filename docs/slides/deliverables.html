@@ -213,7 +213,7 @@
       <ul class="small">
         <li><b>Correct on hardware:</b> 66/66 Bayer B frames bit-exact (plus A 66/66 and gray 33/33 on the same bitstream)</li>
         <li><b>Reads half the data:</b> 50&ndash;62 % of Option A's bytes</li>
-        <li><b>Without rotation it beats A per clock</b> (B/A cycles 0.76&ndash;0.85)</li>
+        <li><b>Scaling and mirroring: B beats A per clock</b> (up to 24 % fewer cycles)</li>
         <li><b>With rotation it is slower</b> (B/A 1.7&ndash;3.1), and it closes timing only at <b>11.9 MHz</b></li>
       </ul>
     </div>
@@ -229,6 +229,40 @@
     </div>
   </div>
   <div class="foot"><span>Sources: results/sim/bayer_ab_256x192*.txt, results/board/run_all_revd_bayer_b_*_rev_d_12mhz.csv</span><span>5</span></div>
+</section>
+
+<!-- 5b Deliverable 3: where B wins -->
+<section class="slide">
+  <div class="kicker">Deliverable 3, result</div>
+  <h2>Where parallelism pays off: scaling and mirroring</h2>
+  <div class="grid2">
+    <div>
+      <table>
+        <tr><th>Transform</th><th>B / A cycles, simulation (equal clock)</th><th>B / A cycles, board</th><th>B faster per clock</th><th>B bytes read vs A</th></tr>
+        <tr><td>scale 0.8 (zoom out)</td><td class="good">0.76</td><td class="good">0.86</td><td class="good">14&ndash;24 %</td><td>50 %</td></tr>
+        <tr><td>scale 1.25 (zoom in)</td><td class="good">0.80</td><td class="good">0.87</td><td class="good">13&ndash;20 %</td><td>50 %</td></tr>
+        <tr><td>identity</td><td class="good">0.84</td><td class="good">0.91</td><td class="good">9&ndash;16 %</td><td>50 %</td></tr>
+        <tr><td>mirror columns (left-right)</td><td class="good">0.85</td><td class="good">0.93</td><td class="good">7&ndash;15 %</td><td>53 %</td></tr>
+        <tr><td>mirror rows / rot180</td><td>&mdash;</td><td>1.04 / 1.06</td><td>about equal</td><td>75&ndash;79 %</td></tr>
+        <tr><td>rotations (5&ndash;90&deg;)</td><td class="bad">1.74&ndash;3.08</td><td class="bad">1.46&ndash;1.89</td><td class="bad">B slower</td><td>56&ndash;62 %</td></tr>
+      </table>
+      <p class="small muted" style="margin-top:.5em">Board: 2448&times;2048 chart, B at 11.9 MHz, A at 100 MHz, both bit-exact. Simulation: 256&times;192.
+      The board ratios differ from simulation because at 11.9 MHz a DDR access costs fewer clock cycles.</p>
+    </div>
+    <div class="card soft">
+      <h3>Why B wins here</h3>
+      <ul class="small">
+        <li>No rotation: every output row reads the same one or two source rows, so a block holds up to 64 pixels and B pays the memory wait once per block</li>
+        <li>B reads each mosaic row <b>once</b> for all four colours; A reads it twice (one pass per colour pair), so B moves <b>half the data</b></li>
+        <li>Four lanes produce a full 2&times;2 colour cell per step</li>
+      </ul>
+      <h3 style="margin-top:.6em">Why it stops at rotation</h3>
+      <ul class="small">
+        <li>Rotated rows change every 1&ndash;2 pixels, blocks become tiny, and without prefetch B waits for memory on every block (next slide)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Sources: results/sim/bayer_ab_256x192_stage1.txt, results/board/run_all_revd_bayer_b_bayer_b_eth_rev_d_12mhz.csv</span><span></span></div>
 </section>
 
 <!-- 6 Deliverable 3: why -->
@@ -294,7 +328,7 @@
       <ul>
         <li><b>Grayscale PATRM</b> reproduced: bit-exact on the board, 100 Mpix/s, 3.3&ndash;6.8&times; faster than the ARM, 5 % of the chip.</li>
         <li><b>Bayer Option A</b>: the same engine runs four plane passes, about 1 pixel per clock, for only 319 extra LUTs.</li>
-        <li><b>Bayer Option B</b>: correct on hardware; faster than A per clock without rotation, slower with rotation.</li>
+        <li><b>Bayer Option B</b>: correct on hardware; <b>faster than A per clock for scaling and mirroring</b> (up to 24 %, half the reads), slower with rotation.</li>
         <li><b>Measured comparison</b> of all three: resources, clock, throughput, DDR bandwidth, power.</li>
       </ul>
     </div>
@@ -337,6 +371,7 @@
   });
 
   var slides = Array.prototype.slice.call(document.querySelectorAll(".slide")), i = 0;
+  slides.forEach(function (s, k) { var f = s.querySelector(".foot span:last-child"); if (f) f.textContent = k + 1; });
   try { var s = parseInt((location.hash || "").slice(1), 10); if (s >= 1 && s <= slides.length) i = s - 1; } catch (e) {}
   function show(n) {
     i = Math.max(0, Math.min(slides.length - 1, n));
