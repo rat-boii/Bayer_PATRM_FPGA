@@ -1,0 +1,69 @@
+PSNR / SSIM of the fixed-point warp (= FPGA output, bit-exact) against an ideal float64 bilinear warp
+scripts/quality_metrics.py, 2026-11-28 15:25. PSNR in dB over all pixels; SSIM 7x7 uniform, L = 255; max err in grey levels; floor = share of pixels equal to the truncated ideal value.
+
+Grayscale (model/patrm.warp_gray), gray_photo-mk-480x272_2448x2095.raw
+  transform     PSNR dB     SSIM  max err  floor %
+  identity          inf  1.00000     0.00   100.00
+  mirror_cols       inf  1.00000     0.00   100.00
+  mirror_rows       inf  1.00000     0.00   100.00
+  rot5            52.85  0.99904   255.00    97.98
+  rot15           55.25  0.99914   255.00    99.58
+  rot37           53.65  0.99923   255.00    97.64
+  scale0p8        58.11  0.99948     0.97   100.00
+  scale1p25       55.41  0.99901     1.24    97.30
+  combined        52.75  0.99919   255.00    97.71
+  rot90           57.90  0.99940     0.75   100.00
+  rot180          48.44  0.99993   151.00    99.98
+
+Grayscale (model/patrm.warp_gray), gray_photo-mk-480x272_800x480.raw
+  transform     PSNR dB     SSIM  max err  floor %
+  identity          inf  1.00000     0.00   100.00
+  mirror_cols       inf  1.00000     0.00   100.00
+  mirror_rows       inf  1.00000     0.00   100.00
+  rot5            54.95  0.99910     3.00    98.05
+  rot15           55.34  0.99920     1.10    99.60
+  rot37           55.20  0.99930    82.00    97.56
+  scale0p8        56.87  0.99945     0.98   100.00
+  scale1p25       54.73  0.99906     1.25    98.18
+  combined        53.29  0.99922   130.00    97.82
+  rot90          301.29  1.00000     0.00   100.00
+  rot180          39.34  0.99945   252.00    99.91
+
+Bayer, plane-wise (model/bayer.warp_bayer, = Option A and Option B), rggb_photo-mk-480x272_2448x2048.raw
+  transform     PSNR dB     SSIM  max err  floor %
+  identity          inf  1.00000     0.00   100.00
+  mirror_cols     59.31  0.99973     0.50   100.00
+  mirror_rows     59.32  0.99974     0.50   100.00
+  rot5            52.64  0.99935   255.00    98.00
+  rot15           54.59  0.99945   255.00    99.58
+  rot37           53.03  0.99952   255.00    97.61
+  scale0p8        57.06  0.99961     1.00   100.00
+  scale1p25       54.82  0.99934     1.24    98.66
+  combined        52.15  0.99945   255.00    97.73
+  rot90           59.91  0.99979     0.50   100.00
+  rot180          56.86  0.99954     0.75   100.00
+
+Bayer, plane-wise (model/bayer.warp_bayer, = Option A and Option B), rggb_photo-mk-480x272_800x480.raw
+  transform     PSNR dB     SSIM  max err  floor %
+  identity          inf  1.00000     0.00   100.00
+  mirror_cols     58.73  0.99977     0.50   100.00
+  mirror_rows     58.55  0.99979     0.50   100.00
+  rot5            54.39  0.99941     1.48    98.23
+  rot15           54.79  0.99947     1.10    99.64
+  rot37           52.38  0.99954   235.00    97.83
+  scale0p8        56.18  0.99962     1.00   100.00
+  scale1p25       54.29  0.99933     1.21    98.86
+  combined        53.77  0.99948   141.72    98.05
+  rot90           60.67  0.99989     0.50   100.00
+  rot180          56.03  0.99957     0.75   100.00
+
+Notes (checked 2026-11-28):
+- inf / 1.00000 = identical to the ideal warp (identity and exact mirrors: integer coordinates, no rounding).
+- Large "max err" values (82-255) are edge pixels whose source coordinate lies exactly on or within one quantisation
+  step of the image border, so inside/outside (D1) is decided by rounding. gray rot180 800x480: 346 of 384,000 pixels
+  (0.09 %), all on the border; there the FLOAT reference is wrong (x = 479.0000000001 > H-1 from float rounding, output
+  0), our integer result equals the source exactly as D1 requires; without them PSNR = 93.56 dB. gray rot37 800x480:
+  2 pixels where the quantised coefficients put the coordinate just outside (output 0); without them 55.78 dB.
+- Interior pixels: at most about 1 grey level from the ideal value (truncation + Q15.16 coefficient rounding).
+- Method-level check (separate, model/bayer_figure.py, step 1.3): plane-wise Bayer warp + demosaic against an ideal RGB
+  warp, rot15 480x272: 30.33 dB (naive "mosaic as gray" warp: 8.13 dB).
