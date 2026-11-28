@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayer-PATRM Deliverables</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --slide: #ffffff; --ink: #1b1b1b; --muted: #5d5d5d; --line: #d9d9d4;
+    --accent: #1f4e79; --good: #2e7d32; --bad: #b23b3b; --soft: #eef3f8; --warn: #fff6e0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  .deck { height: 100%; display: flex; align-items: center; justify-content: center; }
+  .slide { display: none; width: min(96vw, calc(96vh * 16 / 9)); aspect-ratio: 16 / 9; background: var(--slide);
+    border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.08); padding: 3.2% 4.2%;
+    flex-direction: column; overflow: hidden; font-size: min(1.55vw, 2.75vh); position: relative; }
+  .slide.active { display: flex; }
+  .kicker { font-size: .78em; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 2.3em; margin: .15em 0 .35em; line-height: 1.15; }
+  h2 { font-size: 1.7em; margin: .1em 0 .5em; line-height: 1.2; }
+  h3 { font-size: 1.05em; margin: 0 0 .35em; color: var(--accent); }
+  p, li { line-height: 1.4; margin: .2em 0; }
+  ul { margin: .2em 0 .2em 1.1em; padding: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: .78em; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4em; flex: 1; min-height: 0; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1em; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: .9em; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: .8em .9em; background: #fff; }
+  .card.soft { background: var(--soft); border-color: #cfdbe8; }
+  .card.warn { background: var(--warn); border-color: #eed9a5; }
+  .big { font-size: 2em; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .big.good { color: var(--good); } .big.bad { color: var(--bad); }
+  table { border-collapse: collapse; width: 100%; font-size: .82em; }
+  th, td { border-bottom: 1px solid var(--line); padding: .32em .5em; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; background: #fafaf8; }
+  td.good { color: var(--good); font-weight: 600; } td.bad { color: var(--bad); font-weight: 600; }
+  .tag { display: inline-block; font-size: .72em; padding: .12em .5em; border-radius: 99px; border: 1px solid; font-weight: 600; }
+  .tag.ok { color: var(--good); border-color: var(--good); }
+  .tag.study { color: #8a5a00; border-color: #c48a1a; }
+  .foot { position: absolute; left: 4.2%; right: 4.2%; bottom: 2.2%; display: flex; justify-content: space-between;
+    font-size: .66em; color: var(--muted); }
+  .flow { display: flex; align-items: center; gap: .5em; flex-wrap: wrap; margin: .3em 0 .6em; }
+  .box { border: 1.5px solid var(--ink); padding: .35em .6em; border-radius: 4px; font-size: .85em; background: #fff; }
+  .box.dash { border-style: dashed; }
+  .arrow { color: var(--muted); }
+  /* bar chart */
+  .bars { display: grid; grid-template-columns: 7.5em 1fr 3.4em; gap: .28em .6em; align-items: center; font-size: .8em; }
+  .track { position: relative; height: 1.05em; background: #f1f1ee; border-radius: 3px; }
+  .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+  .track .ref { position: absolute; top: -.2em; bottom: -.2em; border-left: 2px dashed var(--ink); }
+  .fill.before { background: #c9c9c4; } .fill.after.win { background: var(--good); } .fill.after.lose { background: var(--bad); }
+  .legend { display: flex; gap: 1.2em; font-size: .72em; color: var(--muted); margin-top: .4em; }
+  .sw { display: inline-block; width: .9em; height: .9em; border-radius: 2px; vertical-align: -.1em; margin-right: .3em; }
+  .nav { position: fixed; bottom: 10px; right: 14px; font-size: 12px; color: var(--muted); user-select: none; }
+  .nav button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+  @media print {
+    @page { size: 16in 9in; margin: 0; }
+    html, body { background: #fff; height: auto; }
+    .deck { display: block; }
+    .slide { display: flex !important; width: 16in; height: 9in; aspect-ratio: auto; box-shadow: none; border: 0;
+      page-break-after: always; font-size: 21px; }
+    .nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 1 Title -->
+<section class="slide">
+  <div class="kicker">Reconfigurable Computing, course project</div>
+  <h1>Bayer-PATRM: real-time affine warp of raw Bayer images on the ZedBoard</h1>
+  <p class="muted">Reproduction of PATRM [1] in grayscale, extension to raw Bayer (RGGB) with two architectures, and a measured comparison.</p>
+  <div class="grid4" style="margin-top:1.4em">
+    <div class="card soft"><h3>1. Grayscale PATRM</h3><span class="tag ok">done</span><p class="small">bit-exact with the reference model on the board</p></div>
+    <div class="card soft"><h3>2. Bayer Option A</h3><span class="tag ok">done</span><p class="small">four planes through one engine, own shift t<sub>p</sub></p></div>
+    <div class="card soft"><h3>3. Bayer Option B</h3><span class="tag study">measured study</span><p class="small">four parallel lanes, one coordinate generator, one fetch</p></div>
+    <div class="card soft"><h3>4. Comparison</h3><span class="tag ok">done</span><p class="small">resources, clock, throughput, DDR bandwidth, power</p></div>
+  </div>
+  <p class="small muted" style="margin-top:auto">Team: Abraar Ahmad Khan, Shreedhar S, Tushar. Board: Avnet ZedBoard (Zynq-7000 XC7Z020), PL clock 100 MHz.
+  [1] "An FPGA-Based Reconfigurable Accelerator for Real-Time Affine Transformation in Industrial Imaging Heterogeneous SoC", Sensors 26(1):316, 2026.</p>
+</section>
+
+<!-- 2 Method -->
+<section class="slide">
+  <div class="kicker">How every result was checked</div>
+  <h2>One reference model, bit-exact everywhere</h2>
+  <div class="flow">
+    <span class="box">Python reference model<br><span class="small muted">Q15.16 fixed point</span></span><span class="arrow">&rarr;</span>
+    <span class="box">Verilog RTL<br><span class="small muted">xsim, self-checking</span></span><span class="arrow">&rarr;</span>
+    <span class="box">ZedBoard<br><span class="small muted">JTAG and Ethernet</span></span><span class="arrow">&rarr;</span>
+    <span class="box">0 differing bytes<br><span class="small muted">every frame</span></span>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Algorithm (from the paper)</h3>
+      <ul class="small">
+        <li>Inverse mapping x = b11 u + b12 v + b13, y = b21 u + b22 v + b23</li>
+        <li>Block start by a 3-stage multiply-add, then addition-only stepping</li>
+        <li>Bilinear interpolation, 7 multipliers per pixel, 4-stage pipeline</li>
+        <li>Custom AXI masters: HP0 read, HP1 write, 16-beat bursts, up to 8 reads in flight</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Verification on the board</h3>
+      <ul class="small">
+        <li>Each case: output vs model, last row, 4096 guard bytes, byte counters</li>
+        <li>3 sizes &times; 11 transforms (identity, mirrors, rot 5&ndash;180&deg;, scaling, combined)</li>
+        <li>PL clock measured: 100.0025 MHz against the ARM timer and the PC clock</li>
+        <li>Regression: 51 simulation items, including injected faults that must fail</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Bayer-PATRM</span><span>2</span></div>
+</section>
+
+<!-- 3 Deliverable 1 -->
+<section class="slide">
+  <div class="kicker">Deliverable 1</div>
+  <h2>Grayscale PATRM: reproduced, bit-exact, 3.3&ndash;6.8&times; faster than the ARM</h2>
+  <div class="grid2">
+    <div>
+      <div class="grid3" style="margin-bottom:.8em">
+        <div class="card"><div class="big good">33/33</div><div class="small muted">board cases bit-exact</div></div>
+        <div class="card"><div class="big">19.5 fps</div><div class="small muted">2448&times;2095, 100 Mpix/s</div></div>
+        <div class="card"><div class="big">5.0 %</div><div class="small muted">of the LUTs (2,670)</div></div>
+      </div>
+      <table>
+        <tr><th>2448&times;2095</th><th>ARM -O2 ms</th><th>FPGA ms</th><th>Speedup</th></tr>
+        <tr><td>identity</td><td>342.9</td><td>51.3</td><td class="good">6.7&times;</td></tr>
+        <tr><td>rot15</td><td>342.3</td><td>56.9</td><td class="good">6.0&times;</td></tr>
+        <tr><td>rot37</td><td>363.1</td><td>95.9</td><td class="good">3.8&times;</td></tr>
+        <tr><td>rot90</td><td>449.5</td><td>135.0</td><td class="good">3.3&times;</td></tr>
+        <tr><td>800&times;480 identity</td><td>25.7</td><td>3.84</td><td class="good">6.7&times;</td></tr>
+      </table>
+      <p class="small muted">ARM: the same fixed-point algorithm in C on the Cortex-A9 (650 MHz), bit-exact as well.</p>
+    </div>
+    <div class="card soft">
+      <h3>What it took</h3>
+      <ul class="small">
+        <li>12 Verilog modules: registers, control, block planner, coordinate generator, prefetch, line buffers, pixel fetch, interpolator, output FIFO, AXI read and write masters</li>
+        <li>Timing met at 100 MHz (WNS +0.78 ns), 8 BRAM36, 17 DSP</li>
+        <li>Rotation costs speed: source rows change along an output row, so more data is read per pixel (rot37: 0.54 px/clk)</li>
+        <li>Live demo: video over Ethernet, 800&times;480 at about 41 fps FPGA vs 26 fps ARM, every frame bit-exact</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Sources: results/board/run_all_revd_*.csv, docs/results-summary.md</span><span>3</span></div>
+</section>
+
+<!-- 4 Deliverable 2 -->
+<section class="slide">
+  <div class="kicker">Deliverable 2</div>
+  <h2>Bayer Option A: four plane passes through the same engine</h2>
+  <div class="flow">
+    <span class="box">RGGB mosaic in DDR</span><span class="arrow">&rarr;</span>
+    <span class="box dash">pass R, Gr, Gb, B<br><span class="small muted">own shift t<sub>p</sub>, stride-2 addressing</span></span><span class="arrow">&rarr;</span>
+    <span class="box">same PATRM engine</span><span class="arrow">&rarr;</span>
+    <span class="box dash">WSTRB-masked writes<br><span class="small muted">straight into the interleaved output</span></span>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="grid3" style="margin-bottom:.8em">
+        <div class="card"><div class="big good">66/66</div><div class="small muted">board cases bit-exact</div></div>
+        <div class="card"><div class="big">19.9 fps</div><div class="small muted">2448&times;2048, 1 px/clk</div></div>
+        <div class="card"><div class="big">+319</div><div class="small muted">LUTs over gray, no extra BRAM/DSP</div></div>
+      </div>
+      <table>
+        <tr><th>2448&times;2048 Bayer</th><th>Engine ms</th><th>fps</th><th>Mpix/s</th></tr>
+        <tr><td>identity</td><td>50.1</td><td>19.9</td><td>100.0</td></tr>
+        <tr><td>rot15</td><td>73.7</td><td>13.6</td><td>68.1</td></tr>
+        <tr><td>rot37</td><td>109.9</td><td>9.1</td><td>45.6</td></tr>
+        <tr><td>rot90</td><td>133.0</td><td>7.5</td><td>37.7</td></tr>
+      </table>
+    </div>
+    <div class="card soft">
+      <h3>Why it works</h3>
+      <ul class="small">
+        <li>Each colour plane is warped as its own image with shift t<sub>p</sub> = ((A &minus; I) o + t) / 2, computed in integers on the ARM</li>
+        <li>Reuses the grayscale engine and its prefetch, so it keeps about 1 pixel per clock</li>
+        <li>Cost: about 2&times; DDR reads, because each pass reads full rows but uses every second pixel</li>
+        <li>Same bitstream also runs grayscale (33/33 bit-exact)</li>
+        <li>Live demo: colour video over Ethernet, 800&times;480 at about 43&ndash;53 fps</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Sources: results/board/run_all_revd_bayer_a_bayer_a_eth.csv, results/hw/bayer_a/rev_d</span><span>4</span></div>
+</section>
+
+<!-- 5 Deliverable 3: idea and result -->
+<section class="slide">
+  <div class="kicker">Deliverable 3</div>
+  <h2>Bayer Option B: four lanes in parallel, one coordinate generator, one fetch</h2>
+  <div class="flow">
+    <span class="box">1 coordinate generator</span><span class="arrow">&rarr;</span>
+    <span class="box dash">+ constant offset per plane<br><span class="small muted">T<sub>p</sub> &minus; T<sub>R</sub></span></span><span class="arrow">&rarr;</span>
+    <span class="box dash">1 shared row fetch</span><span class="arrow">&rarr;</span>
+    <span class="box dash">4 interpolation lanes</span><span class="arrow">&rarr;</span>
+    <span class="box dash">full 2&times;2 cell per clock</span>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Goal</h3>
+      <ul class="small">
+        <li>Up to 4 pixels per clock (A: 1)</li>
+        <li>Read the mosaic once (A reads it about twice)</li>
+      </ul>
+      <h3 style="margin-top:.6em">Result, measured</h3>
+      <ul class="small">
+        <li><b>Correct on hardware:</b> 66/66 Bayer B frames bit-exact (plus A 66/66 and gray 33/33 on the same bitstream)</li>
+        <li><b>Reads half the data:</b> 50&ndash;62 % of Option A's bytes</li>
+        <li><b>Without rotation it beats A per clock</b> (B/A cycles 0.76&ndash;0.85)</li>
+        <li><b>With rotation it is slower</b> (B/A 1.7&ndash;3.1), and it closes timing only at <b>11.9 MHz</b></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Cycles B / A at equal clock (simulation, 256&times;192)</h3>
+      <div class="bars" id="bars"></div>
+      <div class="legend">
+        <span><span class="sw" style="background:#c9c9c4"></span>first B (one read in flight)</span>
+        <span><span class="sw" style="background:var(--good)"></span>after batching: faster than A</span>
+        <span><span class="sw" style="background:var(--bad)"></span>after batching: slower than A</span>
+        <span>dashed line = A</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Sources: results/sim/bayer_ab_256x192*.txt, results/board/run_all_revd_bayer_b_*_rev_d_12mhz.csv</span><span>5</span></div>
+</section>
+
+<!-- 6 Deliverable 3: why -->
+<section class="slide">
+  <div class="kicker">Deliverable 3, observation</div>
+  <h2>Why B is slower: memory latency, not computation</h2>
+  <div class="grid2">
+    <div class="card warn">
+      <h3>1. No prefetch</h3>
+      <p class="small">With rotation, each output row touches many source rows, so the work splits into tiny blocks (1&ndash;2 pixels).
+      Option A <b>prefetches</b> the next blocks while computing the current one. Option B fetches each block only when it needs it,
+      so it waits one full DDR round trip per block and the four lanes sit idle.</p>
+      <p class="small">Evidence: B reads fewer bytes than A, yet on rot37 its read port was busy about 6 % of the time (A: about 52 %).
+      Read stalls were 30&ndash;94 % of B's cycles. Batching the reads inside a block made B 2&times; faster on rotations;
+      fetching across blocks is the missing step.</p>
+    </div>
+    <div class="card warn">
+      <h3>2. Single-cycle logic limits the clock</h3>
+      <p class="small">B's buffer lookup and fallback search run in one clock: 98 logic levels, 74 ns.
+      At 100 MHz each step must finish in 10 ns. Option A pipelines its long operations and meets 100 MHz.
+      B therefore closes timing only at 11.9 MHz (fails 100 MHz by 46 ns).</p>
+      <h3 style="margin-top:.6em">Not the FPGA</h3>
+      <p class="small">Option A uses 5.6 % of the LUTs and about 15 % of the DDR bandwidth. B is limited by its own fetch scheme and
+      unpipelined logic, not by the device.</p>
+    </div>
+  </div>
+  <div class="card soft" style="margin-top:.9em">
+    <p class="small"><b>Lesson:</b> parallel compute only pays off when the memory system can keep it fed.
+    <b>Fix (future work):</b> A-style cross-block prefetch, pipelined search logic and more BRAM ports for 16 pixel reads per clock;
+    estimated ceiling about 2&ndash;3&times; Option A on rotations, set by DDR bandwidth.</p>
+  </div>
+  <div class="foot"><span>Sources: results/hw/bayer_b/rev_d*/README.md, docs/implementation-plan.md (Progress)</span><span>6</span></div>
+</section>
+
+<!-- 7 Deliverable 4 -->
+<section class="slide">
+  <div class="kicker">Deliverable 4</div>
+  <h2>Comparison of the three builds (measured on the board)</h2>
+  <table>
+    <tr><th></th><th>Grayscale</th><th>Bayer Option A</th><th>Bayer Option B</th></tr>
+    <tr><td>LUT / FF</td><td>2,670 / 3,934</td><td>2,989 / 4,071</td><td>11,199 / 6,390</td></tr>
+    <tr><td>BRAM36 / DSP48</td><td>8 / 17</td><td>8 / 17</td><td>42 / 54</td></tr>
+    <tr><td>Clock (timing met)</td><td>100 MHz</td><td>100 MHz</td><td class="bad">11.9 MHz</td></tr>
+    <tr><td>Throughput, identity</td><td>100 Mpix/s (19.5 fps)</td><td>100 Mpix/s (19.9 fps)</td><td>13 Mpix/s (2.6 fps)</td></tr>
+    <tr><td>Throughput, rot37</td><td>53.5 Mpix/s</td><td>45.6 Mpix/s</td><td>3.0 Mpix/s</td></tr>
+    <tr><td>Pixels per clock, identity / rot37</td><td>1.00 / 0.54</td><td>1.00 / 0.46</td><td>1.09 / 0.25</td></tr>
+    <tr><td>DDR bandwidth, identity (read + write)</td><td>0.32 GB/s</td><td>0.62 GB/s</td><td>0.04 GB/s</td></tr>
+    <tr><td>Read bytes per clock, identity</td><td>2.25</td><td>4.25</td><td class="good">2.32</td></tr>
+    <tr><td>Power estimate: total / engine logic</td><td>1.75 W / 0.044 W</td><td>1.77 W / 0.056 W</td><td>1.72 W / 0.018 W</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:.6em">Frame sizes: grayscale 2448&times;2095, Bayer 2448&times;2048. All outputs bit-exact. Power is Vivado's vectorless estimate;
+  about 1.57 W of the total is the ARM processing system. B ran at a reduced clock (it fails timing at 100 MHz); its fair per-clock
+  comparison is the simulation on slide 5. ZedBoard DDR peak is about 4.2 GB/s.</p>
+  <div class="foot"><span>Sources: results/hw/**/summary.txt, results/board/*.csv, docs/results-summary.md</span><span>7</span></div>
+</section>
+
+<!-- 8 Conclusion -->
+<section class="slide">
+  <div class="kicker">Summary</div>
+  <h2>What we delivered</h2>
+  <div class="grid2">
+    <div class="card">
+      <ul>
+        <li><b>Grayscale PATRM</b> reproduced: bit-exact on the board, 100 Mpix/s, 3.3&ndash;6.8&times; faster than the ARM, 5 % of the chip.</li>
+        <li><b>Bayer Option A</b>: the same engine runs four plane passes, about 1 pixel per clock, for only 319 extra LUTs.</li>
+        <li><b>Bayer Option B</b>: correct on hardware; faster than A per clock without rotation, slower with rotation.</li>
+        <li><b>Measured comparison</b> of all three: resources, clock, throughput, DDR bandwidth, power.</li>
+      </ul>
+    </div>
+    <div class="card soft">
+      <h3>Key insight</h3>
+      <p>In this kind of image processing, <b>memory access is the bottleneck, not computation</b>.
+      Option A wins because it inherits PATRM's prefetch; Option B shows that four parallel lanes need a memory system and
+      pipelining designed to keep them fed.</p>
+      <h3 style="margin-top:.6em">Next steps</h3>
+      <ul class="small">
+        <li>Cross-block prefetch and pipelining for Option B</li>
+        <li>ARM Bayer baseline for a Bayer speedup figure</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Bayer-PATRM</span><span>8</span></div>
+</section>
+
+</div>
+<div class="nav"><button id="prev" aria-label="Previous slide">&#8592;</button> <span id="count"></span> <button id="next" aria-label="Next slide">&#8594;</button></div>
+
+<script>
+  // B/A cycle ratios, simulation 256x192 (results/sim/bayer_ab_256x192.txt and _stage1.txt)
+  var data = [
+    ["identity", 1.09, 0.84], ["mirror_cols", 1.10, 0.85], ["scale 0.8", 0.97, 0.76], ["scale 1.25", 1.06, 0.80],
+    ["rot 5", 3.65, 1.74], ["rot 15", 5.80, 2.43], ["combined", 6.22, 2.61], ["rot 37", 5.72, 2.79], ["rot 90", 5.05, 3.08]
+  ];
+  var max = 6.5, bars = document.getElementById("bars");
+  data.forEach(function (d) {
+    var name = document.createElement("div"); name.textContent = d[0];
+    var tr = document.createElement("div"); tr.className = "track";
+    var b = document.createElement("div"); b.className = "fill before"; b.style.width = (d[1] / max * 100) + "%";
+    var a = document.createElement("div"); a.className = "fill after " + (d[2] < 1 ? "win" : "lose");
+    a.style.width = (d[2] / max * 100) + "%"; a.title = "before " + d[1] + ", after " + d[2];
+    var ref = document.createElement("div"); ref.className = "ref"; ref.style.left = (1 / max * 100) + "%";
+    tr.appendChild(b); tr.appendChild(a); tr.appendChild(ref);
+    var v = document.createElement("div"); v.textContent = d[2].toFixed(2) + "×"; v.style.textAlign = "right";
+    v.style.fontWeight = "600"; v.style.color = d[2] < 1 ? "var(--good)" : "var(--bad)";
+    bars.appendChild(name); bars.appendChild(tr); bars.appendChild(v);
+  });
+
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide")), i = 0;
+  try { var s = parseInt((location.hash || "").slice(1), 10); if (s >= 1 && s <= slides.length) i = s - 1; } catch (e) {}
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle("active", k === i); });
+    document.getElementById("count").textContent = (i + 1) + " / " + slides.length;
+    try { history.replaceState(null, "", "#" + (i + 1)); } catch (e) {}
+  }
+  document.addEventListener("keydown", function (e) {
+    if (["ArrowRight", "PageDown", " ", "Enter"].indexOf(e.key) >= 0) { e.preventDefault(); show(i + 1); }
+    else if (["ArrowLeft", "PageUp", "Backspace"].indexOf(e.key) >= 0) { e.preventDefault(); show(i - 1); }
+    else if (e.key === "Home") show(0);
+    else if (e.key === "End") show(slides.length - 1);
+    else if (e.key === "f" || e.key === "F") {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      else document.exitFullscreen && document.exitFullscreen();
+    }
+  });
+  document.getElementById("prev").onclick = function () { show(i - 1); };
+  document.getElementById("next").onclick = function () { show(i + 1); };
+  document.querySelector(".deck").addEventListener("click", function (e) {
+    if (e.target.closest("button")) return;
+    show(e.clientX > window.innerWidth / 2 ? i + 1 : i - 1);
+  });
+  show(i);
+</script>
+</body>
+</html>
